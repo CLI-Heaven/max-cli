@@ -46,6 +46,21 @@ other field identifying the client imitate the official MAX client. Recorded as
 [`REQUIREMENTS.md`](REQUIREMENTS.md) §34, which is where it is cited from; this is a pointer, not
 a second copy.
 
+**NEED-7 · Is the protocol spec a TypeScript module or TypeSpec?**
+**A TypeScript module.** «1 А». The operation definitions are ordinary TypeScript —
+`defineOperation({ opcode, request, response, source })` with Valibot schemas as the literal
+source — and the generator emits the opcode registry, the typed client, the protocol reference and
+the coverage report from them.
+
+This is chosen **over** TypeSpec, which was built and does work: `@typespec/compiler@1.16.0`, three
+operations, custom `@opcode` / `@responseOf` / `@authRequired` decorators and a custom emitter,
+about 60 lines of plumbing. The cost that decided it is not the plumbing but the emitter — turning
+`.tsp` into Valibot means owning a construct-by-construct mapping (unions, enums, nesting, bigint,
+tolerant reads versus strict writes) for a schema language we do not control, to produce validators
+we would otherwise write directly. The proof of concept is kept as the migration path: if the
+operation count passes ~30 or a second language needs the spec, only the emitter has to be
+written and the specification itself does not change.
+
 **NEED-3 · Where does `cli-core` live, and when is it extracted?**
 **Its own repository, and now.** «выноси сейчас в отдельную папку и repo
 https://github.com/CLI-Heaven/cli-core есть уже». Verified: the repository exists, is public and

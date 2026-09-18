@@ -142,6 +142,8 @@ is an estimate of work whose shape is not yet known.
 
 ## Risks carried
 
-- **RISK-2** · P1 · A login per command may burn the session token — the protocol documentation
-  reports a reset after ~30–50 logins in a short interval, and the brief's one-shot model does one
-  login per command. The proposal's §11.1 answers it with a local login counter (`NEED-8`).
+- **RISK-2** · P2 · A login per command may exhaust the session token. One reverse-engineering
+  document reports a reset after ~30–50 logins "in a short interval" and defines neither the
+  interval nor a symptom beyond "the connection closes right after INIT"; no other source mentions
+  it. Proposal §11.1: persist the rotated token the login response returns, name the symptom in an
+  error message, count logins — and do not refuse on a ceiling nobody has measured (`NEED-8`).
