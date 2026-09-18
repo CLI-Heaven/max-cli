@@ -27,16 +27,19 @@ is wrong.
 
 ## The constraints that shape everything
 
-1. **This is the owner's real personal messenger account on an unofficial protocol.** A mistake
-   here does not fail a test, it sends a message to a person or locks an account. Nothing sends,
-   marks read, or acknowledges anything unless the command the owner typed asked for it.
-2. **In machine mode, stdout carries data and nothing else.** No spinner, no `✓`, no warning, no
+1. **This is the owner's real personal messenger account.** A mistake here does not fail a test,
+   it sends a message to a person. Nothing sends, marks read, or acknowledges anything unless the
+   command the owner typed asked for it.
+2. **We look like the official client, not like ourselves.** The user agent and every other field
+   that identifies the client copy what the official MAX client sends. Never a custom user agent,
+   never our own name on the wire (`REQUIREMENTS.md` §34).
+3. **In machine mode, stdout carries data and nothing else.** No spinner, no `✓`, no warning, no
    ANSI. Diagnostics go to stderr. This is the contract agents depend on and it gets a test.
-3. **One-shot means the process exits.** Whatever opens a socket, a timer or a listener closes it
+4. **One-shot means the process exits.** Whatever opens a socket, a timer or a listener closes it
    on every exit path. A command that prints its result and hangs is a defect.
-4. **No third-party MAX type crosses the adapter.** Above it, only our own domain models — so the
+5. **No third-party MAX type crosses the adapter.** Above it, only our own domain models — so the
    reverse-engineered library underneath can be replaced.
-5. **Messages, tokens and phone numbers never reach a log, a fixture or a document.** Command
+6. **Messages, tokens and phone numbers never reach a log, a fixture or a document.** Command
    output is where a message the owner asked to read is allowed to appear, and nowhere else.
 
 ## Plan before building

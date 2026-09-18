@@ -77,10 +77,10 @@ work whose shape is not yet known.
 
 ## Repository and tooling
 
-- **OPS-1** · P1 · 🚩 Decide the typed command, the npm package name and the repository name, then
-  scaffold before examples harden around a guess — `NEED-1`, under "Remaining questions" in
-  [`REQUIREMENTS.md`](REQUIREMENTS.md). `max` is a very generic name to take on a developer's
-  `PATH`, and npm already refused the neighbouring unscoped name in `braze-cli`.
+- **OPS-1** · P2 · Settle the two names still open once `NEED-4` is answered: the typed command
+  (`max` or `max-cli`) and the npm scope. The repository is
+  [`CLI-Heaven/max-cli`](https://github.com/CLI-Heaven/max-cli) and the project is `max-cli`
+  (`NEED-1`); nothing else about the naming is open.
 - **OPS-2** · P1 · Scaffold the workspace: pnpm, TypeScript strict, Biome, Vitest, lefthook, a CI
   workflow that runs lint, typecheck and tests on every pull request — copied from `braze-cli`,
   not reinvented (§1).
@@ -90,9 +90,16 @@ work whose shape is not yet known.
 
 ## The foundation
 
-- **CORE-1** · P1 · Extract `cli-core` by whichever of the two routes §26 settles on — copy and
-  isolate first, or refactor `braze-cli` first. The route is an owner decision; the inventory of
-  what moves comes from RES-1.
+- **CORE-1** · P1 · Extract `cli-core` out of `braze-cli` **now**, into
+  [`CLI-Heaven/cli-core`](https://github.com/CLI-Heaven/cli-core), which exists and is empty
+  (`NEED-3`). The inventory of what moves comes from RES-1; §26's "copy now, extract later" route
+  is closed.
+- **CORE-4** · P1 · Consume `cli-core` from both CLIs and keep them on one version: it has to
+  reach a registry or be pinned some other way, because two repositories cannot share a private
+  workspace package (`NEED-3`). Decide the mechanism with OPS-1's scope answer.
+- **CORE-5** · P2 · Move `braze-cli` onto the extracted `cli-core` rather than leaving it on its
+  own copy — the whole point of extracting rather than copying. Another repository, so it is its
+  own change, and it does not block anything here.
 - **CORE-2** · P2 · Keep the credential abstraction generic: keyring first, file fallback, the
   injected seam that makes it impossible for a test to reach a real keychain (§13).
 - **CORE-3** · P2 · Retry, backoff and jitter as primitives with no default opinion about whether
@@ -136,9 +143,3 @@ work whose shape is not yet known.
 - **CLI-5** · P3 · The debug escape hatch — `max raw` / `max protocol invoke` — spec-validated,
   explicitly advanced, never arbitrary packet injection (§22).
 
-## Risks carried
-
-- **RISK-1** · P1 · 🚩 Driving the owner's real personal MAX account through an unofficial client
-  may get that account limited or suspended, and it is his everyday account. Not in the brief;
-  raised here because the answer may change RES-2 and §13. The owner decides it as `NEED-2`,
-  before the first live `login`.

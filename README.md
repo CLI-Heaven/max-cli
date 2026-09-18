@@ -11,7 +11,8 @@ yet, and nothing here is installable. What it will be, in the owner's own words,
 
 It is a sibling of `braze-cli`, deliberately: the same TypeScript, pnpm, Commander, Valibot and
 Pino stack, the same separation between a portable core and the terminal, and the same rule that
-in machine mode stdout carries data and nothing else.
+in machine mode stdout carries data and nothing else. The half both commands share is being
+extracted into [`CLI-Heaven/cli-core`](https://github.com/CLI-Heaven/cli-core) rather than copied.
 
 Not the official MAX Bot API — this speaks the protocol a normal user account speaks, which is
 unofficial and reverse engineered ([`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) §4).
