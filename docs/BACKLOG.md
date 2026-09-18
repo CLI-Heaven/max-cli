@@ -57,11 +57,10 @@ is an estimate of work whose shape is not yet known.
 
 - **RES-1** · 🟡 P1 · The file-by-file inventory of what moves to `cli-core` — answered in the
   proposal's §4. Reopens only if the proposal is rejected.
-- **RES-2** · 🟡 P1 · Which MAX client or transport — answered in the proposal's §2: our own
-  WebSocket adapter, because `@bruch/max-client` is Bun-coupled in four places and the WebSocket
-  path is plain JSON.
-- **RES-3** · 🟡 P1 · TypeSpec proof of concept — built, compiles and emits (proposal §7), which
-  still recommends a TypeScript module instead. Waiting on `NEED-7`.
+- **RES-2** · ✅ Closed by `NEED-17`: our own WebSocket adapter. The evidence is the proposal's
+  §2; the ruling is in [`DECISIONS.md`](DECISIONS.md).
+- **RES-3** · ✅ Closed by `NEED-7`: the spec is a TypeScript module; the TypeSpec proof of concept
+  is kept as the migration path.
 - **RES-4** · P2 · Survey how the CLIs that agents actually drive are built — `wrangler`, `gh`,
   `stripe` — and keep only what changes a decision here. Not done: outside §31's list, and not a
   document of its own — each item lands as a backlog line or is dropped.

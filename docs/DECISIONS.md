@@ -46,6 +46,33 @@ other field identifying the client imitate the official MAX client. Recorded as
 [`REQUIREMENTS.md`](REQUIREMENTS.md) §34, which is where it is cited from; this is a pointer, not
 a second copy.
 
+**NEED-17 · Our own WebSocket adapter, or `@bruch/max-client`?**
+**Our own.** «1 А». Option B of [`REQUIREMENTS.md`](REQUIREMENTS.md) §5. This was the last
+unruled decision in the architecture proposal and the one everything else rested on.
+
+The reasoning, now that Bun is supported (`NEED-11`) and "the library needs Bun" is no longer
+disqualifying on its own: even under Bun we would replace its session layer, write our own domain
+mapping, and own the lifecycle anyway — and the MAX WebSocket path is plain JSON with nine opcodes
+for v1. The dependency would cost more to work around than to replace. Its source stays the
+reference implementation, and the `MaxClient` interface (§25) keeps it available as a backend if
+TCP, uploads or QR ever justify it.
+
+**NEED-8 · Do we guard against burning the session token?**
+**Count and diagnose; never refuse.** «3 А». The ceiling proposed first rested on a single
+undefined phrase — "~30–50 logins in a short interval" — in one document, with no window, no error
+code and no corroboration. Refusing a command on an unmeasured limit would break exactly the
+scripted use this CLI exists for.
+
+Instead: persist the token the login response returns (clients do rotate it — `tsmax/src/app.ts:99`),
+turn the documented symptom — a connection that closes immediately after INIT — into a plain error
+naming the fix, and count logins per profile so that if it ever happens we have a real number. The
+cache of `NEED-14` reduces the question further: a read served locally opens no connection at all.
+
+**NEED-10 · Does the `cli-core` extraction wait for the proposal to be read in full?**
+**No — start now.** «2 А». The first step moves files that change under no possible outcome of the
+remaining discussion: the output streams, the renderer, exit codes, the keyring seam and the
+clocks.
+
 **NEED-11 · Node or Bun?**
 **Both, and Bun is tested.** «Node 22+ and Bun should be supported, we should test it just works
 with bun». This closes the runtime question §5 left open and makes `braze-cli`'s `smoke:bun` check
