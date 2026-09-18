@@ -33,11 +33,11 @@ name differing is the house precedent. Carried as `NEED-4` until confirmed — i
 replace today and a reinstall after the first release. The npm scope is open with it; the
 organisation suggests `@cli-heaven/max-cli`.
 
-**NEED-2 · Is the risk to the owner's personal MAX account accepted?**
-**Yes, and it is not to be raised again — not in replies, not in documents.** «принимаем риск,
-больше об этом не надо, в тч в доках». The backlog item and the open question are deleted. This
-line exists so that the next agent, finding no mention of it, does not rediscover the risk and
-write it back in.
+**NEED-2 · The account-safety question raised while writing the brief.**
+**Settled, closed, and not to be raised again** — not in replies, not in documents. «принимаем
+риск, больше об этом не надо, в тч в доках». The backlog item and the open question are deleted.
+This line exists only so that the next agent, finding no mention of it anywhere, does not
+rediscover it and write it back in.
 
 **It came with a requirement of its own**: we never present ourselves as a client of our own.
 «User agent не пытаемся делать кастомным, имитируем везде оф клиента» — the user agent and every
