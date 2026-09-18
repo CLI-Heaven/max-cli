@@ -77,15 +77,21 @@ is an estimate of work whose shape is not yet known.
 - **OPS-1** · P3 · Settle the npm scope at the first publish — `@cli-heaven/max-cli` is the
   obvious one. Everything else about the naming is ruled: package `max-cli`, command `max`,
   repository [`CLI-Heaven/max-cli`](https://github.com/CLI-Heaven/max-cli) (`NEED-1`, `NEED-4`).
-- **OPS-2** · P1 · Scaffold the workspace: pnpm, TypeScript strict, Biome, Vitest, lefthook, a CI
-  workflow that runs lint, typecheck and tests on every pull request — copied from `braze-cli`,
-  not reinvented (§1).
+- **OPS-2** · P1 · Scaffold **one package**, not a workspace (`NEED-12`): pnpm, TypeScript strict,
+  Biome, Vitest, lefthook, a CI workflow that runs lint, typecheck and tests on every pull request
+  — copied from `braze-cli`, not reinvented (§1).
+- **OPS-5** · P1 · A Bun smoke run in CI beside the Node suite — "it works under Bun" is tested,
+  not assumed (`NEED-11`, §36). `braze-cli`'s `pnpm smoke:bun` is the model.
+- **OPS-6** · P2 · A lint rule that fails when `src/commands/` imports from `src/protocol/`. With
+  one package, that seam has no package boundary holding it (`NEED-12`).
 - **OPS-3** · P2 · A `generate` script plus a CI check that fails when generated output is stale —
   regenerate, then assert the working tree did not change (§8).
 - **OPS-4** · P3 · Publishing and releasing, once there is something worth installing.
 
 ## The foundation
 
+- **CORE-6** · P1 · Check `node:sqlite` on Node **22** — it may still need `--experimental-sqlite`
+  there, and only Node 24 was measured. Before the cache phase, not before the slice (`NEED-11`).
 - **CORE-1** · P1 · Extract `cli-core` out of `braze-cli` **now**, into
   [`CLI-Heaven/cli-core`](https://github.com/CLI-Heaven/cli-core), which exists and is empty
   (`NEED-3`). The inventory of what moves comes from RES-1; §26's "copy now, extract later" route
@@ -125,6 +131,19 @@ is an estimate of work whose shape is not yet known.
   them — tolerant of unknown fields when reading, strict when sending (§16, §29).
 - **MAX-4** · P2 · Chat addressing that can grow a resolver later without changing the command
   surface (§12).
+- **MAX-5** · P1 · A person type in the domain model from phase 1, before any command prints one —
+  chats and messages both reference people, and retrofitting identity through a domain model
+  touches everything (§35).
+- **MAX-6** · P2 · Contacts: `CONTACT_LIST` 36, `CONTACT_INFO` 32, `CONTACT_SEARCH` 37, and the
+  name resolution they make possible — phase 2, the first thing after the slice (`NEED-13`, §35).
+- **MAX-7** · P2 · The SQLite cache: chats, messages, contacts and their sync counters, behind a
+  driver seam because `node:sqlite` and `bun:sqlite` are not the same module (`NEED-14`, `NEED-11`).
+  Never the session token. Needs `--no-cache` and a clear command from the first commit.
+- **MAX-8** · P3 · Telemetry as other clients send it — a later phase, and only once our own
+  traffic is understood (`NEED-16`).
+- **MAX-9** · P3 · The rest of the messenger surface, in the order of §35: attachments and
+  reactions when reading, then uploads, reactions, edits and group administration when writing.
+  Stories and calls last.
 
 ## The command
 

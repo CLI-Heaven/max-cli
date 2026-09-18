@@ -19,11 +19,9 @@ answered and the first code lands.
 None of these block writing the architecture proposal; all of them block hardening code or
 examples around an answer.
 
-1. **Node or Bun.** §5 asks for the runtime decision as part of the architecture proposal; some
-   candidate MAX clients may be Bun-only, which decides it for us.
-2. **Which MAX client or transport** — §5, options A–D.
-3. **TypeSpec or a small YAML/JSON manifest with JSON Schema 2020-12 payloads** — §27.
-4. **How many profiles, and named what.** §13 asks for named profiles "if this comes almost for
+1. **Which MAX client or transport** — §5, options A–D. The architecture proposal recommends our
+   own WebSocket adapter; the recommendation is not yet ruled.
+2. **How many profiles, and named what.** §13 asks for named profiles "if this comes almost for
    free". Whether the first release ships more than `default` is open.
 
 **A question here keeps its `NEED-nn` number once it is answered**, and the answer goes to
@@ -682,3 +680,47 @@ No custom user agent, no "max-cli/0.1.0", nothing that names this tool. The valu
 the official client actually sends, recorded with their source the same way as every other
 protocol constant (§10), and they live in one place rather than being scattered through generated
 code (§29).
+
+## 35. Scope after v1 — the phases
+
+Added by the owner on 2026-09-19 (`NEED-13`), extending §11 rather than replacing it. **v1 is
+still the six commands of §11 and nothing else.** What changes is the horizon they are designed
+against.
+
+Wanted, in the owner's order of interest:
+
+* **contacts — first, and definitely wanted.** They also make chat addressing by name (§12)
+  possible, which is what removes numeric ids from everyday use.
+* then, later and in no fixed order: **uploads · reactions · group administration**.
+* **stories** and **calls** last: large surfaces with no current use.
+
+Two consequences for v1, both cheap now and expensive to retrofit:
+
+* every operation in the spec carries its source and confidence from the first entry (§10),
+  because the later phases add operations nobody has verified;
+* the domain model gets a person type from the start, because chats and messages both reference
+  people.
+
+Also ruled with it:
+
+* **A local SQLite cache** for conversations and contacts, in its own phase after the vertical
+  slice works (`NEED-14`). A messenger client that re-fetches everything on each invocation is the
+  wrong shape; the cache is also what makes reads instant and connections rare. It never holds the
+  session token.
+* **Telemetry**, in a later phase, sending what other clients send (`NEED-16`). This follows §34:
+  a client that is silent where every real client is chatty is itself distinguishable. Nothing is
+  sent in v1.
+
+## 36. Runtimes
+
+Added by the owner on 2026-09-19 (`NEED-11`), settling the open question §5 left.
+
+**Node 22+ and Bun are both supported, and "it works under Bun" is tested, not assumed.**
+`braze-cli` already does this — `pnpm smoke:bun` runs its core under the second runtime in CI —
+and the same check applies here.
+
+The consequence is a rule rather than a preference: **where the two runtimes differ, the difference
+is held behind one seam and chosen once.** Measured on 2026-09-19 — Node v24.19.0, Bun 1.3.14 —
+`node:sqlite` does not exist in Bun and `bun:sqlite` does not exist in Node, so the cache of §35
+takes its driver as an argument like everything else the environment provides. The WebSocket client
+is the `ws` package, which sends custom headers identically on both.
