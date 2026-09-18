@@ -19,29 +19,34 @@ answered and the first code lands.
 None of these block writing the architecture proposal; all of them block hardening code or
 examples around an answer.
 
-1. **The command name, the package name, and the repository name.** Every example in this brief
-   types `max`, which is an unusually generic command to take on a developer's `PATH`, and npm
-   has already refused a neighbouring name once in the sibling project — `braze-cli` could not be
-   published unscoped and became `@leemour/brazecli`. Decide the typed command (`max`, `maxcli`,
-   `maxc`, …) and the package name before documentation and examples harden around one.
+1. **`NEED-1` · The command name, the package name, and the repository name.** Every example in
+   this brief types `max`, which is an unusually generic command to take on a developer's `PATH`,
+   and npm has already refused a neighbouring name once in the sibling project — `braze-cli` could
+   not be published unscoped and became `@leemour/brazecli`. Decide the typed command (`max`,
+   `maxcli`, `maxc`, …) and the package name before documentation and examples harden around one.
 2. **Node or Bun.** §5 asks for the runtime decision as part of the architecture proposal; some
    candidate MAX clients may be Bun-only, which decides it for us.
 3. **Which MAX client or transport** — §5, options A–D.
 4. **TypeSpec or a small YAML/JSON manifest with JSON Schema 2020-12 payloads** — §27.
-5. **Copy first or extract `cli-core` first** — §26. This also decides whether `cli-core` lives in
-   this repository, in `braze-cli`, or in one of its own, and the documents must not presuppose an
-   answer.
+5. **`NEED-3` · Copy first or extract `cli-core` first** — §26. This also decides whether
+   `cli-core` lives in this repository, in `braze-cli`, or in one of its own, and the documents
+   must not presuppose an answer.
 6. **Is `cli-core` published, or private and bundled into the command?** `braze-cli` settled the
    same question by publishing one package and inlining its core at build time. If `cli-core` is
    to serve two CLIs from two repositories, it has to reach a registry — which is a different
    answer.
 7. **How many profiles, and named what.** §13 asks for named profiles "if this comes almost for
    free". Whether the first release ships more than `default` is open.
-8. **Is the risk to the owner's personal MAX account acceptable?** Every option in §5 drives a
-   normal user account through an unofficial protocol. A provider that notices may lock or
+8. **`NEED-2` · Is the risk to the owner's personal MAX account acceptable?** Every option in §5
+   drives a normal user account through an unofficial protocol. A provider that notices may lock or
    suspend that account, and it is the owner's own everyday account. This is not in the brief and
    is recorded here because the answer may change §5 and §13 — `RISK-1` in
    [`BACKLOG.md`](BACKLOG.md).
+
+**A question here keeps its `NEED-nn` number once it is answered**, and the answer goes to
+[`DECISIONS.md`](DECISIONS.md) under that same number. Cite the number, never the position in this
+list: the list shrinks as questions are answered, so "question 5" points at something else a month
+from now.
 
 ---
 

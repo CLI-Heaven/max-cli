@@ -1,7 +1,7 @@
 # Backlog
 
 Everything not yet built, one line per item. A closed item is **deleted** from here — the trail
-stays in `BACKLOG_DONE.md` and in git history.
+stays in git history, and in `BACKLOG_DONE.md` once a first closed item starts that file.
 
 The brief this is cut from: [`REQUIREMENTS.md`](REQUIREMENTS.md). The plan for the current
 thread: `docs_ai/plans/` (local only, not committed).
@@ -17,7 +17,7 @@ become `path:line` as soon as there is a path.
   reused. Take the next one like this, not by eye:
   ```sh
   git pull --ff-only
-  grep -ohE '<PREFIX>-[0-9]+' docs/BACKLOG.md docs/BACKLOG_DONE.md | sort -V | tail -1
+  grep -ohE '<PREFIX>-[0-9]+' docs/BACKLOG.md | sort -V | tail -1
   ```
 - **Prefixes, and nothing invented:**
 
@@ -78,7 +78,7 @@ work whose shape is not yet known.
 ## Repository and tooling
 
 - **OPS-1** · P1 · 🚩 Decide the typed command, the npm package name and the repository name, then
-  scaffold before examples harden around a guess — remaining question 1 in
+  scaffold before examples harden around a guess — `NEED-1`, under "Remaining questions" in
   [`REQUIREMENTS.md`](REQUIREMENTS.md). `max` is a very generic name to take on a developer's
   `PATH`, and npm already refused the neighbouring unscoped name in `braze-cli`.
 - **OPS-2** · P1 · Scaffold the workspace: pnpm, TypeScript strict, Biome, Vitest, lefthook, a CI
@@ -140,5 +140,5 @@ work whose shape is not yet known.
 
 - **RISK-1** · P1 · 🚩 Driving the owner's real personal MAX account through an unofficial client
   may get that account limited or suspended, and it is his everyday account. Not in the brief;
-  raised here because the answer may change RES-2 and §13. Needs an owner decision before the
-  first live `login`.
+  raised here because the answer may change RES-2 and §13. The owner decides it as `NEED-2`,
+  before the first live `login`.
