@@ -1,0 +1,144 @@
+# Backlog
+
+Everything not yet built, one line per item. A closed item is **deleted** from here — the trail
+stays in `BACKLOG_DONE.md` and in git history.
+
+The brief this is cut from: [`REQUIREMENTS.md`](REQUIREMENTS.md). The plan for the current
+thread: `docs_ai/plans/` (local only, not committed).
+
+**Nothing is built yet.** The repository holds these documents and nothing else. The list below is
+therefore cut from the brief rather than from code, and every anchor is a section of it; anchors
+become `path:line` as soon as there is a path.
+
+<details>
+<summary>Rules of this file — read once</summary>
+
+- **A number is a permanent address.** Commits, code comments and plans cite it. A number is never
+  reused. Take the next one like this, not by eye:
+  ```sh
+  git pull --ff-only
+  grep -ohE '<PREFIX>-[0-9]+' docs/BACKLOG.md docs/BACKLOG_DONE.md | sort -V | tail -1
+  ```
+- **Prefixes, and nothing invented:**
+
+  | | |
+  |---|---|
+  | `RES` | research: reading someone else's code, protocol archaeology, a proof of concept, a decision that needs evidence before it can be made |
+  | `OPS` | repository, tooling, CI, release |
+  | `CORE` | `cli-core` — the vendor-neutral foundation shared with `braze-cli` |
+  | `SPEC` | the protocol specification, the generator, generated output, coverage |
+  | `MAX` | `max-core` — domain models, the client adapter, transport, session |
+  | `CLI` | commands, options, output, profiles — everything a person or an agent types |
+  | `DOC` | handwritten documentation |
+
+  Findings carry the journal's own prefixes (`FIND`, `BUG`, `SEC`, `PERF`, `UX`, `IDEA`, `RISK`,
+  `DEBT`) and are allocated by `docs_ai/journal/note.sh` (local only). A finding that turns into
+  work gets a backlog number too, and the journal entry keeps a pointer.
+- **The title is the task, not the symptom.** "Close the transport on every exit path", not
+  "the command hangs".
+- **One line, with an anchor in it.** A `REQUIREMENTS.md` section or a `path:line` — it points at
+  where the work starts. Analysis goes elsewhere: an owner's ruling into
+  [`DECISIONS.md`](DECISIONS.md), a deletion into `docs_ai/CLEANUP.md` (local only), a plan into
+  `docs_ai/plans/` (local only).
+- **Priority.** **P1** blocks other work or breaks something real · **P2** needed this cycle ·
+  **P3** someday. Rank honestly; a backlog where everything is P1 says nothing.
+- **Mark.** Empty — not started · 🟡 half done, the remainder named in the line · ⏸️ deferred by
+  the owner · 🚩 waiting on an owner decision, not on code.
+
+</details>
+
+---
+
+## Blocking everything: the architecture proposal
+
+The brief's first deliverable (§31). Until it is accepted, every item below it is an estimate of
+work whose shape is not yet known.
+
+- **RES-1** · P1 · Inspect `../braze-cli` and name the seam: which modules are vendor-neutral as
+  written, which are neutral after an argument is passed in, which are Braze all the way down —
+  §2, §26. Start at `packages/core/src/{client,retry,errors,logger,validate}.ts` and
+  `packages/cli/src/{output,config,auth,runs}/`.
+- **RES-2** · P1 · 🚩 Read the **current source** of the MAX client candidates and choose between
+  options A–D — §4, §5. README claims do not count as evidence. Must answer: session persistence,
+  2FA and QR, one-shot execution, Node vs Bun, and how hard the library is to replace later.
+- **RES-3** · P1 · TypeSpec proof of concept over three operations — `me`, `chats.list`,
+  `messages.send` — against the questions in §27: opcodes, request/response pairing, 64-bit ids,
+  positional payloads, unknown fields. Fallback is a small YAML manifest with JSON Schema 2020-12,
+  never OpenAPI.
+- **RES-4** · P2 · Survey how the CLIs that agents actually drive are built — `wrangler`, `gh`,
+  `stripe` — and keep only what changes a decision here. Not a document of its own: each item
+  lands as a backlog line or is dropped.
+- **RES-5** · P1 · Does reading chat history mark messages read, in the client we choose? §19. The
+  answer decides whether `max messages` is safe to run at all, and it can only come from the
+  protocol code or from a live test on a throwaway chat.
+- **DOC-1** · P1 · Write `ARCHITECTURE.md` once the proposal is accepted — the seams, the
+  lifecycle, what is generated and what is not. Not before: an architecture document written
+  ahead of the architecture is fiction.
+
+## Repository and tooling
+
+- **OPS-1** · P1 · 🚩 Decide the typed command, the npm package name and the repository name, then
+  scaffold before examples harden around a guess — remaining question 1 in
+  [`REQUIREMENTS.md`](REQUIREMENTS.md). `max` is a very generic name to take on a developer's
+  `PATH`, and npm already refused the neighbouring unscoped name in `braze-cli`.
+- **OPS-2** · P1 · Scaffold the workspace: pnpm, TypeScript strict, Biome, Vitest, lefthook, a CI
+  workflow that runs lint, typecheck and tests on every pull request — copied from `braze-cli`,
+  not reinvented (§1).
+- **OPS-3** · P2 · A `generate` script plus a CI check that fails when generated output is stale —
+  regenerate, then assert the working tree did not change (§8).
+- **OPS-4** · P3 · Publishing and releasing, once there is something worth installing.
+
+## The foundation
+
+- **CORE-1** · P1 · Extract `cli-core` by whichever of the two routes §26 settles on — copy and
+  isolate first, or refactor `braze-cli` first. The route is an owner decision; the inventory of
+  what moves comes from RES-1.
+- **CORE-2** · P2 · Keep the credential abstraction generic: keyring first, file fallback, the
+  injected seam that makes it impossible for a test to reach a real keychain (§13).
+- **CORE-3** · P2 · Retry, backoff and jitter as primitives with no default opinion about whether
+  an operation may be retried — the caller decides, because a resend is not a re-read (§17).
+
+## The protocol
+
+- **SPEC-1** · P1 · The v1 specification: authentication, current user, chat list, message
+  history, send text, logout — and nothing else (§11). Every operation carries where its shape
+  came from and how confident we are (§10).
+- **SPEC-2** · P1 · The generator: spec → normalized model → deterministic emitters for types,
+  validators, an operation registry and typed client methods. Generated files are marked, are
+  committed, and are never hand-edited (§8, §28).
+- **SPEC-3** · P2 · Sanitized protocol fixtures under `fixtures/protocol/`, synthetic values only
+  — never a real phone number, token, chat id or message (§24).
+- **SPEC-4** · P3 · A generated coverage document: which documented operations are implemented
+  (§8, §30).
+
+## MAX
+
+- **MAX-1** · P1 · Our own `MaxClient` interface — authenticate, getMe, listChats, listMessages,
+  sendMessage, close — and one adapter behind it. No third-party type reaches anything above it
+  (§25).
+- **MAX-2** · P1 · Session persistence: what the chosen client needs, stored under the user state
+  directory with restrictive permissions, never printed, never committed, redacted in logs (§13).
+- **MAX-3** · P1 · Domain models for chat and message, and the mapping from the wire shape onto
+  them — tolerant of unknown fields when reading, strict when sending (§16, §29).
+- **MAX-4** · P2 · Chat addressing that can grow a resolver later without changing the command
+  surface (§12).
+
+## The command
+
+- **CLI-1** · P1 · The vertical slice: `login`, `me`, `chats`, `messages`, `send`, `logout`, each
+  with human output and `--json` (§32).
+- **CLI-2** · P1 · The machine-output invariant, with a test: in `--json` mode stdout carries one
+  JSON value and nothing else, diagnostics go to stderr (§3, §15).
+- **CLI-3** · P1 · Lifecycle: every command closes its transport on every exit path, and a test
+  that fails when the process stays alive (§18, §23.10).
+- **CLI-4** · P2 · Profiles, `--verbose`, `--quiet`, configuration and its precedence order (§11,
+  §13).
+- **CLI-5** · P3 · The debug escape hatch — `max raw` / `max protocol invoke` — spec-validated,
+  explicitly advanced, never arbitrary packet injection (§22).
+
+## Risks carried
+
+- **RISK-1** · P1 · 🚩 Driving the owner's real personal MAX account through an unofficial client
+  may get that account limited or suspended, and it is his everyday account. Not in the brief;
+  raised here because the answer may change RES-2 and §13. Needs an owner decision before the
+  first live `login`.

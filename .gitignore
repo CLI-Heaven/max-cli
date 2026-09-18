@@ -1,0 +1,26 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+*.log
+
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Session state and captured traffic. A MAX session file carries a live token for the owner's
+# personal account, and a raw capture carries private messages and phone numbers; neither is ever
+# committed, not even redacted-by-hand. Sanitized fixtures live in fixtures/ and are synthetic.
+/session/
+*.session
+/captures/
+
+# Plans, the session journal, the handoff and the cleanup list: the working trail, kept on the
+# machine doing the work. Everything that explains what this is and how it is built stays in
+# docs/ and is committed.
+/docs_ai/
+
+# Per-machine Claude Code state; a shared settings.json would be committed.
+.claude/settings.local.json
+.claude/worktrees/
