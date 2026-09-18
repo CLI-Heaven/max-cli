@@ -55,23 +55,19 @@ The brief's first deliverable (§31). **Written 2026-09-19 and awaiting approval
 `docs_ai/plans/2026-09-19-architecture.md` (local only). Until it is accepted, every item below it
 is an estimate of work whose shape is not yet known.
 
-- **RES-1** · 🟡 P1 · Done, in the proposal's §4 — the file-by-file inventory. Reopens only if the proposal is rejected. Inspect `../braze-cli` and name the seam: which modules are vendor-neutral as
-  written, which are neutral after an argument is passed in, which are Braze all the way down —
-  §2, §26. Start at `packages/core/src/{client,retry,errors,logger,validate}.ts` and
-  `packages/cli/src/{output,config,auth,runs}/`.
-- **RES-2** · 🟡 P1 · Answered in the proposal's §2: our own WebSocket adapter, not `@bruch/max-client`, which is Bun-coupled. Read the **current source** of the MAX client candidates and choose between
-  options A–D — §4, §5. README claims do not count as evidence. Must answer: session persistence,
-  2FA and QR, one-shot execution, Node vs Bun, and how hard the library is to replace later.
-- **RES-3** · 🟡 P1 · Built and working; the proposal's §7 recommends a TypeScript module anyway (`NEED-7`). TypeSpec proof of concept over three operations — `me`, `chats.list`,
-  `messages.send` — against the questions in §27: opcodes, request/response pairing, 64-bit ids,
-  positional payloads, unknown fields. Fallback is a small YAML manifest with JSON Schema 2020-12,
-  never OpenAPI.
+- **RES-1** · 🟡 P1 · The file-by-file inventory of what moves to `cli-core` — answered in the
+  proposal's §4. Reopens only if the proposal is rejected.
+- **RES-2** · 🟡 P1 · Which MAX client or transport — answered in the proposal's §2: our own
+  WebSocket adapter, because `@bruch/max-client` is Bun-coupled in four places and the WebSocket
+  path is plain JSON.
+- **RES-3** · 🟡 P1 · TypeSpec proof of concept — built, compiles and emits (proposal §7), which
+  still recommends a TypeScript module instead. Waiting on `NEED-7`.
 - **RES-4** · P2 · Survey how the CLIs that agents actually drive are built — `wrangler`, `gh`,
-  `stripe` — and keep only what changes a decision here. Not a document of its own: each item
-  lands as a backlog line or is dropped.
-- **RES-5** · 🟡 P1 · Half answered in the proposal's §11.4: marking read is a separate opcode we never send; whether `LOGIN` itself moves presence stays open. Does reading chat history mark messages read, in the client we choose? §19. The
-  answer decides whether `max messages` is safe to run at all, and it can only come from the
-  protocol code or from a live test on a throwaway chat.
+  `stripe` — and keep only what changes a decision here. Not done: outside §31's list, and not a
+  document of its own — each item lands as a backlog line or is dropped.
+- **RES-5** · 🟡 P1 · Whether reading history marks messages read — half answered in the proposal's
+  §11.4: marking is a separate opcode we simply never send, but whether `LOGIN` itself moves
+  presence or read state needs a live check from a second device.
 - **DOC-1** · P1 · Write `ARCHITECTURE.md` once the proposal is accepted — the seams, the
   lifecycle, what is generated and what is not. Not before: an architecture document written
   ahead of the architecture is fiction.
