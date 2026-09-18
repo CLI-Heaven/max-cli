@@ -77,10 +77,9 @@ work whose shape is not yet known.
 
 ## Repository and tooling
 
-- **OPS-1** · P2 · Settle the two names still open once `NEED-4` is answered: the typed command
-  (`max` or `max-cli`) and the npm scope. The repository is
-  [`CLI-Heaven/max-cli`](https://github.com/CLI-Heaven/max-cli) and the project is `max-cli`
-  (`NEED-1`); nothing else about the naming is open.
+- **OPS-1** · P3 · Settle the npm scope at the first publish — `@cli-heaven/max-cli` is the
+  obvious one. Everything else about the naming is ruled: package `max-cli`, command `max`,
+  repository [`CLI-Heaven/max-cli`](https://github.com/CLI-Heaven/max-cli) (`NEED-1`, `NEED-4`).
 - **OPS-2** · P1 · Scaffold the workspace: pnpm, TypeScript strict, Biome, Vitest, lefthook, a CI
   workflow that runs lint, typecheck and tests on every pull request — copied from `braze-cli`,
   not reinvented (§1).

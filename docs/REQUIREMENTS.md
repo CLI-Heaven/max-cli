@@ -19,15 +19,11 @@ answered and the first code lands.
 None of these block writing the architecture proposal; all of them block hardening code or
 examples around an answer.
 
-1. **`NEED-4` · Is the typed command `max` or `max-cli`?** The repository and the project are
-   named `max-cli` (`NEED-1`), and every example in this brief types `max`. `braze-cli` publishes
-   as `@leemour/brazecli` and still types `braze`, so the two names differing is the house
-   precedent rather than an oversight. Until this is answered the documents say `max`.
-2. **Node or Bun.** §5 asks for the runtime decision as part of the architecture proposal; some
+1. **Node or Bun.** §5 asks for the runtime decision as part of the architecture proposal; some
    candidate MAX clients may be Bun-only, which decides it for us.
-3. **Which MAX client or transport** — §5, options A–D.
-4. **TypeSpec or a small YAML/JSON manifest with JSON Schema 2020-12 payloads** — §27.
-5. **How many profiles, and named what.** §13 asks for named profiles "if this comes almost for
+2. **Which MAX client or transport** — §5, options A–D.
+3. **TypeSpec or a small YAML/JSON manifest with JSON Schema 2020-12 payloads** — §27.
+4. **How many profiles, and named what.** §13 asks for named profiles "if this comes almost for
    free". Whether the first release ships more than `default` is open.
 
 **A question here keeps its `NEED-nn` number once it is answered**, and the answer goes to

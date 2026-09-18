@@ -27,11 +27,12 @@ repositories — [`CLI-Heaven/max-cli`](https://github.com/CLI-Heaven/max-cli) a
 [`CLI-Heaven/cli-core`](https://github.com/CLI-Heaven/cli-core) (`gh repo list CLI-Heaven`,
 2026-09-18). So the project, the repository and the package are `max-cli`.
 
-⚠ **Inferred, not ruled: the typed command stays `max`.** Every example in the brief types it, and
-`braze-cli` publishes as `@leemour/brazecli` while typing `braze`, so a package name and a command
-name differing is the house precedent. Carried as `NEED-4` until confirmed — it costs a search and
-replace today and a reinstall after the first release. The npm scope is open with it; the
-organisation suggests `@cli-heaven/max-cli`.
+**NEED-4 · Is the typed command `max` or `max-cli`?**
+**`max`.** «1 A». The package is `max-cli` and the command is `max`, the same split `braze-cli`
+uses — it publishes as `@leemour/brazecli` and types `braze`. A command gets typed by hand and by
+agents dozens of times a day; the package name is read once, in an install line. The npm scope is
+the one piece still open and is decided with the first publish (`OPS-1`); the organisation
+suggests `@cli-heaven/max-cli`.
 
 **NEED-2 · The account-safety question raised while writing the brief.**
 **Settled, closed, and not to be raised again** — not in replies, not in documents. «принимаем
