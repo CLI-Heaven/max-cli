@@ -86,15 +86,19 @@ is an estimate of work whose shape is not yet known.
 - **OPS-3** · P2 · A `generate` script plus a CI check that fails when generated output is stale —
   regenerate, then assert the working tree did not change (§8).
 - **OPS-4** · P3 · Publishing and releasing, once there is something worth installing.
+- **OPS-7** · P1 · Publish `@cli-heaven/cli-core` — `max-cli` cannot consume it across repositories
+  until it reaches a registry (`CORE-4`). Needs the owner's word: publishing is outward-facing.
 
 ## The foundation
 
 - **CORE-6** · P1 · Check `node:sqlite` on Node **22** — it may still need `--experimental-sqlite`
   there, and only Node 24 was measured. Before the cache phase, not before the slice (`NEED-11`).
-- **CORE-1** · P1 · Extract `cli-core` out of `braze-cli` **now**, into
-  [`CLI-Heaven/cli-core`](https://github.com/CLI-Heaven/cli-core), which exists and is empty
-  (`NEED-3`). The inventory of what moves comes from RES-1; §26's "copy now, extract later" route
-  is closed.
+- **CORE-1** · 🟡 P1 · Extract `cli-core` out of `braze-cli` into
+  [`CLI-Heaven/cli-core`](https://github.com/CLI-Heaven/cli-core) (`NEED-3`). **Step 1 landed**
+  (`b8a683e`): streams, renderer, pretty, errors, exit codes, keyring, clocks, logger interface and
+  the test kit — 29 tests, green under Node and executed under Bun. **Left**: config loading and
+  `writeSecurely`, the credential store, the Pino adapter, retry primitives, and the `/http`
+  subpath `braze-cli` needs.
 - **CORE-4** · P1 · Consume `cli-core` from both CLIs and keep them on one version: it has to
   reach a registry or be pinned some other way, because two repositories cannot share a private
   workspace package (`NEED-3`). Decide the mechanism with OPS-1's scope answer.
