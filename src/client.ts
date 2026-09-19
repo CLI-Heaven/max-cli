@@ -1,6 +1,6 @@
 import { CliError } from "@cli-heaven/cli-core"
-import { namesFrom, toChat, toMessage, toProfile } from "./domain/map.js"
-import type { Chat, Id, Message, Profile } from "./domain/models.js"
+import { namesFrom, toChat, toContact, toMessage, toProfile } from "./domain/map.js"
+import type { Chat, Contact, Id, Message, Profile } from "./domain/models.js"
 import { Connection, ProtocolError } from "./protocol/connection.js"
 import type { Payload } from "./protocol/frame.js"
 import { Opcode, startSession } from "./protocol/session.js"
@@ -25,6 +25,7 @@ export class MaxClient {
   readonly #connection: Connection
   #login: Payload | undefined
   #previousCid = 0
+  #people: Map<Id, Contact> | undefined
 
   constructor({ store, timeoutMs, connection }: MaxClientOptions) {
     this.#store = store
@@ -65,10 +66,58 @@ export class MaxClient {
     return toProfile(record(this.#session().profile) ?? {})
   }
 
-  /** Chats come with the login; a limit trims, it does not fetch more. */
-  listChats(limit?: number): Chat[] {
-    const chats = asArray(this.#session().chats).map((raw) => toChat(raw))
+  /**
+   * Chats come with the login; a limit trims rather than fetching more.
+   *
+   * **A one-to-one chat has no title of its own** — its name is the other person's, which MAX does
+   * not put in the chat object. So the partner is looked up once, for every dialog at a time, and
+   * the name is filled in. Without this, `max chats` shows a column of blanks for exactly the chats
+   * a person recognises by name.
+   */
+  async listChats(limit?: number): Promise<Chat[]> {
+    const raw = asArray(this.#session().chats)
+    const people = await this.#peopleFor(raw)
+
+    const chats = raw.map((chat) => {
+      const mapped = toChat(chat)
+      if (mapped.title !== null || mapped.kind !== "dialog") return mapped
+
+      const partner = this.#partnerOf(chat)
+      const name = partner === undefined ? null : (people.get(partner)?.name ?? null)
+      return { ...mapped, title: name }
+    })
+
     return limit === undefined ? chats : chats.slice(0, limit)
+  }
+
+  /** The people this account has a one-to-one chat with, named. */
+  async listContacts(): Promise<Contact[]> {
+    const people = await this.#peopleFor(asArray(this.#session().chats))
+    return [...people.values()].filter((contact) => contact.id !== "")
+  }
+
+  /**
+   * Turns what the person typed into a chat id.
+   *
+   * A number is taken as an id. Anything else is matched against chat titles, exactly first and
+   * then as a fragment — and **an ambiguous name is an error, not a guess**: sending to the wrong
+   * conversation is not undoable, so the caller is shown the candidates and asked to be specific.
+   */
+  async resolveChat(reference: string): Promise<Id> {
+    if (/^-?\d+$/.test(reference.trim())) return reference.trim()
+
+    const chats = await this.listChats()
+    const wanted = reference.trim().toLowerCase()
+    const titled = chats.filter((chat) => chat.title !== null)
+
+    const exact = titled.filter((chat) => chat.title?.toLowerCase() === wanted)
+    const matches = exact.length > 0 ? exact : titled.filter((chat) => chat.title?.toLowerCase().includes(wanted))
+
+    if (matches.length === 1 && matches[0]) return matches[0].id
+    if (matches.length === 0) throw new CliError("not_found", `no chat matches "${reference}"`)
+
+    const names = matches.map((chat) => `${chat.title} (${chat.id})`).join(", ")
+    throw new CliError("validation_error", `"${reference}" matches ${matches.length} chats: ${names}`)
   }
 
   async listMessages(chatId: Id, limit = 20): Promise<Message[]> {
@@ -156,6 +205,50 @@ export class MaxClient {
     const now = Date.now()
     this.#previousCid = now > this.#previousCid ? now : this.#previousCid + 1
     return this.#previousCid
+  }
+
+  /**
+   * Names for everyone in these chats, from the login response first and one request for the rest.
+   *
+   * One `CONTACT_INFO` for all the unknown ids rather than one per chat: a person with forty
+   * dialogs should not cost forty round trips, and the login only carries a handful of contacts —
+   * six of seventeen dialog partners, measured on a real account.
+   */
+  async #peopleFor(chats: Payload[]): Promise<Map<Id, Contact>> {
+    if (this.#people) return this.#people
+
+    const people = new Map<Id, Contact>()
+    for (const raw of asArray(this.#session().contacts)) {
+      const contact = toContact(raw)
+      if (contact.id) people.set(contact.id, contact)
+    }
+
+    const missing = new Set<Id>()
+    for (const chat of chats) {
+      const partner = this.#partnerOf(chat)
+      if (partner !== undefined && !people.has(partner)) missing.add(partner)
+    }
+
+    if (missing.size > 0) {
+      const answer = await this.#invoke(Opcode.CONTACT_INFO, { contactIds: [...missing].map(Number) })
+      for (const raw of asArray(answer.contacts)) {
+        const contact = toContact(raw)
+        if (contact.id) people.set(contact.id, contact)
+      }
+    }
+
+    this.#people = people
+    return people
+  }
+
+  /** The other party in a one-to-one chat, if there is exactly one. */
+  #partnerOf(chat: Payload): Id | undefined {
+    const participants = record(chat.participants)
+    if (!participants) return undefined
+
+    const viewerId = this.#store.readState().viewerId
+    const others = Object.keys(participants).filter((id) => id !== viewerId)
+    return others.length === 1 ? others[0] : undefined
   }
 
   #session(): Payload {

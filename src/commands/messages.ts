@@ -9,7 +9,7 @@ import { SessionStore } from "../session/store.js"
  */
 export const messagesCommand = (): Command =>
   new Command("messages")
-    .argument("<chat>", "chat id")
+    .argument("<chat>", "chat id, or part of a chat name")
     .description("recent messages in a chat, oldest first")
     .option("--limit <n>", "how many to read", (value) => Number.parseInt(value, 10), 20)
     .action(async function (this: Command, chat: string) {
@@ -19,7 +19,8 @@ export const messagesCommand = (): Command =>
 
       try {
         await client.connect()
-        renderer.result(await client.listMessages(chat, options.limit))
+        const chatId = await client.resolveChat(chat)
+        renderer.result(await client.listMessages(chatId, options.limit))
       } finally {
         await client.close()
       }

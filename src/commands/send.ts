@@ -12,7 +12,7 @@ import { SessionStore } from "../session/store.js"
  */
 export const sendCommand = (): Command =>
   new Command("send")
-    .argument("<chat>", "chat id")
+    .argument("<chat>", "chat id, or part of a chat name")
     .argument("<text>", "what to say")
     .description("send one text message")
     .option("--cid <n>", "reuse a client id from an earlier ambiguous send; MAX collapses the duplicate", (value) =>
@@ -25,7 +25,8 @@ export const sendCommand = (): Command =>
 
       try {
         await client.connect()
-        renderer.result(await client.sendMessage(chat, text, options.cid === undefined ? {} : { cid: options.cid }))
+        const chatId = await client.resolveChat(chat)
+        renderer.result(await client.sendMessage(chatId, text, options.cid === undefined ? {} : { cid: options.cid }))
       } finally {
         await client.close()
       }

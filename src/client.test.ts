@@ -69,12 +69,99 @@ describe("MaxClient", () => {
 
     await client.connect()
     expect(client.me()).toEqual({ id: "10000001", name: "Test Person", phone: null })
-    expect(client.listChats()).toHaveLength(2)
-    expect(client.listChats()[0]?.unreadCount).toBe(2)
-    expect(client.listChats()[1]?.unreadCount).toBeNull()
+
+    const chats = await client.listChats()
+    expect(chats).toHaveLength(2)
+    expect(chats[0]?.unreadCount).toBe(2)
+    expect(chats[1]?.unreadCount).toBeNull()
     await client.close()
 
     expect(max.sent).toHaveLength(2)
+  })
+
+  it("names a one-to-one chat after the other person, with one lookup for all of them", async () => {
+    const withDialogs = {
+      ...loginAnswer,
+      chats: [
+        { id: 333, type: "DIALOG", participants: { "10000001": 1, "10000003": 1 }, lastEventTime: 1789776000000 },
+        { id: 444, type: "DIALOG", participants: { "10000001": 1, "10000004": 1 }, lastEventTime: 1789776000000 },
+      ],
+    }
+    const max = mockMax({
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: withDialogs,
+        [Opcode.CONTACT_INFO]: {
+          contacts: [
+            { id: 10000003, names: [{ name: "Ivan Petrov", type: "FULL_NAME" }], link: "ivan" },
+            { id: 10000004, names: [{ name: "Maria S", type: "FULL_NAME" }] },
+          ],
+        },
+      },
+    })
+    const { client } = clientWith(max)
+
+    await client.connect()
+    const chats = await client.listChats()
+    await client.close()
+
+    expect(chats.map((chat) => chat.title)).toEqual(["Ivan Petrov", "Maria S"])
+    const lookups = max.sent.filter((call) => call.opcode === Opcode.CONTACT_INFO)
+    expect(lookups).toHaveLength(1)
+    expect(((lookups[0]?.payload.contactIds ?? []) as number[]).sort()).toEqual([10000003, 10000004])
+  })
+
+  it("finds a chat by name, and refuses to guess when the name is ambiguous", async () => {
+    const withDialogs = {
+      ...loginAnswer,
+      chats: [
+        { id: 333, type: "DIALOG", participants: { "10000001": 1, "10000003": 1 } },
+        { id: 555, type: "CHAT", title: "Ivan and friends" },
+      ],
+    }
+    const max = mockMax({
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: withDialogs,
+        [Opcode.CONTACT_INFO]: { contacts: [{ id: 10000003, names: [{ name: "Ivan Petrov", type: "FULL_NAME" }] }] },
+      },
+    })
+    const { client } = clientWith(max)
+
+    await client.connect()
+
+    expect(await client.resolveChat("555")).toBe("555")
+    expect(await client.resolveChat("Ivan Petrov")).toBe("333")
+    expect(await client.resolveChat("friends")).toBe("555")
+    await expect(client.resolveChat("Ivan")).rejects.toMatchObject({ code: "validation_error" })
+    await expect(client.resolveChat("nobody")).rejects.toMatchObject({ code: "not_found" })
+
+    await client.close()
+  })
+
+  it("lists the people behind one-to-one chats", async () => {
+    const withDialogs = {
+      ...loginAnswer,
+      chats: [{ id: 333, type: "DIALOG", participants: { "10000001": 1, "10000003": 1 } }],
+    }
+    const max = mockMax({
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: withDialogs,
+        [Opcode.CONTACT_INFO]: {
+          contacts: [
+            { id: 10000003, names: [{ name: "Ivan Petrov", type: "FULL_NAME" }], link: "ivan", description: "hi" },
+          ],
+        },
+      },
+    })
+    const { client } = clientWith(max)
+
+    await client.connect()
+    const contacts = await client.listContacts()
+    await client.close()
+
+    expect(contacts).toContainEqual({ id: "10000003", name: "Ivan Petrov", username: "ivan", description: "hi" })
   })
 
   it("**never marks anything read while reading history**", async () => {

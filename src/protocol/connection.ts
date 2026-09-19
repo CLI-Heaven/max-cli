@@ -91,6 +91,11 @@ export class Connection {
    * eventually read somebody's incoming message instead.
    */
   async invoke(opcode: number, payload: Payload = {}): Promise<Payload> {
+    if (!Number.isInteger(opcode)) {
+      // A typo in an opcode constant is otherwise a round trip to MAX that comes back
+      // "неизвестный opcode", which reads as the protocol's fault rather than ours.
+      throw new Error(`refusing to send a frame with a non-integer opcode: ${String(opcode)}`)
+    }
     if (!this.#socket) throw new Error("the connection is not open")
     if (this.#closed) throw new Error("the connection is closed")
 

@@ -6,6 +6,12 @@ export const Opcode = {
   PROFILE: 16,
   LOGIN: 19,
   LOGOUT: 20,
+  /**
+   * Contact details by id. **Sources disagree about its neighbour**: opcode 36 is `CONTACT_LIST` in
+   * tsmax and PyMax, and `GET_BLOCKED` in the protocol documentation. We use 32, which both call the
+   * same thing, and stay away from 36 until somebody has watched what it returns.
+   */
+  CONTACT_INFO: 32,
   CHAT_HISTORY: 49,
   CHATS_LIST: 53,
   MSG_SEND: 64,

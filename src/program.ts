@@ -1,6 +1,7 @@
 import { CliError, exitCodeFor, GENERIC_FAILURE, processStreams, type Streams } from "@cli-heaven/cli-core"
 import { Command, CommanderError } from "commander"
 import { chatsCommand } from "./commands/chats.js"
+import { contactsCommand } from "./commands/contacts.js"
 import { loginCommand } from "./commands/login.js"
 import { logoutCommand } from "./commands/logout.js"
 import { meCommand } from "./commands/me.js"
@@ -43,6 +44,7 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
   program.addCommand(loginCommand())
   program.addCommand(meCommand())
   program.addCommand(chatsCommand())
+  program.addCommand(contactsCommand())
   program.addCommand(messagesCommand())
   program.addCommand(sendCommand())
   program.addCommand(logoutCommand())

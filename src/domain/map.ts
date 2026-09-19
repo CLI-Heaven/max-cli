@@ -1,5 +1,5 @@
 import { asId, type Payload } from "../protocol/frame.js"
-import type { Attachment, Chat, ChatKind, Id, Message, Profile } from "./models.js"
+import type { Attachment, Chat, ChatKind, Contact, Id, Message, Profile } from "./models.js"
 
 /**
  * Wire shapes into our own types.
@@ -39,6 +39,13 @@ export const toMessage = (raw: Payload, chatId: Id, lookup: NameLookup = {}): Me
     attachments: attachments(raw.attaches),
   }
 }
+
+export const toContact = (raw: Payload): Contact => ({
+  id: asId(raw.id) ?? "",
+  name: displayName(raw.names) ?? text(raw.name),
+  username: text(raw.link),
+  description: text(raw.description),
+})
 
 export const toProfile = (raw: Payload): Profile => {
   const contact = asRecord(raw.contact) ?? raw

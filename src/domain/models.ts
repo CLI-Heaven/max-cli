@@ -38,6 +38,15 @@ export interface Message {
   attachments: Attachment[]
 }
 
+export interface Contact {
+  id: Id
+  name: string | null
+  /** The @link MAX shows for a person, when they have one. */
+  username: string | null
+  /** Whatever they wrote about themselves. */
+  description: string | null
+}
+
 export interface Profile {
   id: Id
   name: string | null
