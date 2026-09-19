@@ -1,4 +1,5 @@
 import { Command } from "commander"
+import { openProfileCache } from "../cache/index.js"
 import { MaxClient } from "../client.js"
 import { resolveOutput } from "../output.js"
 import { SessionStore } from "../session/store.js"
@@ -13,13 +14,17 @@ export const chatsCommand = (): Command => {
     .action(async function (this: Command) {
       const options = this.optsWithGlobals()
       const { renderer } = resolveOutput(options)
-      const client = new MaxClient({ store: new SessionStore({ profile: options.profile }) })
+      const cache = await openProfileCache(options.profile)
+      const client = new MaxClient({
+        store: new SessionStore({ profile: options.profile }),
+        ...(cache ? { cache } : {}),
+      })
 
       try {
-        await client.connect()
         renderer.result(await client.chats.list(options.limit))
       } finally {
         await client.close()
+        cache?.close()
       }
     })
 

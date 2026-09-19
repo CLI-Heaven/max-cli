@@ -1,4 +1,6 @@
 import { CliError } from "@cli-heaven/cli-core"
+import { FRESHNESS } from "./cache/index.js"
+import type { CacheStore } from "./cache/store.js"
 import { namesFrom, toChat, toContact, toMessage, toProfile } from "./domain/map.js"
 import type { Chat, Contact, Id, Message, Profile } from "./domain/models.js"
 import { type Invoke, wireClient } from "./generated/client.generated.js"
@@ -18,6 +20,8 @@ export interface MaxClientOptions {
    * and nothing else.
    */
   warn?: (message: string) => void
+  /** Absent means every read goes to MAX. A cache never changes what a command answers, only how fast. */
+  cache?: CacheStore
 }
 
 /**
@@ -36,15 +40,17 @@ export class MaxClient {
   readonly #store: SessionStore
   readonly #connection: Connection
   readonly #warn: (message: string) => void
+  readonly #cache: CacheStore | undefined
   readonly #wire = wireClient(((operation, request) => this.#send(operation, request)) as Invoke)
   #login: Payload | undefined
   #previousCid = 0
   #people: Map<Id, Contact> | undefined
 
-  constructor({ store, timeoutMs, connection, warn }: MaxClientOptions) {
+  constructor({ store, timeoutMs, connection, warn, cache }: MaxClientOptions) {
     this.#store = store
     this.#connection = connection ?? new Connection(timeoutMs === undefined ? {} : { timeoutMs })
     this.#warn = warn ?? ((message) => process.stderr.write(`${message}\n`))
+    this.#cache = cache
   }
 
   readonly account = {
@@ -61,6 +67,10 @@ export class MaxClient {
      * exactly the chats a person recognises by name.
      */
     list: async (limit?: number): Promise<Chat[]> => {
+      const cached = this.#cache?.chats.read(FRESHNESS.chats)
+      if (cached) return limit === undefined ? cached : cached.slice(0, limit)
+
+      await this.#connectOnce()
       const raw = asArray(this.#session().chats)
       const people = await this.#peopleFor(raw)
 
@@ -73,6 +83,7 @@ export class MaxClient {
         return { ...mapped, title: name }
       })
 
+      this.#cache?.chats.write(chats)
       return limit === undefined ? chats : chats.slice(0, limit)
     },
 
@@ -104,13 +115,23 @@ export class MaxClient {
   readonly contacts = {
     /** The people this account has a one-to-one chat with, named. */
     list: async (): Promise<Contact[]> => {
+      const cached = this.#cache?.contacts.read(FRESHNESS.contacts)
+      if (cached) return cached
+
+      await this.#connectOnce()
       const people = await this.#peopleFor(asArray(this.#session().chats))
-      return [...people.values()].filter((contact) => contact.id !== "")
+      const contacts = [...people.values()].filter((contact) => contact.id !== "")
+      this.#cache?.contacts.write(contacts)
+      return contacts
     },
   }
 
   readonly messages = {
     list: async (chatId: Id, limit = 20): Promise<Message[]> => {
+      const cached = this.#cache?.messages.read(chatId, limit, FRESHNESS.messages)
+      if (cached) return cached
+
+      await this.#connectOnce()
       const session = this.#session()
 
       // `interactive: false` and no CHAT_MARK: reading history must not mark anything read (§19).
@@ -128,7 +149,9 @@ export class MaxClient {
       })
 
       const lookup = { names: namesFrom(session.contacts), ...viewer(this.#store) }
-      return asArray(answer.messages).map((raw) => toMessage(raw, chatId, lookup))
+      const messages = asArray(answer.messages).map((raw) => toMessage(raw, chatId, lookup))
+      this.#cache?.messages.write(chatId, messages)
+      return messages
     },
 
     /**
@@ -145,6 +168,7 @@ export class MaxClient {
      * `max send --cid <n>` can then repeat the attempt without risking a second message.
      */
     send: async (chatId: Id, text: string, options: { cid?: number; notify?: boolean } = {}): Promise<Message> => {
+      await this.#connectOnce()
       const session = this.#session()
       const cid = options.cid ?? this.#nextCid()
       const request = {
@@ -173,6 +197,9 @@ export class MaxClient {
           )
         }
       }
+
+      // What the cache holds for this chat is now one message short of the truth.
+      this.#cache?.messages.invalidate(chatId)
 
       const sent = record(answer.message) ?? answer
       return toMessage(sent, chatId, { names: namesFrom(session.contacts), ...viewer(this.#store) })
@@ -214,6 +241,17 @@ export class MaxClient {
 
   async close(): Promise<void> {
     await this.#connection.close()
+  }
+
+  /**
+   * **The socket is opened only when something actually needs MAX.**
+   *
+   * This is the whole point of the cache: a read the cache can answer opens no connection, spends
+   * no login, and is over before a socket would have finished its handshake. `connect()` stays
+   * public for the one command that must reach MAX to mean anything — starting a session.
+   */
+  async #connectOnce(): Promise<void> {
+    if (!this.#login) await this.connect()
   }
 
   /**

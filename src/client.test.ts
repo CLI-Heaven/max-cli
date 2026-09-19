@@ -2,7 +2,9 @@ import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { memoryKeyring } from "@cli-heaven/cli-core"
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it } from "vitest"
+import { openCache } from "./cache/open.js"
+import { type CacheStore, openStore } from "./cache/store.js"
 import { MaxClient } from "./client.js"
 import { Opcode } from "./generated/opcodes.generated.js"
 import { Connection } from "./protocol/connection.js"
@@ -411,5 +413,92 @@ describe("when we are the ones building a bad request", () => {
     expect(String(failure)).toContain("chatId")
     expect(String(failure)).not.toContain("a private message body")
     expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.MSG_SEND)
+  })
+})
+
+describe("with a cache", () => {
+  const caches: CacheStore[] = []
+  afterEach(() => {
+    for (const cache of caches.splice(0)) cache.close()
+  })
+
+  const cacheStore = async () => {
+    const database = await openCache(join(mkdtempSync(join(tmpdir(), "max-client-cache-")), "cache.db"))
+    const cache = openStore({ database })
+    caches.push(cache)
+    return cache
+  }
+
+  const clientSharing = (cache: CacheStore, max: ReturnType<typeof mockMax>) => {
+    const dir = mkdtempSync(join(tmpdir(), "max-cli-"))
+    const store = new SessionStore({ keyring: memoryKeyring(), configDir: dir, stateDir: join(dir, "state"), env: {} })
+    store.writeToken("a-token")
+    return new MaxClient({
+      store,
+      cache,
+      connection: new Connection({ createSocket: max.createSocket, timeoutMs: 50 }),
+    })
+  }
+
+  it("**answers a second read without opening a connection at all**", async () => {
+    const cache = await cacheStore()
+
+    const first = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
+    const warm = clientSharing(cache, first)
+    expect(await warm.chats.list()).toHaveLength(2)
+    await warm.close()
+    expect(first.sent.map((call) => call.opcode)).toEqual([Opcode.SESSION_INIT, Opcode.LOGIN])
+
+    // A socket that throws if anyone reaches for it: the cache must answer without the wire.
+    const store = new SessionStore({
+      keyring: memoryKeyring(),
+      configDir: mkdtempSync(join(tmpdir(), "max-cli-")),
+      env: {},
+    })
+    store.writeToken("a-token")
+    const offline = new MaxClient({
+      store,
+      cache,
+      connection: new Connection({
+        createSocket: () => {
+          throw new Error("the cache should have answered this without a connection")
+        },
+      }),
+    })
+
+    expect(await offline.chats.list()).toHaveLength(2)
+    await offline.close()
+  })
+
+  it("goes to MAX when the cache has nothing to say", async () => {
+    const cache = await cacheStore()
+    const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
+    const client = clientSharing(cache, max)
+
+    await client.chats.list()
+    await client.close()
+
+    expect(max.sent.map((call) => call.opcode)).toContain(Opcode.LOGIN)
+  })
+
+  it("**stops trusting a chat it has just sent to**", async () => {
+    const cache = await cacheStore()
+    const max = mockMax({
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: loginAnswer,
+        [Opcode.CHAT_HISTORY]: historyAnswer,
+        [Opcode.MSG_SEND]: { message: { id: 9, time: 1789776000001, text: "sent" } },
+      },
+    })
+    const client = clientSharing(cache, max)
+
+    await client.messages.list("111", 5)
+    expect(cache.messages.read("111", 5, 60_000), "cached after the first read").toBeDefined()
+
+    await client.messages.send("111", "hello")
+    expect(cache.messages.read("111", 5, 60_000), "forgotten after the send").toBeUndefined()
+
+    await client.close()
   })
 })
