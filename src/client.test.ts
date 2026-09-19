@@ -295,11 +295,11 @@ describe("MaxClient", () => {
     await client.connect()
     // MSG_SEND has no scripted answer: the request leaves and nothing comes back, which is exactly
     // the case where the message may already have been delivered.
-    const failure = await client.messages.send("111", "hello").catch((error: { code: string }) => error)
+    const failure = await client.messages.send("111", "hello").catch((error: Error) => error)
     await client.close()
 
     expect(failure).toMatchObject({ code: "outcome_unknown" })
-    expect(String((failure as { message: string }).message)).toContain("--cid")
+    expect(String(failure)).toContain("--cid")
     expect(max.unexpected).toContain(Opcode.MSG_SEND)
   })
 

@@ -4,11 +4,12 @@ How to check this yourself, and what each check is actually for. Nothing here de
 has not been run.
 
 ```sh
-pnpm test        # vitest — 57 tests
-pnpm lint        # biome: format, lint, and the commands/protocol seam
-pnpm typecheck   # tsc --build
+pnpm test        # vitest — 82 tests
+pnpm lint        # biome: format, lint, and the seam between commands and the protocol
+pnpm typecheck   # the package, then the tests
 pnpm build
 pnpm smoke:bun   # the built command, executed under Bun
+pnpm generate    # then `git diff --exit-code` — generated output must not be stale
 ```
 
 CI runs all of them plus a secret scan over the whole history —
@@ -20,6 +21,21 @@ CI runs all of them plus a secret scan over the whole history —
 
 A skipped test, a mocked-away assertion and a test that would pass with the feature deleted all
 report green. When reporting work done, say which suite ran and paste the counts.
+
+**This is not hypothetical here.** `src/client.test.ts` asserted that reading history never sends
+`CHAT_MARK` by comparing the sent opcodes against `Opcode.CHAT_MARK` — a constant that did not
+exist. It compared against `undefined`, passed for any input, and was cited as a guarantee in
+`ARCHITECTURE.md`. It survived a day because nothing typechecked the tests.
+
+**So the tests are typechecked, in their own pass.** `tsconfig.json` still excludes them from the
+build — `composite` with a `rootDir` of `src` would otherwise emit them into `dist` — and
+`tsconfig.test.json` checks them with `noEmit`. `pnpm typecheck` runs both.
+
+⚠ It carries `"exclude": []`, and that line is the whole point. `extends` inherits `include` and
+`exclude` from the base config unless they are redefined, so a test config that only redefines
+`include` still excludes every test file and reports success having checked nothing. Written the
+obvious way first, it passed while silently seeing zero test files. Verified by putting a
+non-existent opcode into a test and watching the check fail.
 
 ## MAX is never contacted by the suite
 
