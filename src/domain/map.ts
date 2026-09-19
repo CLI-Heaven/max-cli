@@ -34,6 +34,7 @@ export const toMessage = (raw: Payload, chatId: Id, lookup: NameLookup = {}): Me
     senderId: senderId ?? null,
     senderName: senderId ? (lookup.names?.get(senderId) ?? null) : null,
     timestamp: timestamp(raw.time) ?? new Date(0).toISOString(),
+    editedAt: timestamp(raw.updateTime),
     text: text(raw.text) ?? "",
     outgoing: lookup.viewerId === undefined || senderId === undefined ? null : senderId === lookup.viewerId,
     attachments: attachments(raw.attaches),

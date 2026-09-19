@@ -32,6 +32,15 @@ export interface Message {
   senderName: string | null
   /** ISO 8601. */
   timestamp: string
+  /**
+   * When MAX last recorded an edit, or `null` for a message nobody has changed.
+   *
+   * Measured 2026-09-20: an edited message comes back carrying `status: "EDITED"` and an
+   * `updateTime` later than its `time`. Surfaced rather than hidden because a reader has no other
+   * way to tell an edited message from the original, and because it is what the cache compares to
+   * decide whether the copy it holds is still current.
+   */
+  editedAt: string | null
   text: string
   /** Whether this account sent it. `null` when we do not know who we are. */
   outgoing: boolean | null
