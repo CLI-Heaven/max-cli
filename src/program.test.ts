@@ -28,18 +28,22 @@ describe("the program", () => {
   })
 
   it("**offers a way out of the cache**, because a cache is the one part that remembers being wrong", async () => {
-    expect((await runWith(["--help"])).stdout).toContain("--no-cache")
+    expect((await runWith(["--help"])).stdout).toContain("--offline")
     expect((await runWith(["cache", "--help"])).stdout).toContain("clear")
   })
 
-  it("reads --no-cache as a switch the commands can see", () => {
+  it("**does not offer --no-cache**, because not using the record is already what happens", async () => {
+    expect((await runWith(["--help"])).stdout).not.toContain("--no-cache")
+  })
+
+  it("reads --offline as a switch the commands can see", () => {
     const program = createProgram()
-    program.parseOptions(["--no-cache"])
-    expect(program.opts().cache).toBe(false)
+    program.parseOptions(["--offline"])
+    expect(program.opts().offline).toBe(true)
 
     const untouched = createProgram()
     untouched.parseOptions([])
-    expect(untouched.opts().cache).not.toBe(false)
+    expect(untouched.opts().offline).toBeUndefined()
   })
 
   it("**puts the action under the resource, never beside it**", async () => {
