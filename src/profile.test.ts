@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { commandWords, liftProfile, refuseCommandName } from "./profile.js"
+import { commandWords, liftProfile, refuseCommandName, rootOf } from "./profile.js"
 import { createProgram } from "./program.js"
 
 const words = () => commandWords(createProgram())
@@ -39,5 +39,21 @@ describe("a profile named after a command", () => {
 
   it("does not stop an ordinary name", () => {
     expect(() => refuseCommandName("personal", words())).not.toThrow()
+  })
+
+  /**
+   * `session start` asks the tree it is standing in, so this is the half that can break without
+   * any test noticing: stop one level short and the list is `help, start, end`, which accepts a
+   * profile called `chats` and refuses one called `start`.
+   */
+  it("sees every command from inside a subcommand, not just its neighbours", () => {
+    const program = createProgram()
+    const session = program.commands.find((command) => command.name() === "session")
+    const start = session?.commands.find((command) => command.name() === "start")
+
+    expect(start).toBeDefined()
+    if (!start) return
+    expect([...commandWords(rootOf(start))].sort()).toEqual([...words()].sort())
+    expect(commandWords(rootOf(start)).has("chats")).toBe(true)
   })
 })
