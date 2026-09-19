@@ -1,9 +1,6 @@
 import { Command } from "commander"
 import { openProfileCache } from "../cache/index.js"
-import { MaxClient } from "../client.js"
-import { resolveOutput } from "../output.js"
-import { recorded } from "../runs/recording.js"
-import { SessionStore } from "../session/store.js"
+import { forCommand } from "./context.js"
 
 export const chatsCommand = (): Command => {
   const command = new Command("chats").description("the chats this account is in")
@@ -11,18 +8,18 @@ export const chatsCommand = (): Command => {
   command
     .command("list")
     .description("the chats this account is in")
-    .option("--limit <n>", "how many to show", (value) => Number.parseInt(value, 10), 20)
+    // No default on the option: with one, the flag is always set and a configured `limit` could
+    // never win it. The number lives once, in `resolveSettings`.
+    .option("--limit <n>", "how many to show", (value) => Number.parseInt(value, 10))
     .action(async function (this: Command) {
-      const options = this.optsWithGlobals()
-      const { renderer, format } = resolveOutput(options)
-      const store = new SessionStore({ profile: options.profile })
-      const cache = await openProfileCache(options.profile, { onProblem: (message) => renderer.note(message) })
+      const { renderer, settings, createClient, run } = forCommand(this.optsWithGlobals())
+      const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
 
-      await recorded({ command: "chats list", profile: store.profile, options, format }, async (events) => {
-        const client = new MaxClient({ store, events, ...(cache ? { cache } : {}) })
+      await run("chats list", async (events) => {
+        const client = createClient({ events, ...(cache ? { cache } : {}) })
 
         try {
-          renderer.result(await client.chats.list(options.limit))
+          renderer.result(await client.chats.list(settings.limit))
         } finally {
           await client.close()
           cache?.close()

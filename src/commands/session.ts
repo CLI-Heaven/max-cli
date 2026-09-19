@@ -1,9 +1,7 @@
 import { Command } from "commander"
-import { MaxClient } from "../client.js"
-import { resolveOutput } from "../output.js"
-import { recorded } from "../runs/recording.js"
+import { commandWords, refuseCommandName, rootOf } from "../profile.js"
 import { readSecret } from "../session/prompt.js"
-import { SessionStore } from "../session/store.js"
+import { forCommand } from "./context.js"
 
 export const sessionCommand = (): Command => {
   const command = new Command("session").description("the stored MAX session for this profile")
@@ -24,8 +22,12 @@ export const sessionCommand = (): Command => {
     .command("start")
     .description("store a MAX session for this profile")
     .action(async function (this: Command) {
-      const options = this.optsWithGlobals()
-      const { renderer, format } = resolveOutput(options)
+      const { renderer, settings, store, createClient, run } = forCommand(this.optsWithGlobals())
+
+      // Creation is the only moment the collision can still be explained; after this the name is
+      // written down and `max <name>` would silently be a command instead.
+      refuseCommandName(settings.profile, commandWords(rootOf(this)))
+
       const token = process.env.MAX_TOKEN?.trim() || (await readSecret("MAX token: "))
 
       // Before the run directory: nothing was attempted, so there is nothing to record.
@@ -35,11 +37,10 @@ export const sessionCommand = (): Command => {
         return
       }
 
-      const store = new SessionStore({ profile: options.profile })
       store.writeToken(token)
 
-      await recorded({ command: "session start", profile: store.profile, options, format }, async (events) => {
-        const client = new MaxClient({ store, events })
+      await run("session start", async (events) => {
+        const client = createClient({ events })
 
         try {
           await client.connect()
@@ -64,13 +65,11 @@ export const sessionCommand = (): Command => {
     .command("end")
     .description("forget the stored session for this profile")
     .action(async function (this: Command) {
-      const options = this.optsWithGlobals()
-      const { renderer, format } = resolveOutput(options)
-      const store = new SessionStore({ profile: options.profile })
+      const { renderer, store, run } = forCommand(this.optsWithGlobals())
 
       // It contacts nobody, so the run holds no events — but forgetting a session is an action, and
       // "when did this profile stop working" is a question the record is kept to answer.
-      await recorded({ command: "session end", profile: store.profile, options, format }, async () => {
+      await run("session end", async () => {
         const had = store.forget()
 
         renderer.result({ profile: store.profile, forgotten: had, revokedOnServer: false })

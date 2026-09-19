@@ -3,6 +3,7 @@ import type { CacheStore } from "./cache/store.js"
 import { namesFrom, toChat, toContact, toMessage, toProfile } from "./domain/map.js"
 import type { Chat, Contact, Id, Message, Profile } from "./domain/models.js"
 import { type Invoke, wireClient } from "./generated/client.generated.js"
+import { asFirstWord } from "./profile.js"
 import { Connection, ProtocolError } from "./protocol/connection.js"
 import type { Payload } from "./protocol/frame.js"
 import { countsIn, type DiagnosticEvent, idsOf } from "./runs/events.js"
@@ -236,9 +237,11 @@ export class MaxClient {
   async connect(): Promise<void> {
     const token = this.#store.readToken()
     if (!token) {
+      // The fix has to carry the profile, or it logs the wrong one in: a name nobody has logged
+      // in under is the ordinary shape of this failure now that the first word is the profile.
       throw new CliError(
         "authentication_error",
-        `no session for profile "${this.#store.profile}" — run \`max session start\``,
+        `no session for profile "${this.#store.profile}" — run \`max ${asFirstWord(this.#store.profile)}session start\``,
       )
     }
 

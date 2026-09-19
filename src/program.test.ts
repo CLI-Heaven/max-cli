@@ -1,5 +1,6 @@
 import { captureStreams } from "@cli-heaven/cli-core"
 import { describe, expect, it } from "vitest"
+import { commandWords, liftProfile } from "./profile.js"
 import { createProgram, run } from "./program.js"
 
 const runWith = async (argv: string[]) => {
@@ -93,15 +94,23 @@ describe("the program", () => {
     expect(code).not.toBe(0)
   })
 
-  it("carries the four global options every command needs", async () => {
+  it("carries the global options every command needs", async () => {
     const { stdout } = await runWith(["--help"])
-    for (const option of ["--profile", "--json", "--quiet", "--verbose"]) expect(stdout).toContain(option)
+    for (const option of ["--json", "--quiet", "--verbose"]) expect(stdout).toContain(option)
   })
 
-  it("defaults to the default profile rather than to nothing", () => {
+  it("**has no `--profile`, and says in its help where the profile went**", async () => {
+    const { stdout } = await runWith(["--help"])
+    expect(stdout).not.toContain("--profile")
+    expect(stdout).toContain("max [profile]")
+    expect(stdout).toContain("The first word is the profile")
+    expect(stdout).toContain("MAX_PROFILE")
+  })
+
+  it("does not mistake a command for a profile", () => {
     const program = createProgram()
-    program.parseOptions([])
-    expect(program.opts().profile).toBe("default")
+    expect(liftProfile(["chats", "list"], commandWords(program)).profile).toBeUndefined()
+    expect(liftProfile(["personal", "chats", "list"], commandWords(program)).profile).toBe("personal")
   })
 
   it("sends an unknown option to stderr and exits non-zero", async () => {
@@ -112,13 +121,7 @@ describe("the program", () => {
   })
 
   it("**puts a failure on stderr as JSON, never on stdout**", async () => {
-    const { stdout, stderr, code } = await runWith([
-      "account",
-      "show",
-      "--json",
-      "--profile",
-      "a-profile-that-does-not-exist",
-    ])
+    const { stdout, stderr, code } = await runWith(["a-profile-that-does-not-exist", "account", "show", "--json"])
 
     expect(stdout).toBe("")
     expect(JSON.parse(stderr).error.code).toBe("authentication_error")
@@ -126,12 +129,22 @@ describe("the program", () => {
     expect(code).toBe(4)
   })
 
-  it("tells a person what to do next, rather than printing JSON at them", async () => {
+  it("tells a person what to do next, **naming the profile they actually typed**", async () => {
     const streams = captureStreams()
-    const code = await run(["account", "show", "--profile", "a-profile-that-does-not-exist"], { streams, tty: true })
+    const code = await run(["a-profile-that-does-not-exist", "account", "show"], { streams, tty: true })
 
     expect(streams.stdout).toEqual([])
-    expect(streams.stderr.join("")).toContain("max session start")
+    expect(streams.stderr.join("")).toContain("max a-profile-that-does-not-exist session start")
     expect(code).toBe(4)
+  })
+
+  it("explains itself when the first word was a mistyped command", async () => {
+    // `max chat list` — one letter short. Without this line the only message is "unknown command
+    // 'list'", which names the wrong word entirely.
+    const { stderr, code } = await runWith(["chat", "list"])
+
+    expect(stderr).toContain("unknown command 'list'")
+    expect(stderr).toContain('"chat" is not a command, so it was read as a profile name')
+    expect(code).not.toBe(0)
   })
 })

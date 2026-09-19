@@ -7,6 +7,7 @@ import { contactsCommand } from "./commands/contacts.js"
 import { messagesCommand } from "./commands/messages.js"
 import { runsCommand } from "./commands/runs.js"
 import { sessionCommand } from "./commands/session.js"
+import { commandWords, liftProfile } from "./profile.js"
 import { VERSION } from "./version.js"
 
 export interface RunOptions {
@@ -33,9 +34,13 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
 
   program
     .name("max")
-    .description("A local command line interface for a personal MAX Messenger account")
+    .usage("[profile] [options] <command>")
+    .description(
+      "A local command line interface for a personal MAX Messenger account\n\n" +
+        "The first word is the profile whenever it is not a command — `max personal chats list`.\n" +
+        "`MAX_PROFILE` says the same thing for a whole shell session; without either it is `default`.",
+    )
     .version(VERSION, "-v, --version")
-    .option("--profile <name>", "which stored account to use", "default")
     .option("--json", "machine-readable output: one JSON value on stdout, nothing else")
     .option("--quiet", "diagnostics off")
     .option("--verbose", "diagnostics on: ids and timings on stderr, never message content")
@@ -96,11 +101,24 @@ export const run = async (argv: string[], options: RunOptions = {}): Promise<num
   // subcommand left with the default behaviour kills the process from inside a test.
   forEachCommand(program, (command) => command.exitOverride())
 
+  // Before commander, not inside it: a custom argument parser would still have to be told that
+  // the first word is sometimes a command, and commander has no hook that runs before it decides
+  // which subcommand it is looking at.
+  const { profile, rest } = liftProfile(argv, commandWords(program))
+  if (profile !== undefined) program.setOptionValue("profile", profile)
+
   try {
-    await program.parseAsync(argv, { from: "user" })
+    await program.parseAsync(rest, { from: "user" })
     return process.exitCode === undefined ? 0 : Number(process.exitCode)
   } catch (error) {
     if (error instanceof CommanderError) {
+      // `max chat list` — one letter short of `chats` — now reports an unknown command `list`,
+      // which is baffling on its own. This is the everyday cost of the first word being a profile.
+      if (profile !== undefined && error.code === "commander.unknownCommand") {
+        streams.diagnostic(
+          `"${profile}" is not a command, so it was read as a profile name — which left "${rest[0]}" to be one.`,
+        )
+      }
       return error.exitCode
     }
 
