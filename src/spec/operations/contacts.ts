@@ -21,7 +21,7 @@ export const profile = reserveOpcode({
   constant: "PROFILE",
   opcode: 16,
   reason:
-    "**Not a way to read a profile — it updates one**, and refuses an empty payload. Your own profile arrives with the login response, so nothing needs to send this. It is declared here so that fact keeps a home.",
+    "It does not read a profile, it updates one, and it refuses an empty payload. Your own profile arrives with the login response, so nothing needs to send this. It is declared here so that fact keeps a home.",
   provenance: { confidence: "measured", sources: ["measured against MAX 2026-09-19: refused an empty payload"] },
 })
 
@@ -30,7 +30,7 @@ export const unidentified36 = reserveOpcode({
   constant: "UNIDENTIFIED_36",
   opcode: 36,
   reason:
-    "**Nobody agrees what it is.** tsmax and PyMax call it `CONTACT_LIST`; the protocol documentation calls it `GET_BLOCKED`. Sending it to find out would be sending an unknown command to a real account. It stays unsent until somebody watches a real client send it (`PROTO-1`).",
+    "Nobody agrees what it is: tsmax and PyMax call it `CONTACT_LIST`; the protocol documentation calls it `GET_BLOCKED`. Sending it to find out would be sending an unknown command to a real account. It stays unsent until somebody watches a real client send it (`PROTO-1`).",
   provenance: {
     confidence: "unknown",
     sources: ["tsmax and PyMax call it CONTACT_LIST", "max-api-docs calls it GET_BLOCKED"],
