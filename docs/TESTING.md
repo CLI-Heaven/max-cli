@@ -4,7 +4,7 @@ How to check this yourself, and what each check is actually for. Nothing here de
 has not been run.
 
 ```sh
-pnpm test        # vitest — 148 tests
+pnpm test        # vitest
 pnpm lint        # biome: format, lint, and the seam between commands and the protocol
 pnpm typecheck   # the package, then the tests
 pnpm build
@@ -79,9 +79,10 @@ node dist/bin/max.js chats list --json --limit 5
 The token goes in a file and into the environment — never on a command line, where `ps` and shell
 history can see it.
 
-⚠ **Those three directory variables also move the keyring entry** — `cli-core` makes the service
+⚠ **Those directory variables also move the keyring entry** — `cli-core` makes the service
 `max-cli:<config dir>` when any of them is set, so a session stored with them is invisible to a
-command run without them, and the other way round.
+command run without them, and the other way round. Export them for every command of the probe or
+for none ([`ARCHITECTURE.md`](ARCHITECTURE.md) §14).
 
 **The check no assertion replaces**: record a real run and read the directory.
 
@@ -93,6 +94,15 @@ cat "$(node dist/bin/max.js runs path <id>)/events.jsonl"
 
 Done on 2026-09-20 against the owner's account: three requests, and the file carried opcodes,
 `seq`, byte counts, durations and list lengths — no chat title, no name, no message, no token.
+
+**Settings and the profile are checked without a network.** `src/config.test.ts` writes a
+throwaway `config.json` into a temporary directory and asserts the order a setting is decided in,
+that a missing file is not an error, and that a misspelled field is refused **by name** — the one
+failure the schema exists to prevent. `src/output.test.ts` drives the protocol note from where it
+is raised to where it lands, which is what `--quiet` was silently failing to cover (`BUG-7`).
+
+**`pnpm probe:contacts`** re-measures the login's delta markers and prints no content
+([`ARCHITECTURE.md`](ARCHITECTURE.md) §7). It is a probe, not a test: it needs a real session.
 
 ## What to write
 

@@ -2,13 +2,14 @@
 
 How this repository is put together and, more usefully, which seams you are not allowed to cross.
 
-**Status 2026-09-20: this describes working code, not a plan.** Seven commands run against MAX
-and two more answer from what is on this machine — `max cache` and `max runs`. Every request
-sent is built from the specification in `src/spec/`, and every request can now
-be shown as it happens or kept as a record (§13); 148 tests. Everything below was verified against
-the real service unless it says otherwise, and the round trip was re-verified live on 2026-09-20 —
-`max chats list --limit 3 --verbose --record`, three requests, stdout one JSON value and stderr
-carrying only the event lines. The brief is [`REQUIREMENTS.md`](REQUIREMENTS.md); rulings are in
+**Status 2026-09-20: this describes working code, not a plan.** Seven operations run against MAX
+and two more commands answer from what is on this machine — `max cache` and `max runs`. Every
+request sent is built from the specification in `src/spec/`, can be shown as it happens or kept
+as a record (§13), and every setting is decided in one place (§14). Both runtimes pass.
+Everything below was verified against the real service unless it says otherwise, and the round
+trip was re-verified live on 2026-09-20 — `max chats list --limit 3 --verbose --record`, three
+requests, stdout one JSON value and stderr carrying only the event lines. The brief is
+[`REQUIREMENTS.md`](REQUIREMENTS.md); rulings are in
 [`DECISIONS.md`](DECISIONS.md).
 
 ---
@@ -344,3 +345,83 @@ why it is empty and names `--record`, on stderr — stdout still carries one JSO
 `max runs path <id> --json | jq -r .path` and a terminal gets the bare path on a labelled line. The
 convenience of `cat "$(max runs path <id>)/events.jsonl"` was not worth a contract with an
 exception in it — the rule that holds everywhere is the one nobody has to remember.
+
+## 14. Settings, and the order one is decided in
+
+**Flag, then environment, then the configuration file, then the built-in default.** Decided once,
+in `resolveSettings` (`src/config.ts:79`), and every command takes what it is given — a command
+that re-derived the order would be the one that disagrees.
+
+| | how the profile is said |
+|---|---|
+| command line | `max personal chats list` — the first word |
+| environment | `MAX_PROFILE=personal` |
+| configuration file | `"defaultProfile": "personal"` |
+| built-in | `default` |
+
+### The profile is the first word, not a flag
+
+`--profile` was deleted (`NEED-45`). The first word is the profile **unless it names a command**,
+so `max chats list` and `max personal chats list` both work and neither needs a flag
+(`src/profile.ts:45`). The word has to come first, before any option: `max --json personal chats`
+reads `personal` as a command and fails.
+
+⚠ **A profile named after a command could never be selected**, because `max chats` has to mean the
+command. `max session start` refuses such a name (`src/profile.ts:57`) — creation is the only
+moment the collision can still be explained. A name also becomes a file name and a keyring
+account, so it is letters, digits, dot, dash and underscore, and nothing else.
+
+A first word that is neither a command nor a profile anyone has logged in under gets the ordinary
+`authentication_error`, naming the profile and carrying it into the fix — `max x session start`,
+not `max session start`, which would log the wrong profile in. `max chat list`, one letter short
+of `chats`, is the everyday version of this, and the message says which word was read as what.
+
+### The file
+
+`~/.config/max-cli/config.json` (`$XDG_CONFIG_HOME`, or the OS convention elsewhere), mode `0644`,
+read through `cli-core`'s `loadConfigFile`.
+
+```json
+{
+  "defaultProfile": "default",
+  "profiles": {
+    "default": { "limit": 20, "timeoutMs": 30000, "color": true, "record": false, "keepRunsForDays": 30 }
+  }
+}
+```
+
+**A missing file is not an error** — it is a program nobody has configured. A malformed one is, in
+every output mode, and it names the field: the schema is `strictObject`, so `"limitt"` reports
+`profiles.default.limitt` instead of being dropped (`src/config.ts:22`). Valibot's plain `object()`
+silently discards what it does not recognise, which would turn a typo into a setting that appears
+to be ignored for no reason. This is the **opposite** of the rule for MAX's own answers, where an
+unknown field is kept on purpose (`NEED-35`).
+
+**No field in the schema could hold a secret** — no token, no phone number, no chat id. Nowhere to
+put one is stronger than a rule saying do not.
+
+`limit` is one number for every command that takes `--limit`, including `contacts list`, which
+used to show everything. `timeoutMs` unset means the transport's own 30 seconds
+(`src/protocol/connection.ts:57`); `color` unset means "decide from the terminal".
+
+### Two things that jump the queue
+
+**`MAX_TOKEN` outranks the keyring** — `cli-core`'s `Credentials.read`. Deliberate: it is how a
+token is handed to a container or a probe without being stored.
+
+⚠ **`MAX_CONFIG_DIR`, `MAX_STATE_DIR` and `MAX_CACHE_DIR` change which keyring entry a profile
+means.** `pathsAreOverridden` makes the service `max-cli:<configDir>` instead of `max-cli`, so a
+login performed under those variables is invisible to a command run without them, and that command
+answers "no session" for a profile that plainly exists. Use the same environment for both, or
+neither. This has already cost an afternoon (`UX-1`).
+
+### Diagnostics all leave by one door
+
+`--quiet` silences everything diagnostic and nothing else: a failure still prints, because an exit
+code says which kind of thing went wrong and nothing about which chat (`src/output.ts:40`).
+
+That works because there is exactly one place a `MaxClient` is built
+(`src/commands/context.ts:23`) and it hands the client the renderer's `note`. The protocol note
+used to go straight to stderr from inside the client, past the renderer, so `--quiet` did not
+silence it and `--json` did not shape it (`BUG-7`). Six commands each remembering to pass a `warn`
+is a rule that gets broken once and is then invisible; one construction site is not.

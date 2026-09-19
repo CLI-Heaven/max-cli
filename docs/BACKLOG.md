@@ -6,10 +6,11 @@ stays in git history, and in `BACKLOG_DONE.md` once a first closed item starts t
 The brief this is cut from: [`REQUIREMENTS.md`](REQUIREMENTS.md). The plan for the current
 thread: `docs_ai/plans/` (local only, not committed).
 
-**Working as of 2026-09-20**: seven commands — `session start|end`, `account show`, `chats list`,
-`contacts list`, `messages list|send` — verified against the real MAX, and every request they send
-is built from the specification in `src/spec/`. `--verbose` shows each request as it happens and
-`--record` keeps it under `max runs`. 148 tests. What each part does and why is
+**Working as of 2026-09-20**: seven operations under five commands — `session start|end`,
+`account show`, `chats list`, `contacts list`, `messages list|send` — verified against the real
+MAX, and every request they send is built from the specification in `src/spec/`. The profile is
+the first word, every setting comes from one resolver, `--verbose` shows each request as it
+happens and `--record` keeps it under `max runs`. What each part does and why is
 [`ARCHITECTURE.md`](ARCHITECTURE.md); what was ruled is [`DECISIONS.md`](DECISIONS.md).
 
 ⚠ **Correction 2026-09-20: this line still listed `login`, `me`, `send` and `logout`** — the names
@@ -142,14 +143,18 @@ there, which `NEED-59` leaves alone.
 
 ## The command
 
-- **CLI-4** · 🟡 P2 · Profiles, `--quiet`, configuration and its precedence order (§11, §13). The
-  `--verbose` half is closed: one event per request, two sinks, `src/runs/events.ts`
-  ([`ARCHITECTURE.md`](ARCHITECTURE.md) §13). What is left is the configuration file, the
-  precedence order, the profile as the first word, and routing the protocol note through the
-  renderer (`BUG-7`).
-- **CLI-6** · P3 · The configuration's `"record": true` and `keepRunsForDays` have nowhere to come
-  from until `CLI-4` lands the file. `--record` and `--no-record` work; absent means off, where it
-  should mean "ask the configuration" — `src/runs/recording.ts` already takes the third state.
+**`CLI-4` and `CLI-6` are closed.** The configuration file, the order a setting is decided in,
+the profile as the first word, `--quiet` over the protocol note, and `--verbose` with the run log
+are all built; `"record": true` and `keepRunsForDays` now reach `src/runs/recording.ts` through
+`resolveSettings` (`src/commands/context.ts`). How it works is
+[`ARCHITECTURE.md`](ARCHITECTURE.md) §13 and §14.
+
+- **CLI-7** · P2 · The same paging parameters on every listing command — `--limit`, `--page`,
+  `--all`, pushed into SQL rather than slicing — and `contacts list` ordered by who was last
+  messaged (`NEED-81`). In machine mode a paged list answers `{items, page, limit, hasMore}`
+  instead of an array (`NEED-86`), which moves `README.md`, `ARCHITECTURE.md` §10 and
+  `scripts/verify-commands.ts` with it. Plan: `docs_ai/plans/2026-09-20-contacts-and-paging.md`
+  §3.6–§3.7.
 - **CLI-5** · P3 · The debug escape hatch — `max raw` / `max protocol invoke` — spec-validated,
   explicitly advanced, never arbitrary packet injection (§22).
 
