@@ -5,13 +5,6 @@ import { type CacheStore, openStore } from "./store.js"
 
 export type { CacheStore } from "./store.js"
 
-/** How long an answer may be reused. Guesses, and configuration will correct them (`CLI-4`). */
-export const FRESHNESS = {
-  chats: 5 * 60_000,
-  contacts: 5 * 60_000,
-  messages: 60_000,
-} as const
-
 /**
  * Opens this profile's cache, **or gives up quietly**.
  *

@@ -38,7 +38,7 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
     .option("--json", "machine-readable output: one JSON value on stdout, nothing else")
     .option("--quiet", "diagnostics off")
     .option("--verbose", "diagnostics on, without anything that identifies you")
-    .option("--no-cache", "always ask MAX, even when a local answer is fresh")
+    .option("--offline", "answer from what was recorded and never connect; fails if nothing was")
     .showHelpAfterError()
 
   // One resource per command, one action per subcommand — `max chats list`, `max messages send`.

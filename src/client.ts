@@ -1,5 +1,4 @@
 import { CliError } from "@cli-heaven/cli-core"
-import { FRESHNESS } from "./cache/index.js"
 import type { CacheStore } from "./cache/store.js"
 import { namesFrom, toChat, toContact, toMessage, toProfile } from "./domain/map.js"
 import type { Chat, Contact, Id, Message, Profile } from "./domain/models.js"
@@ -20,8 +19,17 @@ export interface MaxClientOptions {
    * and nothing else.
    */
   warn?: (message: string) => void
-  /** Absent means every read goes to MAX. A cache never changes what a command answers, only how fast. */
+  /** Where reads are recorded. It is a record, not a shortcut — see `offline`. */
   cache?: CacheStore
+  /**
+   * Answer from what was recorded and **never connect**.
+   *
+   * Off by default, and deliberately: `LOGIN` already returns the chats, the contacts and recent
+   * messages, so once a command connects at all those are fresh for free. Serving them from disk
+   * instead buys only the right to skip connecting — which is the same act as deciding not to find
+   * out what changed. For a messenger that is backwards (§3.4z of the cache plan).
+   */
+  offline?: boolean
 }
 
 /**
@@ -41,16 +49,18 @@ export class MaxClient {
   readonly #connection: Connection
   readonly #warn: (message: string) => void
   readonly #cache: CacheStore | undefined
+  readonly #offline: boolean
   readonly #wire = wireClient(((operation, request) => this.#send(operation, request)) as Invoke)
   #login: Payload | undefined
   #previousCid = 0
   #people: Map<Id, Contact> | undefined
 
-  constructor({ store, timeoutMs, connection, warn, cache }: MaxClientOptions) {
+  constructor({ store, timeoutMs, connection, warn, cache, offline = false }: MaxClientOptions) {
     this.#store = store
     this.#connection = connection ?? new Connection(timeoutMs === undefined ? {} : { timeoutMs })
     this.#warn = warn ?? ((message) => process.stderr.write(`${message}\n`))
     this.#cache = cache
+    this.#offline = offline
   }
 
   readonly account = {
@@ -67,8 +77,10 @@ export class MaxClient {
      * exactly the chats a person recognises by name.
      */
     list: async (limit?: number): Promise<Chat[]> => {
-      const cached = this.#cache?.chats.read(FRESHNESS.chats)
-      if (cached) return limit === undefined ? cached : cached.slice(0, limit)
+      if (this.#offline) {
+        const cached = this.#recorded(this.#cache?.chats.read(ANY_AGE), "chats")
+        return limit === undefined ? cached : cached.slice(0, limit)
+      }
 
       await this.#connectOnce()
       const raw = asArray(this.#session().chats)
@@ -115,8 +127,7 @@ export class MaxClient {
   readonly contacts = {
     /** The people this account has a one-to-one chat with, named. */
     list: async (): Promise<Contact[]> => {
-      const cached = this.#cache?.contacts.read(FRESHNESS.contacts)
-      if (cached) return cached
+      if (this.#offline) return this.#recorded(this.#cache?.contacts.read(ANY_AGE), "contacts")
 
       await this.#connectOnce()
       const people = await this.#peopleFor(asArray(this.#session().chats))
@@ -128,8 +139,7 @@ export class MaxClient {
 
   readonly messages = {
     list: async (chatId: Id, limit = 20): Promise<Message[]> => {
-      const cached = this.#cache?.messages.read(chatId, limit, FRESHNESS.messages)
-      if (cached) return cached
+      if (this.#offline) return this.#recorded(this.#cache?.messages.read(chatId, limit, ANY_AGE), "messages")
 
       await this.#connectOnce()
       const session = this.#session()
@@ -168,6 +178,8 @@ export class MaxClient {
      * `max send --cid <n>` can then repeat the attempt without risking a second message.
      */
     send: async (chatId: Id, text: string, options: { cid?: number; notify?: boolean } = {}): Promise<Message> => {
+      if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot send")
+
       await this.#connectOnce()
       const session = this.#session()
       const cid = options.cid ?? this.#nextCid()
@@ -241,6 +253,15 @@ export class MaxClient {
 
   async close(): Promise<void> {
     await this.#connection.close()
+  }
+
+  /** What `--offline` can answer with, or a refusal that says how to fix it. */
+  #recorded<T>(value: T[] | undefined, what: string): T[] {
+    if (value) return value
+    throw new CliError(
+      "not_found",
+      `nothing recorded for ${what} on profile "${this.#store.profile}" — run the command once without \`--offline\``,
+    )
   }
 
   /**
@@ -340,6 +361,9 @@ export class MaxClient {
     return this.#login
   }
 }
+
+/** `--offline` was asked for explicitly, so age is not a reason to refuse what was recorded. */
+const ANY_AGE = Number.POSITIVE_INFINITY
 
 const viewer = (store: SessionStore) => {
   const viewerId = store.readState().viewerId

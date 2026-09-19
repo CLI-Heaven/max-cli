@@ -440,7 +440,7 @@ describe("with a cache", () => {
     })
   }
 
-  it("**answers a second read without opening a connection at all**", async () => {
+  it("**answers from the record without opening a connection**, when offline is asked for", async () => {
     const cache = await cacheStore()
 
     const first = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
@@ -459,6 +459,7 @@ describe("with a cache", () => {
     const offline = new MaxClient({
       store,
       cache,
+      offline: true,
       connection: new Connection({
         createSocket: () => {
           throw new Error("the cache should have answered this without a connection")
@@ -470,15 +471,42 @@ describe("with a cache", () => {
     await offline.close()
   })
 
-  it("goes to MAX when the cache has nothing to say", async () => {
+  it('**asks MAX every time by default**, because a record is not an answer to "what is new?"', async () => {
     const cache = await cacheStore()
     const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
     const client = clientSharing(cache, max)
 
     await client.chats.list()
     await client.close()
-
     expect(max.sent.map((call) => call.opcode)).toContain(Opcode.LOGIN)
+
+    // Recorded a moment ago, and it still connects: the login carries fresh chats anyway.
+    const again = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
+    const second = clientSharing(cache, again)
+    await second.chats.list()
+    await second.close()
+    expect(again.sent.map((call) => call.opcode)).toContain(Opcode.LOGIN)
+  })
+
+  it("says what to do when offline has nothing recorded", async () => {
+    const cache = await cacheStore()
+    const max = mockMax({ answers: {} })
+    const store = new SessionStore({
+      keyring: memoryKeyring(),
+      configDir: mkdtempSync(join(tmpdir(), "max-cli-")),
+      env: {},
+    })
+    store.writeToken("a-token")
+    const client = new MaxClient({
+      store,
+      cache,
+      offline: true,
+      connection: new Connection({ createSocket: max.createSocket, timeoutMs: 50 }),
+    })
+
+    const failure = await client.chats.list().catch((error: Error) => error)
+    expect(String(failure)).toContain("--offline")
+    expect(max.sent).toEqual([])
   })
 
   it("**stops trusting a chat it has just sent to**", async () => {
