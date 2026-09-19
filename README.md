@@ -5,13 +5,53 @@ connect, run one operation, print the result, disconnect. Built for AI agents an
 and for people second — every data command answers with stable JSON on request.
 
 **Status 2026-09-20: it works, and it is not released.** Published one day as
-`@cli-heaven/max-cli`; typed as `max`. Seven commands run against the real service —
-`session start|end`, `account show`, `chats list`, `contacts list`, `messages list|send` — every
-request they send is declared once in `src/spec/`, and `max runs` reads back what the tool did.
-Nothing is on npm yet. What it is meant to be, in the owner's own words, is
+`@cli-heaven/max-cli`; typed as `max`. Seven operations run against the real service —
+`session start|end`, `account show`, `chats list`, `contacts list`, `messages list|send` — under
+Node 22+ and Bun. Every request they send is declared once in `src/spec/`, and `max runs` reads
+back what the tool did. Nothing is on npm yet. What it is meant to be, in the owner's own words, is
 [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md); how it is put together is
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); what is left is
 [`docs/BACKLOG.md`](docs/BACKLOG.md).
+
+```sh
+max session start                   # asks for a token; nothing is echoed, nothing is written to a file
+max chats list --limit 5
+max messages list 0 --json          # 0 was the Saved-messages dialog on the account this was measured on
+max messages send 0 "a note to myself"
+```
+
+A chat is named by its id or by part of its title, and an ambiguous title is refused rather than
+guessed at.
+
+## Profiles and settings
+
+**The first word is the profile whenever it is not a command.** There is no `--profile`.
+
+```sh
+max personal chats list             # the profile is `personal`
+MAX_PROFILE=personal max chats list # the same, for a whole shell session
+max chats list                      # the configured default, or `default`
+```
+
+A setting is decided in one order — **flag, then environment, then the configuration file, then
+the built-in default.** The file is optional; without it everything has a default.
+
+`~/.config/max-cli/config.json`:
+
+```json
+{
+  "defaultProfile": "default",
+  "profiles": {
+    "default": { "limit": 20, "timeoutMs": 30000, "color": true }
+  }
+}
+```
+
+Every field is optional and **none of them can hold a secret** — no token, no phone number, no
+chat id. The token lives in the OS keyring; the file only says how the tool behaves. A misspelled
+field is refused by name rather than ignored, so a setting that seems to do nothing is a bug, not
+a typo you have to find. The order, the traps and the two environment variables that outrank all
+of it are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §14.
 
 ## What it keeps, and what it never keeps
 
