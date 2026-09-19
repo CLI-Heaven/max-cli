@@ -59,6 +59,31 @@ a second copy.
 
 ## 2026-09-19 (later)
 
+**NEED-34 · Do the generated per-operation functions become public, or does one client stay the only door?**
+**One door, and it is regrouped.** «2 C». Not the two options first put — the third: the seven
+existing methods take the shape `REQUIREMENTS.md` §8 sketched — `client.chats.list(...)`,
+`client.messages.send(...)`, `client.account.me()` — while remaining the same methods, with the
+name filling, the domain mapping and the resend rule still inside them. The generated functions
+stay an inner layer.
+
+The option rejected is the one that would have published them alongside: that gives raw MAX
+answers a second public entrance, around the rules that make sending safe.
+
+**NEED-35 · Are MAX's answers checked against the spec on the live path?**
+**Yes, and nothing ever fails because of it.** «3 B», with the instruction that response typing
+stay loose because MAX may change. Both hold at once: unknown fields pass through and are kept,
+every field we do not depend on is optional, and the check reports rather than decides. A
+mismatch is one line on stderr and no change to the exit code — the failure being prevented is the
+silent one, where a renamed field turns a column into blanks and nobody learns why.
+
+⚠ Valibot's own error text quotes the value it received, so the note is assembled from the field
+path and the expected type by hand. Printing `issue.message` would put a message body on the
+screen (`REQUIREMENTS.md` §14, §24).
+
+**NEED-36 · Does building start on the accepted plan?**
+**Yes.** «1 A». The plan is `docs_ai/plans/2026-09-19-spec-generator.md` on the machine that wrote
+it; its decisions land here as they are made.
+
 **NEED-27 · Do we measure whether MAX deduplicates by `cid`?**
 **Yes, and it does.** «2 A», measured in the Saved-messages dialog with the owner's agreement. The
 same `cid` sent twice returned the same message id and left one copy — and it held across two
