@@ -1,0 +1,5 @@
+# pnpm blocks dependencies' install scripts by default, so esbuild never unpacks its platform
+# binary and vitest fails at startup. Since pnpm 11 the key is `allowBuilds` here, with an explicit
+# boolean per package.
+allowBuilds:
+  esbuild: true

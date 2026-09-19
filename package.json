@@ -1,0 +1,45 @@
+{
+  "name": "max-cli",
+  "version": "0.0.0",
+  "description": "A local command line interface for a personal MAX Messenger account, built for agents and scripts",
+  "license": "MIT",
+  "author": "Viacheslav Ptsarev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CLI-Heaven/max-cli.git"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@11.20.0",
+  "bin": {
+    "max": "./dist/bin/max.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build --force --emitDeclarationOnly",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "smoke:bun": "bun run scripts/smoke.ts"
+  },
+  "dependencies": {
+    "commander": "^15.0.0",
+    "valibot": "^1.5.0",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.14",
+    "@types/node": "^22.10.2",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
