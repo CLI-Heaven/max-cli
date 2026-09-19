@@ -21,7 +21,7 @@ export const contactsCommand = (): Command => {
     .action(async function (this: Command) {
       const options = this.optsWithGlobals()
       const { renderer } = resolveOutput(options)
-      const cache = await openProfileCache(options.profile)
+      const cache = options.cache === false ? undefined : await openProfileCache(options.profile)
       const client = new MaxClient({
         store: new SessionStore({ profile: options.profile }),
         ...(cache ? { cache } : {}),

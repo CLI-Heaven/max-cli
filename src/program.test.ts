@@ -22,7 +22,24 @@ describe("the program", () => {
 
   it("offers every resource at the top level", async () => {
     const { stdout } = await runWith(["--help"])
-    for (const command of ["session", "account", "chats", "contacts", "messages"]) expect(stdout).toContain(command)
+    for (const command of ["session", "account", "chats", "contacts", "messages", "cache"]) {
+      expect(stdout).toContain(command)
+    }
+  })
+
+  it("**offers a way out of the cache**, because a cache is the one part that remembers being wrong", async () => {
+    expect((await runWith(["--help"])).stdout).toContain("--no-cache")
+    expect((await runWith(["cache", "--help"])).stdout).toContain("clear")
+  })
+
+  it("reads --no-cache as a switch the commands can see", () => {
+    const program = createProgram()
+    program.parseOptions(["--no-cache"])
+    expect(program.opts().cache).toBe(false)
+
+    const untouched = createProgram()
+    untouched.parseOptions([])
+    expect(untouched.opts().cache).not.toBe(false)
   })
 
   it("**puts the action under the resource, never beside it**", async () => {

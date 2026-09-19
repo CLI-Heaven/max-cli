@@ -1,6 +1,7 @@
 import { CliError, exitCodeFor, GENERIC_FAILURE, processStreams, type Streams } from "@cli-heaven/cli-core"
 import { Command, CommanderError } from "commander"
 import { accountCommand } from "./commands/account.js"
+import { cacheCommand } from "./commands/cache.js"
 import { chatsCommand } from "./commands/chats.js"
 import { contactsCommand } from "./commands/contacts.js"
 import { messagesCommand } from "./commands/messages.js"
@@ -37,6 +38,7 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
     .option("--json", "machine-readable output: one JSON value on stdout, nothing else")
     .option("--quiet", "diagnostics off")
     .option("--verbose", "diagnostics on, without anything that identifies you")
+    .option("--no-cache", "always ask MAX, even when a local answer is fresh")
     .showHelpAfterError()
 
   // One resource per command, one action per subcommand — `max chats list`, `max messages send`.
@@ -47,6 +49,7 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
   program.addCommand(chatsCommand())
   program.addCommand(contactsCommand())
   program.addCommand(messagesCommand())
+  program.addCommand(cacheCommand())
 
   // Depth-first: Commander does not pass `configureOutput` down to a command added with
   // `addCommand`, so `max messages --help` would write to the real terminal while the top level
