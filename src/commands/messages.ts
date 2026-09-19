@@ -1,9 +1,6 @@
 import { Command } from "commander"
 import { openProfileCache } from "../cache/index.js"
-import { MaxClient } from "../client.js"
-import { resolveOutput } from "../output.js"
-import { recorded } from "../runs/recording.js"
-import { SessionStore } from "../session/store.js"
+import { forCommand } from "./context.js"
 
 export const messagesCommand = (): Command => {
   const command = new Command("messages").description("read and send messages in a chat")
@@ -16,19 +13,17 @@ export const messagesCommand = (): Command => {
     .command("list")
     .argument("<chat>", "chat id, or part of a chat name")
     .description("recent messages in a chat, oldest first")
-    .option("--limit <n>", "how many to read", (value) => Number.parseInt(value, 10), 20)
+    .option("--limit <n>", "how many to read", (value) => Number.parseInt(value, 10))
     .action(async function (this: Command, chat: string) {
-      const options = this.optsWithGlobals()
-      const { renderer, format } = resolveOutput(options)
-      const store = new SessionStore({ profile: options.profile })
-      const cache = await openProfileCache(options.profile, { onProblem: (message) => renderer.note(message) })
+      const { renderer, settings, createClient, run } = forCommand(this.optsWithGlobals())
+      const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
 
-      await recorded({ command: "messages list", profile: store.profile, options, format }, async (events) => {
-        const client = new MaxClient({ store, events, ...(cache ? { cache } : {}) })
+      await run("messages list", async (events) => {
+        const client = createClient({ events, ...(cache ? { cache } : {}) })
 
         try {
           const chatId = await client.chats.resolve(chat)
-          renderer.result(await client.messages.list(chatId, options.limit))
+          renderer.result(await client.messages.list(chatId, settings.limit))
         } finally {
           await client.close()
           cache?.close()
@@ -53,12 +48,11 @@ export const messagesCommand = (): Command => {
     )
     .action(async function (this: Command, chat: string, text: string) {
       const options = this.optsWithGlobals()
-      const { renderer, format } = resolveOutput(options)
-      const store = new SessionStore({ profile: options.profile })
-      const cache = await openProfileCache(options.profile, { onProblem: (message) => renderer.note(message) })
+      const { renderer, settings, createClient, run } = forCommand(options)
+      const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
 
-      await recorded({ command: "messages send", profile: store.profile, options, format }, async (events) => {
-        const client = new MaxClient({ store, events, ...(cache ? { cache } : {}) })
+      await run("messages send", async (events) => {
+        const client = createClient({ events, ...(cache ? { cache } : {}) })
 
         try {
           const chatId = await client.chats.resolve(chat)
