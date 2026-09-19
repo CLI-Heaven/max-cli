@@ -64,9 +64,15 @@ MAX's web protocol is text frames of `{ver: 11, cmd, seq, opcode, payload}`, whe
 0 request, 1 response, 3 error. MessagePack, LZ4 and zstd belong to the **TCP** transport, which we
 do not use.
 
-⚠ **Never `JSON.parse` a MAX frame.** Chat and message ids are 64-bit. Measured on a real account:
-message ids come back with **18 digits**, past `Number.MAX_SAFE_INTEGER`, so the built-in parser
-rounds them and two different messages can arrive as one id. `src/protocol/frame.ts` parses with
+⚠ **Never `JSON.parse` a MAX frame.** Ids are 64-bit. Measured on a real account: message ids come
+back with **18 digits**, past `Number.MAX_SAFE_INTEGER`, so the built-in parser rounds them and two
+different messages can arrive as one id.
+
+Measured again 2026-09-19, over 25 chats and 6 contacts (`pnpm probe:ids`): **chat ids reach 14
+digits and contact ids 9** — every one of them inside what a number holds. So the ids we *send*
+have never been long enough to be damaged, and the ids we *read* are the ones that need the
+lossless codec. Chat ids being 19 digits was an illustration that had found its way into the code
+as if it were a measurement; corrected in `src/protocol/frame.ts`. `src/protocol/frame.ts` parses with
 `lossless-json`, hands back a `bigint` for anything that would not survive, and **every id leaves
 that layer as a string** — an id is an identifier, never arithmetic.
 
@@ -232,6 +238,11 @@ a message body never appears in a note.
 direction and `Number(chatId)` stood in for it, which silently rounds anything past 15 digits —
 `Number("7268926000000000001")` is a different chat. Ids below 2⁵³ produce the identical bytes they
 did before, so the repair is invisible except where it matters.
+
+**It never mattered yet.** Measured 2026-09-19 across every chat and contact the login returned:
+nothing past 2⁵³, the longest chat id 14 digits. The old conversion was not damaging anything — the
+two things we send ids for, chats and contacts, both stay small. This is hardening, and it stops
+the question being re-asked every time somebody reads `Number(chatId)` and wonders.
 
 ### Staleness
 

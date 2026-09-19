@@ -138,6 +138,7 @@ regenerates and asserts the tree did not change. How to add an operation is
   seconds apart; a retry minutes later is unproven.
 - **PROTO-3** · P3 · The upper bound on `chatsCount` in `LOGIN`. 100 works, 200 is refused as "out
   of range"; the boundary is somewhere between. The specification caps it at 100 meanwhile.
-- **PROTO-4** · P2 · Whether any real id on this account is past 2⁵³. Until the specification
-  landed, `Number(chatId)` rounded every outgoing id, which for an id that long is a different
-  chat. Repaired regardless; `pnpm probe:ids` says whether it was ever doing damage.
+- **PROTO-5** · P3 · How long a message id can get, and whether a chat id ever crosses 2⁵³.
+  Measured 2026-09-19 over 25 chats and 6 contacts: chat ids reach 14 digits, contact ids 9, none
+  past 2⁵³. The login carried no messages that run, so the 18-digit message id remains a single
+  earlier observation — and message ids are only ever read, never sent.
