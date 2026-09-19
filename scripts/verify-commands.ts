@@ -1,12 +1,14 @@
 /**
  * Do the renamed commands still work against the real MAX? Run by hand, never by CI.
  *
- *   max session start     # once, if there is no session yet
- *   pnpm verify:live
+ *   max session start                    # once, if there is no session yet
+ *   pnpm verify:live                     # reads only
+ *   pnpm verify:live --send-to-saved     # also sends one message to Saved messages
  *
- * **Read-only, and it prints no content.** Every command here reads; none sends, and none marks
- * anything read. What reaches the screen is a pass or a fail, the number of items, and the field
- * names of our own domain model — never a chat title, a name, a message or an id.
+ * **Read-only unless asked, and it prints no content.** Nothing sends and nothing marks anything
+ * read, unless `--send-to-saved` is passed — a flag long enough that it cannot be typed by
+ * accident. What reaches the screen is a pass or a fail, the number of items, and the field names
+ * of our own domain model — never a chat title, a name, a message or an id.
  *
  * It exists because a rename is exactly where a wiring mistake hides: a subcommand that parses
  * perfectly and never reaches the socket looks identical to a working one until it is run.
@@ -69,6 +71,16 @@ check("chats list", ["chats", "list", "--limit", "3"])
 check("contacts list", ["contacts", "list", "--limit", "3"])
 // Chat 0 is the owner's Saved-messages dialog: the one chat it is safe to touch without asking.
 check("messages list", ["messages", "list", "0", "--limit", "3"])
+
+if (process.argv.includes("--send-to-saved")) {
+  // Chat 0 is the owner's Saved-messages dialog — the only chat a test may write to, and the
+  // decision that made it so is NEED-28. It leaves a message he has to delete by hand (NEED-32),
+  // which is why this needs asking for rather than being part of the run.
+  console.log("\nsending one message to Saved messages — you will have to delete it yourself:")
+  check("messages send", ["messages", "send", "0", "verify:live"])
+} else {
+  console.log("\nthe send path was NOT checked — pass --send-to-saved to include it")
+}
 
 console.log("\nand the shapes that must no longer exist:")
 for (const gone of [["send", "0", "x"], ["me"], ["login"]]) {
