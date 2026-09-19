@@ -57,6 +57,33 @@ other field identifying the client imitate the official MAX client. Recorded as
 [`REQUIREMENTS.md`](REQUIREMENTS.md) §34, which is where it is cited from; this is a pointer, not
 a second copy.
 
+## 2026-09-19 (later)
+
+**NEED-27 · Do we measure whether MAX deduplicates by `cid`?**
+**Yes, and it does.** «2 A», measured in the Saved-messages dialog with the owner's agreement. The
+same `cid` sent twice returned the same message id and left one copy — and it held across two
+separate connections and logins, which is the case a retry actually faces. This is what §17 asks
+for before a send may be retried, so a lost send is now retried once with the same `cid` and never
+a fresh one. What is still unmeasured is how long the server remembers one:
+[`ARCHITECTURE.md`](ARCHITECTURE.md) §6.
+
+**NEED-28 · Which chat is safe to send a test message to?**
+**The Saved-messages dialog, which is `DIALOG` id `0`.** The owner sent a message to it so it could
+be found. Worth recording because the obvious heuristic is wrong: "one participant" also describes
+**channels you own**, and sending to one of those reaches its subscribers.
+
+**NEED-30 · What comes after the vertical slice?**
+**Contacts.** «2 да». Names for one-to-one chats and addressing a chat by name — without them
+`max chats` shows a column of blanks for exactly the chats a person recognises.
+
+**NEED-31 · Documents, the spec and generator, or an interactive login?**
+**Documents first.** «1 A». `ARCHITECTURE.md` and bringing the rest in line with the code, before
+the next feature. The spec module and generator (`NEED-7`) remain the next piece of building.
+
+**NEED-32 · Who removes the three test messages left in Saved messages?**
+**The owner, by hand.** «2 A». `MSG_DELETE` (66) stays untouched: implementing deletion to tidy up
+after myself is a poor reason to give a tool the ability to destroy messages.
+
 **NEED-17 · Our own WebSocket adapter, or `@bruch/max-client`?**
 **Our own.** «1 А». Option B of [`REQUIREMENTS.md`](REQUIREMENTS.md) §5. This was the last
 unruled decision in the architecture proposal and the one everything else rested on.

@@ -6,9 +6,9 @@ stays in git history, and in `BACKLOG_DONE.md` once a first closed item starts t
 The brief this is cut from: [`REQUIREMENTS.md`](REQUIREMENTS.md). The plan for the current
 thread: `docs_ai/plans/` (local only, not committed).
 
-**Nothing is built yet.** The repository holds these documents and nothing else. The list below is
-therefore cut from the brief rather than from code, and every anchor is a section of it; anchors
-become `path:line` as soon as there is a path.
+**Working as of 2026-09-19**: seven commands — `login`, `me`, `chats`, `contacts`, `messages`,
+`send`, `logout` — verified against the real MAX. 57 tests. What each part does and why is
+[`ARCHITECTURE.md`](ARCHITECTURE.md); what was ruled is [`DECISIONS.md`](DECISIONS.md).
 
 <details>
 <summary>Rules of this file — read once</summary>
@@ -49,72 +49,47 @@ become `path:line` as soon as there is a path.
 
 ---
 
-## Blocking everything: the architecture proposal
+## Done, and where the trail went
 
-The brief's first deliverable (§31). **Written 2026-09-19 and awaiting approval** —
-`docs_ai/plans/2026-09-19-architecture.md` (local only). Until it is accepted, every item below it
-is an estimate of work whose shape is not yet known.
+The architecture proposal, the `cli-core` extraction, the vertical slice and contacts are all
+closed. `RES-1`, `RES-2`, `RES-3`, `CORE-1`…`CORE-4`, `MAX-1`…`MAX-3`, `MAX-6`, `CLI-1`…`CLI-3`,
+`OPS-1`, `OPS-2`, `OPS-5`, `OPS-6`, `OPS-7` — their reasoning lives in
+[`ARCHITECTURE.md`](ARCHITECTURE.md) and [`DECISIONS.md`](DECISIONS.md), and the proposal itself is
+in `docs_ai/plans/` on the machine that did the work.
 
-- **RES-1** · 🟡 P1 · The file-by-file inventory of what moves to `cli-core` — answered in the
-  proposal's §4. Reopens only if the proposal is rejected.
-- **RES-2** · ✅ Closed by `NEED-17`: our own WebSocket adapter. The evidence is the proposal's
-  §2; the ruling is in [`DECISIONS.md`](DECISIONS.md).
-- **RES-3** · ✅ Closed by `NEED-7`: the spec is a TypeScript module; the TypeSpec proof of concept
-  is kept as the migration path.
-- **RES-4** · P2 · Survey how the CLIs that agents actually drive are built — `wrangler`, `gh`,
-  `stripe` — and keep only what changes a decision here. Not done: outside §31's list, and not a
-  document of its own — each item lands as a backlog line or is dropped.
-- **RES-5** · 🟡 P1 · Whether reading history marks messages read — half answered in the proposal's
-  §11.4: marking is a separate opcode we simply never send, but whether `LOGIN` itself moves
-  presence or read state needs a live check from a second device.
-- **DOC-1** · P1 · Write `ARCHITECTURE.md` once the proposal is accepted — the seams, the
-  lifecycle, what is generated and what is not. Not before: an architecture document written
-  ahead of the architecture is fiction.
+**Still open from that phase:**
+
+- **RES-5** · 🟡 P2 · Whether `LOGIN` itself moves presence or read state. Reading history does not
+  (we never send `CHAT_MARK`, and a test asserts it), but the login flag `interactive` is
+  unexplained by every source. Needs a second device watching.
+- **DOC-1** · ✅ Closed — [`ARCHITECTURE.md`](ARCHITECTURE.md) exists and describes working code.
 
 ## Repository and tooling
 
-- **OPS-1** · P3 · Settle the npm scope at the first publish — `@cli-heaven/max-cli` is the
-  obvious one. Everything else about the naming is ruled: package `max-cli`, command `max`,
-  repository [`CLI-Heaven/max-cli`](https://github.com/CLI-Heaven/max-cli) (`NEED-1`, `NEED-4`).
-- **OPS-2** · P1 · Scaffold **one package**, not a workspace (`NEED-12`): pnpm, TypeScript strict,
-  Biome, Vitest, lefthook, a CI workflow that runs lint, typecheck and tests on every pull request
-  — copied from `braze-cli`, not reinvented (§1).
-- **OPS-5** · P1 · A Bun smoke run in CI beside the Node suite — "it works under Bun" is tested,
-  not assumed (`NEED-11`, §36). `braze-cli`'s `pnpm smoke:bun` is the model.
-- **OPS-6** · P2 · A lint rule that fails when `src/commands/` imports from `src/protocol/`. With
-  one package, that seam has no package boundary holding it (`NEED-12`).
 - **OPS-3** · P2 · A `generate` script plus a CI check that fails when generated output is stale —
   regenerate, then assert the working tree did not change (§8).
 - **OPS-4** · P3 · Publishing and releasing, once there is something worth installing.
-- **OPS-7** · P1 · Publish `@cli-heaven/cli-core` — `max-cli` cannot consume it across repositories
-  until it reaches a registry (`CORE-4`). Needs the owner's word: publishing is outward-facing.
 
 ## The foundation
 
 - **CORE-6** · P1 · Check `node:sqlite` on Node **22** — it may still need `--experimental-sqlite`
   there, and only Node 24 was measured. Before the cache phase, not before the slice (`NEED-11`).
-- **CORE-1** · 🟡 P1 · Extract `cli-core` out of `braze-cli` into
-  [`CLI-Heaven/cli-core`](https://github.com/CLI-Heaven/cli-core) (`NEED-3`). **Step 1 landed**
-  (`b8a683e`): streams, renderer, pretty, errors, exit codes, keyring, clocks, logger interface and
-  the test kit — 29 tests, green under Node and executed under Bun. **Left**: config loading and
-  `writeSecurely`, the credential store, the Pino adapter, retry primitives, and the `/http`
-  subpath `braze-cli` needs.
-- **CORE-4** · P1 · Consume `cli-core` from both CLIs and keep them on one version: it has to
-  reach a registry or be pinned some other way, because two repositories cannot share a private
-  workspace package (`NEED-3`). Decide the mechanism with OPS-1's scope answer.
+
 - **CORE-5** · P2 · Move `braze-cli` onto the extracted `cli-core` rather than leaving it on its
   own copy — the whole point of extracting rather than copying. Another repository, so it is its
   own change, and it does not block anything here.
-- **CORE-2** · P2 · Keep the credential abstraction generic: keyring first, file fallback, the
-  injected seam that makes it impossible for a test to reach a real keychain (§13).
-- **CORE-3** · P2 · Retry, backoff and jitter as primitives with no default opinion about whether
-  an operation may be retried — the caller decides, because a resend is not a re-read (§17).
 
 ## The protocol
 
-- **SPEC-1** · P1 · The v1 specification: authentication, current user, chat list, message
-  history, send text, logout — and nothing else (§11). Every operation carries where its shape
-  came from and how confident we are (§10).
+- **SPEC-0** · P1 · **The next piece of work.** Opcodes and payload shapes are hand-written
+  constants in `src/protocol/session.ts` and object literals in `src/client.ts`; `NEED-7` ruled the
+  spec is a TypeScript module with Valibot schemas as its literal source, and none of it exists
+  yet. Ten opcodes are in use, each one added by hand.
+
+- **SPEC-1** · P1 · The v1 specification, covering what is already implemented by hand: `INIT` 6,
+  `LOGIN` 19, `LOGOUT` 20, `CONTACT_INFO` 32, `CHAT_HISTORY` 49, `CHATS_LIST` 53, `MSG_SEND` 64 —
+  each carrying where its shape came from and how confident we are (§10). The shapes exist in
+  `src/protocol/session.ts` and `src/client.ts`; this moves them into one declared place.
 - **SPEC-2** · P1 · The generator: spec → normalized model → deterministic emitters for types,
   validators, an operation registry and typed client methods. Generated files are marked, are
   committed, and are never hand-edited (§8, §28).
@@ -125,20 +100,9 @@ is an estimate of work whose shape is not yet known.
 
 ## MAX
 
-- **MAX-1** · P1 · Our own `MaxClient` interface — authenticate, getMe, listChats, listMessages,
-  sendMessage, close — and one adapter behind it. No third-party type reaches anything above it
-  (§25).
-- **MAX-2** · P1 · Session persistence: what the chosen client needs, stored under the user state
-  directory with restrictive permissions, never printed, never committed, redacted in logs (§13).
-- **MAX-3** · P1 · Domain models for chat and message, and the mapping from the wire shape onto
-  them — tolerant of unknown fields when reading, strict when sending (§16, §29).
-- **MAX-4** · P2 · Chat addressing that can grow a resolver later without changing the command
-  surface (§12).
-- **MAX-5** · P1 · A person type in the domain model from phase 1, before any command prints one —
-  chats and messages both reference people, and retrofitting identity through a domain model
-  touches everything (§35).
-- **MAX-6** · P2 · Contacts: `CONTACT_LIST` 36, `CONTACT_INFO` 32, `CONTACT_SEARCH` 37, and the
-  name resolution they make possible — phase 2, the first thing after the slice (`NEED-13`, §35).
+- **MAX-4** · 🟡 P2 · Chat addressing: names work now, and what is left is the parts nobody has
+  needed yet — a `@username`, a phone number, a chat you are not in.
+
 - **MAX-7** · P2 · The SQLite cache: chats, messages, contacts and their sync counters, behind a
   driver seam because `node:sqlite` and `bun:sqlite` are not the same module (`NEED-14`, `NEED-11`).
   Never the session token. Needs `--no-cache` and a clear command from the first commit.
@@ -150,17 +114,10 @@ is an estimate of work whose shape is not yet known.
 
 ## The command
 
-- **CLI-1** · P1 · The vertical slice: `login`, `me`, `chats`, `messages`, `send`, `logout`, each
-  with human output and `--json` (§32).
-- **CLI-2** · P1 · The machine-output invariant, with a test: in `--json` mode stdout carries one
-  JSON value and nothing else, diagnostics go to stderr (§3, §15).
-- **CLI-3** · P1 · Lifecycle: every command closes its transport on every exit path, and a test
-  that fails when the process stays alive (§18, §23.10).
 - **CLI-4** · P2 · Profiles, `--verbose`, `--quiet`, configuration and its precedence order (§11,
   §13).
 - **CLI-5** · P3 · The debug escape hatch — `max raw` / `max protocol invoke` — spec-validated,
   explicitly advanced, never arbitrary packet injection (§22).
-
 
 ## Risks carried
 
@@ -169,3 +126,12 @@ is an estimate of work whose shape is not yet known.
   interval nor a symptom beyond "the connection closes right after INIT"; no other source mentions
   it. Proposal §11.1: persist the rotated token the login response returns, name the symptom in an
   error message, count logins — and do not refuse on a ceiling nobody has measured (`NEED-8`).
+
+## Known unknowns
+
+- **PROTO-1** · P2 · What opcode 36 actually returns. tsmax and PyMax call it `CONTACT_LIST`, the
+  protocol documentation calls it `GET_BLOCKED`. Unused until somebody watches it.
+- **PROTO-2** · P2 · How long MAX remembers a `cid`. The retry rule rests on deduplication measured
+  seconds apart; a retry minutes later is unproven.
+- **PROTO-3** · P3 · The upper bound on `chatsCount` in `LOGIN`. 100 works, 200 is refused as "out
+  of range"; the boundary is somewhere between.

@@ -1,28 +1,27 @@
 # Documentation
 
-**Nothing is built yet.** This repository currently holds the brief and the rules the work will
-follow. There are no installation, usage or command pages, because there is no command — a page
-describing one would be fiction rather than documentation
-([`CONVENTIONS.md`](CONVENTIONS.md), "leave a section out").
+`max` is a command line interface for a personal MAX Messenger account. Six commands work against
+the real service; the protocol underneath is unofficial and reverse-engineered.
 
-## What exists
+## Building it
 
 | | |
 |---|---|
-| [REQUIREMENTS.md](REQUIREMENTS.md) | the owner's brief, recorded as the source — cited by section number |
-| [BACKLOG.md](BACKLOG.md) | what is left to build, one line each, and the rules for taking a number |
-| [DECISIONS.md](DECISIONS.md) | what the owner ruled, and why — read before "fixing" something odd |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | how it is built **now**, and which seams you may not cross |
+| [REQUIREMENTS.md](REQUIREMENTS.md) | the owner's brief, cited by section number |
+| [DECISIONS.md](DECISIONS.md) | what was ruled, and why — read before "fixing" something odd |
 | [CONVENTIONS.md](CONVENTIONS.md) | how code and documents are written here |
+| [TESTING.md](TESTING.md) | how to check it yourself, and what each check is for |
+| [BACKLOG.md](BACKLOG.md) | what is left |
 
-## What will exist, and when
+## Not written yet, on purpose
 
-| | |
-|---|---|
-| `ARCHITECTURE.md` | when the architecture proposal (§31) is accepted — how it is built **now**, never how it might be |
-| `TESTING.md` | when there is a suite to run |
-| `installation.md` · `usage.md` · `commands.md` | when there is something to install and type |
-| `security.md` | when session storage exists and its contents can be described truthfully |
+`installation.md`, `usage.md` and `commands.md` wait until there is a release to install: `max
+--help` is currently the whole of the command reference, and a page repeating it would be one more
+thing to keep true.
 
-The working trail — the handoff for whoever picks this up next, plans, the session journal and the
-cleanup list — lives in `docs_ai/` on the machine doing the work and is deliberately not
-committed.
+`ARCHITECTURE.md` describes the code as it behaves today. **When a document disagrees with the
+code, the code is right and the document gets corrected in place.**
+
+The working trail — the handoff, plans, the session journal and the cleanup list — lives in
+`docs_ai/` on the machine doing the work and is deliberately not committed.
