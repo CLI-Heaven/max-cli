@@ -1,6 +1,7 @@
 import { Command } from "commander"
 import { MaxClient } from "../client.js"
 import { resolveOutput } from "../output.js"
+import { recorded } from "../runs/recording.js"
 import { readSecret } from "../session/prompt.js"
 import { SessionStore } from "../session/store.js"
 
@@ -24,9 +25,10 @@ export const sessionCommand = (): Command => {
     .description("store a MAX session for this profile")
     .action(async function (this: Command) {
       const options = this.optsWithGlobals()
-      const { renderer } = resolveOutput(options)
+      const { renderer, format } = resolveOutput(options)
       const token = process.env.MAX_TOKEN?.trim() || (await readSecret("MAX token: "))
 
+      // Before the run directory: nothing was attempted, so there is nothing to record.
       if (!token) {
         renderer.failure("no token given")
         process.exitCode = 2
@@ -36,15 +38,18 @@ export const sessionCommand = (): Command => {
       const store = new SessionStore({ profile: options.profile })
       store.writeToken(token)
 
-      const client = new MaxClient({ store })
-      try {
-        await client.connect()
-        const profile = client.account.me()
-        renderer.result({ profile, stored: true })
-        renderer.success(`logged in as ${profile.name ?? profile.id}`)
-      } finally {
-        await client.close()
-      }
+      await recorded({ command: "session start", profile: store.profile, options, format }, async (events) => {
+        const client = new MaxClient({ store, events })
+
+        try {
+          await client.connect()
+          const profile = client.account.me()
+          renderer.result({ profile, stored: true })
+          renderer.success(`logged in as ${profile.name ?? profile.id}`)
+        } finally {
+          await client.close()
+        }
+      })
     })
 
   /**
@@ -58,15 +63,20 @@ export const sessionCommand = (): Command => {
   command
     .command("end")
     .description("forget the stored session for this profile")
-    .action(function (this: Command) {
+    .action(async function (this: Command) {
       const options = this.optsWithGlobals()
-      const { renderer } = resolveOutput(options)
+      const { renderer, format } = resolveOutput(options)
       const store = new SessionStore({ profile: options.profile })
-      const had = store.forget()
 
-      renderer.result({ profile: store.profile, forgotten: had, revokedOnServer: false })
-      if (had) renderer.success(`forgot the session for "${store.profile}" on this machine`)
-      else renderer.note(`there was no session for "${store.profile}"`)
+      // It contacts nobody, so the run holds no events — but forgetting a session is an action, and
+      // "when did this profile stop working" is a question the record is kept to answer.
+      await recorded({ command: "session end", profile: store.profile, options, format }, async () => {
+        const had = store.forget()
+
+        renderer.result({ profile: store.profile, forgotten: had, revokedOnServer: false })
+        if (had) renderer.success(`forgot the session for "${store.profile}" on this machine`)
+        else renderer.note(`there was no session for "${store.profile}"`)
+      })
     })
 
   return command

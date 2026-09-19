@@ -59,7 +59,13 @@ export const sessionLogin = defineOperation({
     profile: v.optional(v.looseObject({})),
     chats: v.optional(v.array(v.looseObject({}))),
     contacts: v.optional(v.array(v.looseObject({}))),
-    messages: v.optional(v.array(v.looseObject({}))),
+    /**
+     * ⚠ **An object, not an array.** Measured 2026-09-20, the day the handshake started going
+     * through the checked path: MAX answered `messages` as an object and every login printed a
+     * mismatch. Declared `unknown` rather than guessed at — nothing reads this field, and what it
+     * holds is `PROTO-6`.
+     */
+    messages: v.optional(v.unknown()),
     presence: v.optional(v.unknown()),
     time: v.optional(v.number()),
     chatMarker: v.optional(v.unknown()),
@@ -68,7 +74,7 @@ export const sessionLogin = defineOperation({
   }),
   provenance: {
     confidence: "measured",
-    sources: ["measured against MAX 2026-09-19"],
+    sources: ["measured against MAX 2026-09-19", "measured against MAX 2026-09-20 (`messages` is an object)"],
     notes:
       "Unusually generous: the answer carries the profile, chats, contacts and recent messages, so `me` and `chats` need no further request.",
   },

@@ -5,6 +5,7 @@ import { cacheCommand } from "./commands/cache.js"
 import { chatsCommand } from "./commands/chats.js"
 import { contactsCommand } from "./commands/contacts.js"
 import { messagesCommand } from "./commands/messages.js"
+import { runsCommand } from "./commands/runs.js"
 import { sessionCommand } from "./commands/session.js"
 import { VERSION } from "./version.js"
 
@@ -37,8 +38,10 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
     .option("--profile <name>", "which stored account to use", "default")
     .option("--json", "machine-readable output: one JSON value on stdout, nothing else")
     .option("--quiet", "diagnostics off")
-    .option("--verbose", "diagnostics on, without anything that identifies you")
+    .option("--verbose", "diagnostics on: ids and timings on stderr, never message content")
     .option("--offline", "answer from what was recorded and never connect; fails if nothing was")
+    .option("--record", "keep this run under `max runs` — ids and timings, never message content")
+    .option("--no-record", "do not keep it, whatever the configuration says")
     .showHelpAfterError()
 
   // One resource per command, one action per subcommand — `max chats list`, `max messages send`.
@@ -50,6 +53,7 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
   program.addCommand(contactsCommand())
   program.addCommand(messagesCommand())
   program.addCommand(cacheCommand())
+  program.addCommand(runsCommand())
 
   // Depth-first: Commander does not pass `configureOutput` down to a command added with
   // `addCommand`, so `max messages --help` would write to the real terminal while the top level

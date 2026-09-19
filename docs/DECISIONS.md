@@ -253,3 +253,43 @@ infrastructure — output modes, config, credentials, errors, runs — is transp
 what MAX needs; an HTTP client is a different concern that happens to be what Braze needs. If both
 live behind one entry point, MAX ends up depending on an HTTP stack it never calls. `RES-1` draws
 the inventory and this is the line it has to cut along.
+
+## 2026-09-20
+
+**NEED-53 · Is a `--verbose` diagnostic text or JSON, and which flag wins when `--quiet` is given
+with `--verbose`?**
+**Text for a person, one JSON object per line for everything else — and `--verbose` wins.**
+«3 A», confirmed by the owner 2026-09-20.
+
+It was decided by the thread first, not by him: the handoff splitting this work (§10) said a
+question both threads would hit is settled by whichever reaches it first, written down here, and
+followed by the other. Thread B reached it and he then confirmed it, so it is a ruling like any
+other.
+
+The format follows what `resolveOutput` already decides for the data stream (`src/output.ts:22`):
+a terminal gets `→ chats.history   op 49  seq 3  chat 0`, a pipe gets a line `jq` can read. One
+rule for both streams rather than two, and no new question for the next command to answer
+differently.
+
+`--verbose` beating `--quiet` is the less obvious half. Neither flag touches stdout, so the
+machine-mode contract is not involved either way; what decides it is that `--quiet` usually sits
+in a script written once, and `--verbose` is what a person adds to that script's command line when
+something has gone wrong. The flag someone just typed has to do something. `--quiet` keeps its
+meaning for everything else diagnostic.
+
+**NEED-88 · Does `max runs path` print a bare path, breaking "one JSON value on stdout" for that
+one command?**
+**No — `{"path": "…"}`, and the rule keeps no exceptions.** «1 B». A script reads
+`max runs path <id> --json | jq -r .path`; a terminal gets the bare path on a labelled line.
+
+I argued for the bare path, copying `braze-cli`, because the whole use of the command is
+`cat "$(max runs path <id>)/events.jsonl"` and quotes break exactly that. Overruled, and the
+reason is worth keeping: a contract with one exception in it is a contract everybody has to
+remember, and the one thing this tool promises agents is that stdout can be parsed without
+knowing which command produced it.
+
+**NEED-89 · In what order do the three open pull requests land?**
+**Thread B's `#12` first, then the others rebase onto it.** «2 A». The cache thread argued for
+`#10` first, because it repairs a cache that has never once worked on `main`; a fair argument, and
+the owner chose otherwise. The overlap is four lines in `src/program.ts`, which the next branch
+resolves on its rebase.

@@ -2,11 +2,13 @@
 
 How this repository is put together and, more usefully, which seams you are not allowed to cross.
 
-**Status 2026-09-19: this describes working code, not a plan.** Seven commands run against MAX,
-and every request they send is now built from the specification in `src/spec/`; 78 tests.
-Everything below was verified against the real service unless it says otherwise. ⚠ The one thing
-not re-verified live since the specification landed is the round trip itself — the suite and both
-runtimes pass, and the commands have not been run against MAX again. The brief is [`REQUIREMENTS.md`](REQUIREMENTS.md); rulings are in
+**Status 2026-09-20: this describes working code, not a plan.** Seven commands run against MAX
+and two more answer from what is on this machine — `max cache` and `max runs`. Every request
+sent is built from the specification in `src/spec/`, and every request can now
+be shown as it happens or kept as a record (§13); 148 tests. Everything below was verified against
+the real service unless it says otherwise, and the round trip was re-verified live on 2026-09-20 —
+`max chats list --limit 3 --verbose --record`, three requests, stdout one JSON value and stderr
+carrying only the event lines. The brief is [`REQUIREMENTS.md`](REQUIREMENTS.md); rulings are in
 [`DECISIONS.md`](DECISIONS.md).
 
 ---
@@ -14,7 +16,7 @@ runtimes pass, and the commands have not been run against MAX again. The brief i
 ## 1. One published package, four layers, one direction
 
 ```text
-     src/commands/     login · me · chats · contacts · messages · send · logout
+     src/commands/     session · account · chats · contacts · messages · cache · runs
             │          speaks the domain model, owns no protocol knowledge
             ▼
      src/client.ts     MaxClient — the only thing above here that knows MAX exists
@@ -28,7 +30,13 @@ runtimes pass, and the commands have not been run against MAX again. The brief i
  mapping      provenance         never hand-edited
                                          ▲
                         src/session/   handshake (INIT → LOGIN) · keyring · state
+                        src/cache/     the record, behind a driver seam per runtime
+                        src/runs/      one event per request · the run directory
 ```
+
+⚠ **Correction 2026-09-20: the command names above were the pre-rename ones** — `login`, `me`,
+`send`, `logout` — for a day after `NEED-48` renamed them. Every command is a resource and an
+action now, and the diagram says what `max --help` says.
 
 **Adding an operation, and what is generated from what: §12.**
 
@@ -53,6 +61,7 @@ the forbidden import and watching it go red, once for each direction.
 | `generated/` | what follows from `spec/` | being edited by hand |
 | `protocol/` | frames, seq, the socket | who is asking or why — **including the handshake** |
 | `session/` | the keyring, the state file, INIT → LOGIN | anything it can ask `cli-core` for |
+| `runs/` | what a request cost, and where a record of it goes | what a request *said* — §13 |
 
 The point of the seam is replaceability: if MAX's transport changes, `protocol/` and `client.ts`
 change and nothing above them notices. That was the whole argument for writing our own adapter
@@ -89,7 +98,9 @@ timer keeps Node alive, and a script that pipes `max chats list --json` would ne
 
 `INIT` (6) then `LOGIN` (19) precede everything — MAX answers nothing before them. The handshake
 is handwritten in `src/session/handshake.ts` and will stay that way (§9 of the brief); what the
-specification supplies is the two payloads, so the field names have one home rather than two. The login
+specification supplies is the two payloads, so the field names have one home rather than two. What
+it no longer owns is the socket: it is handed the client's `invoke`, so those two requests are
+checked and reported like every other one (§13). The login
 response is unusually generous: profile, chats, contacts, recent messages and presence all arrive
 with it, so `max account show` and `max chats list` need **no further request**. This is why `PROFILE` (16) is not
 used to read a profile: it is a profile *update* and refuses an empty payload.
@@ -180,6 +191,7 @@ goes to stderr as JSON when piped and as a sentence in a terminal, and the code 
 `cli-core`'s table — `4` for an authentication problem, `130` for an interrupt. A script branches on
 that, never on text.
 
+
 ## 11. Trade-off order
 
 When two of these conflict, the earlier one wins:
@@ -250,3 +262,85 @@ the question being re-asked every time somebody reads `Number(chatId)` and wonde
 `pnpm generate` writes the files and formats them in the same step, then CI regenerates and asserts
 the tree did not change (`OPS-3`). The banner carries no date and no version: anything that moves
 on its own turns that check into a permanent failure.
+
+## 13. One event per request, and the two places it can go
+
+Every request is one object — direction, operation, opcode, `seq`, the ids the request named, how
+long it took, how many bytes moved, how many things came back. **One object, two sinks**:
+`--verbose` renders it on stderr as it happens, `--record` writes it to a file and shows nothing.
+Either, both, or — by default — neither.
+
+```text
+→ session.login     op 19  seq 2  871 B
+← session.login     op 19  seq 2  213ms  48.0 kB  25 chats  6 contacts
+```
+
+**What an event may never carry: a chat title, a person's name, a message body, a phone number or
+a token** — not truncated and not hashed (§14, §24 of the brief). The ids are deliberately *in*:
+an id is opaque and can only be correlated by whoever already holds the session, and every real
+complaint is about one conversation. ⚠ The rule holds because `idsOf` in `src/runs/events.ts`
+**builds the event from named fields rather than filtering a copy of the payload**. A filter lets a
+field nobody has seen yet through by default; this cannot. `token` is a field of `session.login`
+and there is no branch that reaches it. Pino's redaction underneath is the second line of defence.
+
+### The hook is in the client, and the handshake goes through it
+
+`MaxClient` takes an event sink the way it already takes `warn` — injected, so the client reports
+what it did and never decides where that goes. It sits in `#send`, which builds the request,
+times the round trip and checks the answer.
+
+⚠ **`startSession` is handed the client's own `invoke` rather than the socket** (2026-09-20).
+Until then it called `connection.invoke` directly, so INIT and LOGIN — the two requests *every*
+invocation makes — bypassed all of it. `max chats list` answers out of the LOGIN response without
+sending anything of its own, so a hook only in `#send` reported an empty run for a command that
+had just logged in. It also means MAX's answer to LOGIN is now compared with the specification
+like every other answer, and that immediately found a wrong declaration: `messages` is an object,
+not an array (`PROTO-6`).
+
+A request refused **before** the socket — a bad id, a field the strict request schema does not
+know — emits no event, because nothing was sent. The run still records the outcome and the code.
+
+**An answer that never left the machine gets an event of its own**, and it is deliberately not
+shaped like a request: no opcode, no `seq`, no byte count, because calling a local answer "0 bytes
+on the wire" would put a fiction in the record. It carries a `reason` instead — `offline`, meaning
+the caller said never connect, or `history`, meaning the window asked for is older than a fetch
+would return and the record is therefore authoritative rather than merely available. "We did not
+ask" and "there was nothing to ask" are different events, and only the second is the local copy
+doing its job.
+
+### The run directory
+
+Off unless asked for (`NEED-49`, `NEED-52`): `--record` for one invocation, `--no-record` to
+refuse it, and neither means the configuration file decides. A messenger tool that silently
+accumulates a directory per command is a record of somebody's life that nobody asked to keep.
+
+```text
+<state dir>/runs/2026-09-19/20260919T233522Z-chats-list-8a0f17/
+  run.json       0600 — what it was, when, which profile, how long, the outcome, the error code
+  events.jsonl   0600 — one JSON object per request, written by Pino, no ANSI ever
+```
+
+Directory `0700`, both files `0600`, `run.json` written atomically and **twice** — once as the run
+starts, saying `running`, and once by `finish`. A directory holding events and no metadata would be
+a special case `max runs list` had to carry forever. `finish` runs on every path, including a
+command that failed before the connection was open, and it awaits the logger: Pino appends through
+a plain stream, and a process that exits first loses the tail — which is exactly the run somebody
+wanted to read.
+
+The day directory is UTC, so a run at 01:35 in Madrid lands under the previous day.
+
+**Files, not the SQLite cache** (`NEED-51`): opposite lifecycles, and two `max` invocations run at
+once here. Two appends to two files never conflict; two writers on one database take a lock, and a
+diagnostic that can fail the command it was describing is worse than no diagnostic.
+
+**Retention is 30 days, pruned as a recorded run starts** — a whole day at a time, by the
+directory name, so nothing has to be opened to decide. A tool that is not recording never walks
+that directory.
+
+`max runs list`, `max runs show <id>` and `max runs path <id>` read them back. An empty list says
+why it is empty and names `--record`, on stderr — stdout still carries one JSON value.
+
+**`runs path` is no exception to that** (`NEED-88`): it answers `{"path": "…"}`, so a script reads
+`max runs path <id> --json | jq -r .path` and a terminal gets the bare path on a labelled line. The
+convenience of `cat "$(max runs path <id>)/events.jsonl"` was not worth a contract with an
+exception in it — the rule that holds everywhere is the one nobody has to remember.

@@ -5,6 +5,7 @@ import type { Chat, Contact, Id, Message, Profile } from "./domain/models.js"
 import { type Invoke, wireClient } from "./generated/client.generated.js"
 import { Connection, ProtocolError } from "./protocol/connection.js"
 import type { Payload } from "./protocol/frame.js"
+import { countsIn, type DiagnosticEvent, idsOf } from "./runs/events.js"
 import { startSession } from "./session/handshake.js"
 import type { SessionStore } from "./session/store.js"
 import { buildRequest, checkResponse, type Operation, type RequestOf } from "./spec/index.js"
@@ -30,6 +31,11 @@ export interface MaxClientOptions {
    * out what changed. For a messenger that is backwards (§3.4z of the cache plan).
    */
   offline?: boolean
+  /**
+   * One event per request, for whoever is keeping a diagnostic. Injected the way `warn` is: the
+   * client reports what it did and never decides where that goes. Absent means nothing is kept.
+   */
+  events?: (event: DiagnosticEvent) => void
 }
 
 /**
@@ -50,17 +56,20 @@ export class MaxClient {
   readonly #warn: (message: string) => void
   readonly #cache: CacheStore | undefined
   readonly #offline: boolean
-  readonly #wire = wireClient(((operation, request) => this.#send(operation, request)) as Invoke)
+  readonly #events: (event: DiagnosticEvent) => void
+  readonly #invoke = ((operation, request) => this.#send(operation, request)) as Invoke
+  readonly #wire = wireClient(this.#invoke)
   #login: Payload | undefined
   #previousCid = 0
   #people: Map<Id, Contact> | undefined
 
-  constructor({ store, timeoutMs, connection, warn, cache, offline = false }: MaxClientOptions) {
+  constructor({ store, timeoutMs, connection, warn, cache, offline = false, events }: MaxClientOptions) {
     this.#store = store
     this.#connection = connection ?? new Connection(timeoutMs === undefined ? {} : { timeoutMs })
     this.#warn = warn ?? ((message) => process.stderr.write(`${message}\n`))
     this.#cache = cache
     this.#offline = offline
+    this.#events = events ?? (() => {})
   }
 
   readonly account = {
@@ -237,7 +246,7 @@ export class MaxClient {
 
     try {
       await this.#connection.open()
-      this.#login = await startSession(this.#connection, { token, deviceId: state.deviceId })
+      this.#login = await startSession(this.#invoke, { token, deviceId: state.deviceId })
     } catch (error) {
       throw asCliError(error)
     }
@@ -285,17 +294,61 @@ export class MaxClient {
    */
   async #send<TOperation extends Operation>(operation: TOperation, request: RequestOf<TOperation>): Promise<Payload> {
     const payload = buildRequest(operation, request)
+    const started = performance.now()
+    const about = { operation: operation.name, opcode: operation.opcode }
+
+    let seq = 0
+    let bytes: number | undefined
 
     let answer: Payload
     try {
-      answer = await this.#connection.invoke(operation.opcode, payload)
+      answer = await this.#connection.invoke(operation.opcode, payload, (wire) => {
+        seq = wire.seq
+        if (wire.phase === "received") {
+          bytes = wire.bytes
+          return
+        }
+        this.#emit({ event: "request", ...about, seq, bytes: wire.bytes, ...idsOf(request) })
+      })
     } catch (error) {
-      throw asCliError(error)
+      const failure = asCliError(error)
+      // The request that never came back is the one somebody is reading the log for, so it gets a
+      // line of its own rather than disappearing with the exception.
+      this.#emit({
+        event: "response",
+        ...about,
+        seq,
+        ...(bytes === undefined ? {} : { bytes }),
+        durationMs: Math.round(performance.now() - started),
+        outcome: "error",
+        errorCode: failure.code,
+      })
+      throw failure
     }
+
+    const counts = countsIn(answer)
+    this.#emit({
+      event: "response",
+      ...about,
+      seq,
+      ...(bytes === undefined ? {} : { bytes }),
+      durationMs: Math.round(performance.now() - started),
+      ...(counts ? { counts } : {}),
+      outcome: "ok",
+    })
 
     const note = checkResponse(operation, answer)
     if (note) this.#warn(note)
     return answer
+  }
+
+  /** A diagnostic that breaks the command it was describing is worse than no diagnostic. */
+  #emit(event: DiagnosticEvent): void {
+    try {
+      this.#events(event)
+    } catch {
+      // Whoever is keeping the log has a problem; the command does not.
+    }
   }
 
   /**

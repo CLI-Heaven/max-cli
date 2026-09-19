@@ -8,6 +8,7 @@ import { type CacheStore, openStore } from "./cache/store.js"
 import { MaxClient } from "./client.js"
 import { Opcode } from "./generated/opcodes.generated.js"
 import { Connection } from "./protocol/connection.js"
+import type { DiagnosticEvent } from "./runs/events.js"
 import { SessionStore } from "./session/store.js"
 import { mockMax } from "./testing/mock-max.js"
 
@@ -31,14 +32,17 @@ const clientWith = (max: ReturnType<typeof mockMax>, token = "a-token") => {
   if (token) store.writeToken(token)
 
   const notes: string[] = []
+  const events: DiagnosticEvent[] = []
 
   return {
     store,
     notes,
+    events,
     client: new MaxClient({
       store,
       connection: new Connection({ createSocket: max.createSocket, timeoutMs: 50 }),
       warn: (note) => notes.push(note),
+      events: (event) => events.push(event),
     }),
   }
 }
@@ -527,6 +531,110 @@ describe("with a cache", () => {
     await client.messages.send("111", "hello")
     expect(cache.messages.read("111", 5, 60_000), "forgotten after the send").toBeUndefined()
 
+    await client.close()
+  })
+})
+
+const PRIVATE = "a private message body"
+const RECEIVED = "what somebody else said"
+
+describe("one event per request", () => {
+  it("**puts the login on the record too** — it is what most invocations spend their time on", async () => {
+    const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
+    const { client, events } = clientWith(max)
+
+    await client.connect()
+    await client.close()
+
+    // `max chats list` answers out of the LOGIN response and sends nothing of its own, so a hook
+    // that saw only the later requests would report an empty run for a command that logged in.
+    expect(events.map((event) => `${event.event} ${event.operation}`)).toEqual([
+      "request session.init",
+      "response session.init",
+      "request session.login",
+      "response session.login",
+    ])
+  })
+
+  it("carries the opcode, the seq and what the round trip cost", async () => {
+    const max = mockMax({
+      answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer, [Opcode.CHAT_HISTORY]: historyAnswer },
+    })
+    const { client, events } = clientWith(max)
+
+    await client.connect()
+    await client.messages.list("111", 5)
+    await client.close()
+
+    const asked = events.find((event) => event.event === "request" && event.operation === "chats.history")
+    const answered = events.find((event) => event.event === "response" && event.operation === "chats.history")
+
+    expect(asked).toMatchObject({ opcode: Opcode.CHAT_HISTORY, seq: 3, ids: { chat: "111" } })
+    expect(answered).toMatchObject({ opcode: Opcode.CHAT_HISTORY, seq: 3, outcome: "ok", counts: { messages: 1 } })
+    expect(answered && "bytes" in answered && answered.bytes).toBeGreaterThan(0)
+  })
+
+  it("**never carries a title, a name, a message or the token**", async () => {
+    const max = mockMax({
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: loginAnswer,
+        [Opcode.CHAT_HISTORY]: {
+          messages: [{ id: 116762160362694583n, time: 1, sender: 10000002, text: RECEIVED, attaches: [] }],
+        },
+        [Opcode.MSG_SEND]: { message: { id: 900000000000000001n, time: 1, sender: 10000001, text: PRIVATE } },
+      },
+    })
+    const { client, events } = clientWith(max, "a-secret-token")
+
+    await client.connect()
+    await client.messages.list("111", 5)
+    await client.messages.send("111", PRIVATE, { cid: 4242 })
+    await client.close()
+
+    const recorded = JSON.stringify(events)
+    for (const secret of [PRIVATE, RECEIVED, "a-secret-token", "Test Person", "Someone Else", "First"]) {
+      expect(recorded).not.toContain(secret)
+    }
+    // And the one identifier that is allowed, so this cannot pass by recording nothing at all.
+    expect(recorded).toContain('"cid":"4242"')
+  })
+
+  it("records the request that never came back, with the code and not the reason", async () => {
+    const max = mockMax({
+      answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer },
+      refuse: { [Opcode.CHAT_HISTORY]: "proto.payload" },
+    })
+    const { client, events } = clientWith(max)
+
+    await client.connect()
+    await expect(client.messages.list("111")).rejects.toMatchObject({ code: "provider_error" })
+    await client.close()
+
+    expect(events.at(-1)).toMatchObject({
+      event: "response",
+      operation: "chats.history",
+      outcome: "error",
+      errorCode: "provider_error",
+    })
+  })
+
+  it("keeps working when whoever is listening throws", async () => {
+    const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
+    const dir = mkdtempSync(join(tmpdir(), "max-cli-"))
+    const store = new SessionStore({ keyring: memoryKeyring(), configDir: dir, stateDir: join(dir, "state"), env: {} })
+    store.writeToken("a-token")
+
+    const client = new MaxClient({
+      store,
+      connection: new Connection({ createSocket: max.createSocket, timeoutMs: 50 }),
+      events: () => {
+        throw new Error("the log is broken")
+      },
+    })
+
+    await client.connect()
+    expect(client.account.me().id).toBe("10000001")
     await client.close()
   })
 })

@@ -4,7 +4,7 @@ How to check this yourself, and what each check is actually for. Nothing here de
 has not been run.
 
 ```sh
-pnpm test        # vitest — 82 tests
+pnpm test        # vitest — 148 tests
 pnpm lint        # biome: format, lint, and the seam between commands and the protocol
 pnpm typecheck   # the package, then the tests
 pnpm build
@@ -72,19 +72,37 @@ To drive the CLI against a real account without touching your own config:
 
 ```sh
 export MAX_CONFIG_DIR=/tmp/max-probe/config MAX_STATE_DIR=/tmp/max-probe/state
-MAX_TOKEN="$(cat /path/to/token)" node dist/bin/max.js login --json
-node dist/bin/max.js chats --json --limit 5
+MAX_TOKEN="$(cat /path/to/token)" node dist/bin/max.js session start --json
+node dist/bin/max.js chats list --json --limit 5
 ```
 
 The token goes in a file and into the environment — never on a command line, where `ps` and shell
 history can see it.
+
+⚠ **Those three directory variables also move the keyring entry** — `cli-core` makes the service
+`max-cli:<config dir>` when any of them is set, so a session stored with them is invisible to a
+command run without them, and the other way round.
+
+**The check no assertion replaces**: record a real run and read the directory.
+
+```sh
+node dist/bin/max.js chats list --limit 3 --record
+node dist/bin/max.js runs list
+cat "$(node dist/bin/max.js runs path <id>)/events.jsonl"
+```
+
+Done on 2026-09-20 against the owner's account: three requests, and the file carried opcodes,
+`seq`, byte counts, durations and list lengths — no chat title, no name, no message, no token.
 
 ## What to write
 
 Prefer the test that pins a contract someone could plausibly break over the one that restates the
 implementation. The ones worth having here are the mismatched pairs: reading history must not mark
 anything read; a retried send must reuse its `cid`; a send with no answer must be
-`outcome_unknown`, never failed and never sent; an ambiguous chat name must refuse rather than pick.
+`outcome_unknown`, never failed and never sent; an ambiguous chat name must refuse rather than pick;
+**a diagnostic must carry the ids and none of the content** — `src/client.test.ts` drives a run
+with a chat title, two names and two message bodies in play and asserts that none of the five
+appears anywhere in the events, while the `cid` does, so it cannot pass by recording nothing.
 
 Both defects found so far were found this way — a device identity that changed on every call, and
 two sends in the same millisecond sharing a `cid`. Neither would have been visible from the outside
