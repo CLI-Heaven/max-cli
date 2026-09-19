@@ -14,7 +14,7 @@ export const chatsCommand = (): Command =>
 
       try {
         await client.connect()
-        renderer.result(await client.listChats(options.limit))
+        renderer.result(await client.chats.list(options.limit))
       } finally {
         await client.close()
       }

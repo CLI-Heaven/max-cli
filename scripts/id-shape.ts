@@ -16,7 +16,7 @@
  */
 
 import { Connection } from "../dist/protocol/connection.js"
-import { startSession } from "../dist/protocol/session.js"
+import { startSession } from "../dist/session/handshake.js"
 import { SessionStore } from "../dist/session/store.js"
 
 const store = new SessionStore({ profile: process.env.MAX_PROFILE ?? "default" })

@@ -8,8 +8,9 @@
  *   MAX_TOKEN="$(cat /path/to/token)" MAX_DEVICE_ID=<uuid> node --experimental-strip-types scripts/probe.ts
  */
 import { randomUUID } from "node:crypto"
+import { Opcode } from "../src/generated/opcodes.generated.js"
 import { Connection } from "../src/protocol/connection.js"
-import { Opcode, startSession } from "../src/protocol/session.js"
+import { startSession } from "../src/session/handshake.js"
 
 const token = process.env.MAX_TOKEN
 if (!token) {
