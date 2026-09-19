@@ -18,7 +18,7 @@ export const cacheCommand = (): Command => {
     .action(async function (this: Command) {
       const options = this.optsWithGlobals()
       const { renderer } = resolveOutput(options)
-      const cache = await openProfileCache(options.profile)
+      const cache = await openProfileCache(options.profile, { onProblem: (message) => renderer.note(message) })
 
       if (!cache) {
         renderer.result({ profile: options.profile, cleared: false })
