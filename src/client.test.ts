@@ -28,9 +28,16 @@ const clientWith = (max: ReturnType<typeof mockMax>, token = "a-token") => {
   const store = new SessionStore({ keyring, configDir: dir, stateDir: join(dir, "state"), env: {} })
   if (token) store.writeToken(token)
 
+  const notes: string[] = []
+
   return {
     store,
-    client: new MaxClient({ store, connection: new Connection({ createSocket: max.createSocket, timeoutMs: 50 }) }),
+    notes,
+    client: new MaxClient({
+      store,
+      connection: new Connection({ createSocket: max.createSocket, timeoutMs: 50 }),
+      warn: (note) => notes.push(note),
+    }),
   }
 }
 
@@ -328,5 +335,81 @@ describe("MaxClient", () => {
 
     expect(store.readState().deviceId).toBe(before)
     expect(max.sent[0]?.payload.deviceId).toBe(before)
+  })
+})
+
+describe("when MAX answers with something we did not declare", () => {
+  const SENTINEL = "a private message body"
+
+  it("**says so once, and the command still works**", async () => {
+    const max = mockMax({
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: loginAnswer,
+        [Opcode.CHAT_HISTORY]: { messages: SENTINEL },
+      },
+    })
+    const { client, notes } = clientWith(max)
+
+    await client.connect()
+    const messages = await client.messages.list("111", 5)
+    await client.close()
+
+    expect(messages).toEqual([])
+    expect(notes).toHaveLength(1)
+    expect(notes[0]).toContain("chats.history")
+    expect(notes[0]).toContain("messages")
+    expect(notes[0]).toContain("got string")
+  })
+
+  it("**never repeats the value it saw**, because the value may be somebody's message", async () => {
+    const max = mockMax({
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: loginAnswer,
+        [Opcode.CHAT_HISTORY]: { messages: SENTINEL },
+      },
+    })
+    const { client, notes } = clientWith(max)
+
+    await client.connect()
+    await client.messages.list("111", 5)
+    await client.close()
+
+    expect(notes.join("")).not.toContain(SENTINEL)
+  })
+
+  it("stays quiet about a field MAX added and nobody has seen", async () => {
+    const max = mockMax({
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: loginAnswer,
+        [Opcode.CHAT_HISTORY]: { ...historyAnswer, reactionsSummary: { total: 3 } },
+      },
+    })
+    const { client, notes } = clientWith(max)
+
+    await client.connect()
+    await client.messages.list("111", 5)
+    await client.close()
+
+    expect(notes).toEqual([])
+  })
+})
+
+describe("when we are the ones building a bad request", () => {
+  it("**refuses before the socket, naming the field and not the message**", async () => {
+    const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
+    const { client } = clientWith(max)
+
+    await client.connect()
+    const failure = await client.messages.send("not-an-id", "a private message body").catch((error: Error) => error)
+    await client.close()
+
+    expect(failure).toMatchObject({ code: "validation_error" })
+    expect(String(failure)).toContain("messages.send")
+    expect(String(failure)).toContain("chatId")
+    expect(String(failure)).not.toContain("a private message body")
+    expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.MSG_SEND)
   })
 })
