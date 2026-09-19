@@ -38,10 +38,14 @@ export const encodeFrame = (frame: OutboundFrame): string =>
   }) as string
 
 /**
- * **Never `JSON.parse`.** Chat and message ids are 64-bit and exceed `Number.MAX_SAFE_INTEGER`;
- * the built-in parser rounds them silently, so `7268926000000000001` and `...002` become the same
- * chat. `lossless-json` hands back a bigint for any integer that would not survive, and every id
- * leaves this layer as a string.
+ * **Never `JSON.parse`.** Message ids are 64-bit and past `Number.MAX_SAFE_INTEGER` — 18 digits,
+ * measured — so the built-in parser rounds them and two different messages arrive as one id.
+ * `lossless-json` hands back a bigint for any integer that would not survive, and every id leaves
+ * this layer as a string.
+ *
+ * ⚠ Measured 2026-09-19: **chat ids on the owner's account reach 14 digits, not 19**, and contact
+ * ids reach 9 — all comfortably inside a number. The hazard is real and it is the message ids that
+ * carry it; a 19-digit chat id is an illustration, not something seen.
  */
 export const decodeFrame = (raw: string): InboundFrame => {
   const value = parse(raw, undefined, {
