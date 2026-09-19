@@ -37,7 +37,7 @@ export const loginCommand = (): Command =>
       const client = new MaxClient({ store })
       try {
         await client.connect()
-        const profile = client.me()
+        const profile = client.account.me()
         renderer.result({ profile, stored: true })
         renderer.success(`logged in as ${profile.name ?? profile.id}`)
       } finally {

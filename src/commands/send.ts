@@ -25,8 +25,8 @@ export const sendCommand = (): Command =>
 
       try {
         await client.connect()
-        const chatId = await client.resolveChat(chat)
-        renderer.result(await client.sendMessage(chatId, text, options.cid === undefined ? {} : { cid: options.cid }))
+        const chatId = await client.chats.resolve(chat)
+        renderer.result(await client.messages.send(chatId, text, options.cid === undefined ? {} : { cid: options.cid }))
       } finally {
         await client.close()
       }

@@ -19,8 +19,8 @@ export const messagesCommand = (): Command =>
 
       try {
         await client.connect()
-        const chatId = await client.resolveChat(chat)
-        renderer.result(await client.listMessages(chatId, options.limit))
+        const chatId = await client.chats.resolve(chat)
+        renderer.result(await client.messages.list(chatId, options.limit))
       } finally {
         await client.close()
       }

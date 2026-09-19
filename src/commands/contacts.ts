@@ -21,7 +21,7 @@ export const contactsCommand = (): Command =>
 
       try {
         await client.connect()
-        const contacts = await client.listContacts()
+        const contacts = await client.contacts.list()
         renderer.result(options.limit === undefined ? contacts : contacts.slice(0, options.limit))
       } finally {
         await client.close()

@@ -4,8 +4,8 @@ import { join } from "node:path"
 import { memoryKeyring } from "@cli-heaven/cli-core"
 import { describe, expect, it } from "vitest"
 import { MaxClient } from "./client.js"
+import { Opcode } from "./generated/opcodes.generated.js"
 import { Connection } from "./protocol/connection.js"
-import { Opcode } from "./protocol/session.js"
 import { SessionStore } from "./session/store.js"
 import { mockMax } from "./testing/mock-max.js"
 
@@ -68,9 +68,9 @@ describe("MaxClient", () => {
     const { client } = clientWith(max)
 
     await client.connect()
-    expect(client.me()).toEqual({ id: "10000001", name: "Test Person", phone: null })
+    expect(client.account.me()).toEqual({ id: "10000001", name: "Test Person", phone: null })
 
-    const chats = await client.listChats()
+    const chats = await client.chats.list()
     expect(chats).toHaveLength(2)
     expect(chats[0]?.unreadCount).toBe(2)
     expect(chats[1]?.unreadCount).toBeNull()
@@ -102,7 +102,7 @@ describe("MaxClient", () => {
     const { client } = clientWith(max)
 
     await client.connect()
-    const chats = await client.listChats()
+    const chats = await client.chats.list()
     await client.close()
 
     expect(chats.map((chat) => chat.title)).toEqual(["Ivan Petrov", "Maria S"])
@@ -130,11 +130,11 @@ describe("MaxClient", () => {
 
     await client.connect()
 
-    expect(await client.resolveChat("555")).toBe("555")
-    expect(await client.resolveChat("Ivan Petrov")).toBe("333")
-    expect(await client.resolveChat("friends")).toBe("555")
-    await expect(client.resolveChat("Ivan")).rejects.toMatchObject({ code: "validation_error" })
-    await expect(client.resolveChat("nobody")).rejects.toMatchObject({ code: "not_found" })
+    expect(await client.chats.resolve("555")).toBe("555")
+    expect(await client.chats.resolve("Ivan Petrov")).toBe("333")
+    expect(await client.chats.resolve("friends")).toBe("555")
+    await expect(client.chats.resolve("Ivan")).rejects.toMatchObject({ code: "validation_error" })
+    await expect(client.chats.resolve("nobody")).rejects.toMatchObject({ code: "not_found" })
 
     await client.close()
   })
@@ -158,7 +158,7 @@ describe("MaxClient", () => {
     const { client } = clientWith(max)
 
     await client.connect()
-    const contacts = await client.listContacts()
+    const contacts = await client.contacts.list()
     await client.close()
 
     expect(contacts).toContainEqual({ id: "10000003", name: "Ivan Petrov", username: "ivan", description: "hi" })
@@ -171,7 +171,7 @@ describe("MaxClient", () => {
     const { client } = clientWith(max)
 
     await client.connect()
-    await client.listMessages("111", 5)
+    await client.messages.list("111", 5)
     await client.close()
 
     expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.CHAT_MARK)
@@ -185,7 +185,7 @@ describe("MaxClient", () => {
     const { client } = clientWith(max)
 
     await client.connect()
-    const [message] = await client.listMessages("111")
+    const [message] = await client.messages.list("111")
     await client.close()
 
     expect(message?.senderName).toBe("Someone Else")
@@ -201,7 +201,7 @@ describe("MaxClient", () => {
     const { client } = clientWith(max)
 
     await client.connect()
-    await expect(client.listMessages("111")).rejects.toMatchObject({ code: "provider_error" })
+    await expect(client.messages.list("111")).rejects.toMatchObject({ code: "provider_error" })
     await client.close()
   })
 
@@ -223,7 +223,7 @@ describe("MaxClient", () => {
     const { client } = clientWith(max)
 
     await client.connect()
-    const sent = await client.sendMessage("111", "hello", { cid: 12345 })
+    const sent = await client.messages.send("111", "hello", { cid: 12345 })
     await client.close()
 
     const request = max.sent.at(-1)
@@ -246,8 +246,8 @@ describe("MaxClient", () => {
     const { client } = clientWith(max)
 
     await client.connect()
-    await client.sendMessage("111", "one")
-    await client.sendMessage("111", "two")
+    await client.messages.send("111", "one")
+    await client.messages.send("111", "two")
     await client.close()
 
     const cids = max.sent
@@ -272,7 +272,7 @@ describe("MaxClient", () => {
     const { client } = clientWith(max)
 
     await client.connect()
-    const sent = await client.sendMessage("111", "hi", { cid: 4242 })
+    const sent = await client.messages.send("111", "hi", { cid: 4242 })
     await client.close()
 
     const sends = max.sent.filter((call) => call.opcode === Opcode.MSG_SEND)
@@ -288,7 +288,7 @@ describe("MaxClient", () => {
     await client.connect()
     // MSG_SEND has no scripted answer: the request leaves and nothing comes back, which is exactly
     // the case where the message may already have been delivered.
-    const failure = await client.sendMessage("111", "hello").catch((error: { code: string }) => error)
+    const failure = await client.messages.send("111", "hello").catch((error: { code: string }) => error)
     await client.close()
 
     expect(failure).toMatchObject({ code: "outcome_unknown" })

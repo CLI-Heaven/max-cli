@@ -1,35 +1,182 @@
 import { CliError } from "@cli-heaven/cli-core"
 import { namesFrom, toChat, toContact, toMessage, toProfile } from "./domain/map.js"
 import type { Chat, Contact, Id, Message, Profile } from "./domain/models.js"
+import { type Invoke, wireClient } from "./generated/client.generated.js"
 import { Connection, ProtocolError } from "./protocol/connection.js"
 import type { Payload } from "./protocol/frame.js"
-import { Opcode, startSession } from "./protocol/session.js"
+import { startSession } from "./session/handshake.js"
 import type { SessionStore } from "./session/store.js"
+import { buildRequest, checkResponse, type Operation, type RequestOf } from "./spec/index.js"
 
 export interface MaxClientOptions {
   store: SessionStore
   timeoutMs?: number
   /** Injected by tests; defaults to a real WebSocket connection. */
   connection?: Connection
+  /**
+   * Where a protocol note goes. Never stdout: in machine mode that stream carries one JSON value
+   * and nothing else.
+   */
+  warn?: (message: string) => void
 }
 
 /**
  * **The only thing above this line that knows MAX exists.** Commands speak the domain model; the
- * library, the opcodes and the frames stop here, so a different transport underneath changes this
- * file and nothing else (REQUIREMENTS §25).
+ * opcodes and the frames stop here, so a different transport underneath changes this file and
+ * nothing else (REQUIREMENTS §25).
+ *
+ * The methods are grouped by subject — `client.chats.list()`, `client.messages.send()` — which is
+ * the shape §8 sketched. **There is only this door.** The generated per-operation wrappers sit
+ * underneath and stay internal: they return raw MAX payloads, without the resend rule, the name
+ * filling or the id conversion that make this safe to point at a real account (`NEED-34`).
  *
  * One instance is one connection. `open` then `close`, always in a `finally`.
  */
 export class MaxClient {
   readonly #store: SessionStore
   readonly #connection: Connection
+  readonly #warn: (message: string) => void
+  readonly #wire = wireClient(((operation, request) => this.#send(operation, request)) as Invoke)
   #login: Payload | undefined
   #previousCid = 0
   #people: Map<Id, Contact> | undefined
 
-  constructor({ store, timeoutMs, connection }: MaxClientOptions) {
+  constructor({ store, timeoutMs, connection, warn }: MaxClientOptions) {
     this.#store = store
     this.#connection = connection ?? new Connection(timeoutMs === undefined ? {} : { timeoutMs })
+    this.#warn = warn ?? ((message) => process.stderr.write(`${message}\n`))
+  }
+
+  readonly account = {
+    me: (): Profile => toProfile(record(this.#session().profile) ?? {}),
+  }
+
+  readonly chats = {
+    /**
+     * Chats come with the login; a limit trims rather than fetching more.
+     *
+     * **A one-to-one chat has no title of its own** — its name is the other person's, which MAX
+     * does not put in the chat object. So the partner is looked up once, for every dialog at a
+     * time, and the name is filled in. Without this, `max chats` shows a column of blanks for
+     * exactly the chats a person recognises by name.
+     */
+    list: async (limit?: number): Promise<Chat[]> => {
+      const raw = asArray(this.#session().chats)
+      const people = await this.#peopleFor(raw)
+
+      const chats = raw.map((chat) => {
+        const mapped = toChat(chat)
+        if (mapped.title !== null || mapped.kind !== "dialog") return mapped
+
+        const partner = this.#partnerOf(chat)
+        const name = partner === undefined ? null : (people.get(partner)?.name ?? null)
+        return { ...mapped, title: name }
+      })
+
+      return limit === undefined ? chats : chats.slice(0, limit)
+    },
+
+    /**
+     * Turns what the person typed into a chat id.
+     *
+     * A number is taken as an id. Anything else is matched against chat titles, exactly first and
+     * then as a fragment — and **an ambiguous name is an error, not a guess**: sending to the wrong
+     * conversation is not undoable, so the caller is shown the candidates and asked to be specific.
+     */
+    resolve: async (reference: string): Promise<Id> => {
+      if (/^-?\d+$/.test(reference.trim())) return reference.trim()
+
+      const chats = await this.chats.list()
+      const wanted = reference.trim().toLowerCase()
+      const titled = chats.filter((chat) => chat.title !== null)
+
+      const exact = titled.filter((chat) => chat.title?.toLowerCase() === wanted)
+      const matches = exact.length > 0 ? exact : titled.filter((chat) => chat.title?.toLowerCase().includes(wanted))
+
+      if (matches.length === 1 && matches[0]) return matches[0].id
+      if (matches.length === 0) throw new CliError("not_found", `no chat matches "${reference}"`)
+
+      const names = matches.map((chat) => `${chat.title} (${chat.id})`).join(", ")
+      throw new CliError("validation_error", `"${reference}" matches ${matches.length} chats: ${names}`)
+    },
+  }
+
+  readonly contacts = {
+    /** The people this account has a one-to-one chat with, named. */
+    list: async (): Promise<Contact[]> => {
+      const people = await this.#peopleFor(asArray(this.#session().chats))
+      return [...people.values()].filter((contact) => contact.id !== "")
+    },
+  }
+
+  readonly messages = {
+    list: async (chatId: Id, limit = 20): Promise<Message[]> => {
+      const session = this.#session()
+
+      // `interactive: false` and no CHAT_MARK: reading history must not mark anything read (§19).
+      const answer = await this.#wire.chats.history({
+        chatId,
+        from: Date.now(),
+        forward: 0,
+        backward: limit,
+        forwardTime: 0,
+        backwardTime: 0,
+        itemType: "REGULAR",
+        getChat: false,
+        getMessages: true,
+        interactive: false,
+      })
+
+      const lookup = { names: namesFrom(session.contacts), ...viewer(this.#store) }
+      return asArray(answer.messages).map((raw) => toMessage(raw, chatId, lookup))
+    },
+
+    /**
+     * Sends one message, retrying **only with the same `cid`**.
+     *
+     * §17 allows a send to be retried when the protocol has a verified deduplication handle. It has
+     * one, measured against MAX on 2026-09-19: sending the same `cid` twice returned the same
+     * message id and left **one** copy in the chat — and it held across two separate connections
+     * and logins, which is the case a retry actually faces.
+     *
+     * So one retry, same `cid`, and nothing beyond that. What is still unmeasured is how long the
+     * server remembers a `cid`; the two probes were seconds apart. If the retry also fails the
+     * answer is `outcome_unknown` — never failed, never sent — and it names the `cid`, because
+     * `max send --cid <n>` can then repeat the attempt without risking a second message.
+     */
+    send: async (chatId: Id, text: string, options: { cid?: number; notify?: boolean } = {}): Promise<Message> => {
+      const session = this.#session()
+      const cid = options.cid ?? this.#nextCid()
+      const request = {
+        chatId,
+        message: { text, cid, elements: [], attaches: [] },
+        notify: options.notify ?? true,
+      }
+
+      let answer: Payload
+      try {
+        answer = await this.#wire.messages.send(request)
+      } catch (error) {
+        const failure = asCliError(error)
+        if (failure.code !== "timeout" && failure.code !== "network_error") throw failure
+
+        // No answer came back, so MAX may already have delivered it. Repeating the identical `cid`
+        // is what makes asking again safe rather than reckless.
+        try {
+          answer = await this.#wire.messages.send(request)
+        } catch {
+          throw new CliError(
+            "outcome_unknown",
+            `the message may or may not have been sent (${failure.message}) — ` +
+              `\`max send --cid ${cid}\` repeats the attempt without risking a second copy`,
+            { cid },
+          )
+        }
+      }
+
+      const sent = record(answer.message) ?? answer
+      return toMessage(sent, chatId, { names: namesFrom(session.contacts), ...viewer(this.#store) })
+    },
   }
 
   /**
@@ -62,135 +209,31 @@ export class MaxClient {
     })
   }
 
-  me(): Profile {
-    return toProfile(record(this.#session().profile) ?? {})
+  async close(): Promise<void> {
+    await this.#connection.close()
   }
 
   /**
-   * Chats come with the login; a limit trims rather than fetching more.
+   * One request: encode against the specification, send, and compare the answer with what we said
+   * it would be.
    *
-   * **A one-to-one chat has no title of its own** — its name is the other person's, which MAX does
-   * not put in the chat object. So the partner is looked up once, for every dialog at a time, and
-   * the name is filled in. Without this, `max chats` shows a column of blanks for exactly the chats
-   * a person recognises by name.
+   * **The comparison never decides anything** (`NEED-35`). A response that gained a field is not a
+   * mismatch at all — response shapes are loose. What is left is a field we rely on that stopped
+   * being what it was, which is worth one line on stderr and nothing more.
    */
-  async listChats(limit?: number): Promise<Chat[]> {
-    const raw = asArray(this.#session().chats)
-    const people = await this.#peopleFor(raw)
-
-    const chats = raw.map((chat) => {
-      const mapped = toChat(chat)
-      if (mapped.title !== null || mapped.kind !== "dialog") return mapped
-
-      const partner = this.#partnerOf(chat)
-      const name = partner === undefined ? null : (people.get(partner)?.name ?? null)
-      return { ...mapped, title: name }
-    })
-
-    return limit === undefined ? chats : chats.slice(0, limit)
-  }
-
-  /** The people this account has a one-to-one chat with, named. */
-  async listContacts(): Promise<Contact[]> {
-    const people = await this.#peopleFor(asArray(this.#session().chats))
-    return [...people.values()].filter((contact) => contact.id !== "")
-  }
-
-  /**
-   * Turns what the person typed into a chat id.
-   *
-   * A number is taken as an id. Anything else is matched against chat titles, exactly first and
-   * then as a fragment — and **an ambiguous name is an error, not a guess**: sending to the wrong
-   * conversation is not undoable, so the caller is shown the candidates and asked to be specific.
-   */
-  async resolveChat(reference: string): Promise<Id> {
-    if (/^-?\d+$/.test(reference.trim())) return reference.trim()
-
-    const chats = await this.listChats()
-    const wanted = reference.trim().toLowerCase()
-    const titled = chats.filter((chat) => chat.title !== null)
-
-    const exact = titled.filter((chat) => chat.title?.toLowerCase() === wanted)
-    const matches = exact.length > 0 ? exact : titled.filter((chat) => chat.title?.toLowerCase().includes(wanted))
-
-    if (matches.length === 1 && matches[0]) return matches[0].id
-    if (matches.length === 0) throw new CliError("not_found", `no chat matches "${reference}"`)
-
-    const names = matches.map((chat) => `${chat.title} (${chat.id})`).join(", ")
-    throw new CliError("validation_error", `"${reference}" matches ${matches.length} chats: ${names}`)
-  }
-
-  async listMessages(chatId: Id, limit = 20): Promise<Message[]> {
-    const session = this.#session()
-
-    // `interactive: false` and no CHAT_MARK: reading history must not mark anything read (§19).
-    const answer = await this.#invoke(Opcode.CHAT_HISTORY, {
-      chatId: Number(chatId),
-      from: Date.now(),
-      forward: 0,
-      backward: limit,
-      forwardTime: 0,
-      backwardTime: 0,
-      itemType: "REGULAR",
-      getChat: false,
-      getMessages: true,
-      interactive: false,
-    })
-
-    const lookup = { names: namesFrom(session.contacts), ...viewer(this.#store) }
-    return asArray(answer.messages).map((raw) => toMessage(raw, chatId, lookup))
-  }
-
-  /**
-   * Sends one message, retrying **only with the same `cid`**.
-   *
-   * §17 allows a send to be retried when the protocol has a verified deduplication handle. It has
-   * one, measured against MAX on 2026-09-19: sending the same `cid` twice returned the same message
-   * id and left **one** copy in the chat — and it held across two separate connections and logins,
-   * which is the case a retry actually faces.
-   *
-   * So one retry, same `cid`, and nothing beyond that. What is still unmeasured is how long the
-   * server remembers a `cid`; the two probes were seconds apart. If the retry also fails the answer
-   * is `outcome_unknown` — never failed, never sent — and it names the `cid`, because
-   * `max send --cid <n>` can then repeat the attempt without risking a second message.
-   */
-  async sendMessage(chatId: Id, text: string, options: { cid?: number; notify?: boolean } = {}): Promise<Message> {
-    const session = this.#session()
-    const cid = options.cid ?? this.#nextCid()
-
-    const request = {
-      chatId: Number(chatId),
-      message: { text, cid, elements: [], attaches: [] },
-      notify: options.notify ?? true,
-    }
+  async #send<TOperation extends Operation>(operation: TOperation, request: RequestOf<TOperation>): Promise<Payload> {
+    const payload = buildRequest(operation, request)
 
     let answer: Payload
     try {
-      answer = await this.#connection.invoke(Opcode.MSG_SEND, request)
+      answer = await this.#connection.invoke(operation.opcode, payload)
     } catch (error) {
-      const failure = asCliError(error)
-      if (failure.code !== "timeout" && failure.code !== "network_error") throw failure
-
-      // No answer came back, so MAX may already have delivered it. Repeating the identical `cid`
-      // is what makes asking again safe rather than reckless.
-      try {
-        answer = await this.#connection.invoke(Opcode.MSG_SEND, request)
-      } catch {
-        throw new CliError(
-          "outcome_unknown",
-          `the message may or may not have been sent (${failure.message}) — ` +
-            `\`max send --cid ${cid}\` repeats the attempt without risking a second copy`,
-          { cid },
-        )
-      }
+      throw asCliError(error)
     }
 
-    const sent = record(answer.message) ?? answer
-    return toMessage(sent, chatId, { names: namesFrom(session.contacts), ...viewer(this.#store) })
-  }
-
-  async close(): Promise<void> {
-    await this.#connection.close()
+    const note = checkResponse(operation, answer)
+    if (note) this.#warn(note)
+    return answer
   }
 
   /**
@@ -230,7 +273,7 @@ export class MaxClient {
     }
 
     if (missing.size > 0) {
-      const answer = await this.#invoke(Opcode.CONTACT_INFO, { contactIds: [...missing].map(Number) })
+      const answer = await this.#wire.contacts.info({ contactIds: [...missing] })
       for (const raw of asArray(answer.contacts)) {
         const contact = toContact(raw)
         if (contact.id) people.set(contact.id, contact)
@@ -254,14 +297,6 @@ export class MaxClient {
   #session(): Payload {
     if (!this.#login) throw new CliError("configuration_error", "connect() was never called")
     return this.#login
-  }
-
-  async #invoke(opcode: number, payload: Payload): Promise<Payload> {
-    try {
-      return await this.#connection.invoke(opcode, payload)
-    } catch (error) {
-      throw asCliError(error)
-    }
   }
 }
 
