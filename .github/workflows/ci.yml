@@ -20,6 +20,10 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      # Generated files are committed, so a specification change that was not regenerated is a
+      # stale tree rather than a surprise at runtime (OPS-3).
+      - run: pnpm generate
+      - run: git diff --exit-code
 
   bun:
     runs-on: ubuntu-latest

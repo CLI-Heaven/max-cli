@@ -66,8 +66,15 @@
               "options": {
                 "patterns": [
                   {
-                    "group": ["**/protocol/**", "../protocol/*"],
-                    "message": "commands speak the domain model; only src/client.ts may reach the protocol layer"
+                    "group": [
+                      "**/protocol/**",
+                      "../protocol/*",
+                      "**/spec/**",
+                      "../spec/*",
+                      "**/generated/**",
+                      "../generated/*"
+                    ],
+                    "message": "commands speak the domain model; only src/client.ts may reach the protocol, the specification or the generated wrappers"
                   }
                 ]
               }
