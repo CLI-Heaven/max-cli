@@ -7,24 +7,23 @@
  * **It prints shapes, never values.** No id, no title, no message and no token reaches the output:
  * this runs against a real personal account and a terminal is a place things get pasted from.
  *
- *   MAX_TOKEN_FILE=/path/to/token pnpm probe:ids
+ *   max login        # once, the token goes to the OS keyring
+ *   pnpm probe:ids
  *
  * It imports from `dist/`, not `src/`: Node's type stripping does not resolve a `.js` specifier
  * to a `.ts` file, so a script importing `../src/...js` dies on the first import. `pnpm probe:ids`
  * builds first for that reason. `scripts/probe.ts` has the same bug and does not run at all.
  */
 
-import { readFileSync } from "node:fs"
 import { Connection } from "../dist/protocol/connection.js"
 import { startSession } from "../dist/protocol/session.js"
 import { SessionStore } from "../dist/session/store.js"
 
 const store = new SessionStore({ profile: process.env.MAX_PROFILE ?? "default" })
-const file = process.env.MAX_TOKEN_FILE
-const token = file ? readFileSync(file, "utf8").trim() : store.readToken()
+const token = store.readToken()
 
 if (!token) {
-  console.error("no token: set MAX_TOKEN_FILE to a file holding it, or run `max login` first")
+  console.error("no session on this profile — run `max login` first")
   process.exit(2)
 }
 
