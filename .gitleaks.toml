@@ -1,0 +1,43 @@
+# Secret scanning. The default rules catch the well-known shapes (AWS, GitHub, Stripe, private
+# keys); the rules below catch the ones only this project handles.
+#
+#   gitleaks git --redact .              the whole history
+#   gitleaks git --staged --redact .     what is about to be committed — the pre-commit hook
+#
+# `--redact` matters: without it a finding prints the secret it found into your terminal and your
+# CI log, which is a second leak on top of the first.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "max-session-token"
+description = "MAX session token — grants full access to a personal MAX account"
+# What web.max.ru stores under __oneme_auth, and what `max login --token` accepts: a long
+# URL-safe base64 string. Matched near its key name rather than by entropy alone, because a
+# bare base64 blob is also what every fixture and hash looks like.
+regex = '''(?i)(?:__oneme_auth|oneme[_-]?token|max[_-]?token|"token")["'\s:=]{1,10}([A-Za-z0-9_\-]{80,})'''
+tags = ["max", "token", "session"]
+
+[[rules]]
+id = "max-device-identity"
+description = "MAX device id — identifies this installation to MAX across sessions"
+regex = '''(?i)(?:__oneme_device_id|deviceId|mtInstanceId)["'\s:=]{1,10}([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})'''
+tags = ["max", "device"]
+
+[[rules]]
+id = "phone-number-e164"
+description = "A phone number — the identifier a MAX account is registered with"
+regex = '''(?i)(?:phone|msisdn|number)["'\s:=]{1,10}\+?[1-9]\d{9,14}'''
+tags = ["pii"]
+
+[allowlist]
+description = "Synthetic values used by tests and documentation"
+regexTarget = "match"
+regexes = [
+  # Fixtures and examples must use obviously fake values; these are the ones we sanction.
+  '''\+71234567890''',
+  '''00000000-0000-0000-0000-0000000000\d\d''',
+  '''(?i)your-token-here|example-token|<token>''',
+]
+paths = ['''pnpm-lock\.yaml''']

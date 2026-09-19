@@ -1,0 +1,32 @@
+# Git hooks. Installed by the `prepare` npm script, which pnpm runs on every install — necessary
+# because pnpm blocks dependencies' build scripts by default, so lefthook's own postinstall never
+# fires and the hooks would otherwise silently never land.
+#
+# Install by hand:      pnpm exec lefthook install
+# Skip for one commit:  LEFTHOOK=0 git commit …
+
+pre-commit:
+  parallel: true
+  commands:
+    biome:
+      glob: "*.{ts,tsx,js,mjs,cjs,json,jsonc}"
+      # Staged files only. The whole-repo run is the CI gate; running it per-commit is how people
+      # end up reaching for --no-verify, which is worse than no hook.
+      run: pnpm exec biome check --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+
+    gitleaks:
+      # Staged content only, and it warns rather than blocks when gitleaks is not installed: a
+      # fresh clone must still be able to commit. CI is the gate that cannot be skipped.
+      run: |
+        if command -v gitleaks >/dev/null 2>&1; then
+          gitleaks git --staged --no-banner --redact .
+        else
+          echo "gitleaks is not installed — staged changes were NOT scanned for secrets."
+          echo "  install: https://github.com/gitleaks/gitleaks#installing  (CI scans regardless)"
+        fi
+
+pre-push:
+  parallel: true
+  commands:
+    typecheck:
+      run: pnpm typecheck

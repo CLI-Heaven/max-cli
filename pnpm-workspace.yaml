@@ -3,3 +3,4 @@
 # boolean per package.
 allowBuilds:
   esbuild: true
+  lefthook: true

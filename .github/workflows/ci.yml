@@ -36,3 +36,19 @@ jobs:
       # a runtime; this executes the built command under it.
       - run: pnpm build
       - run: pnpm smoke:bun
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The whole history: a secret removed in a later commit is still a leaked secret.
+          fetch-depth: 0
+      - name: gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+        # The binary, not gitleaks-action: the action asks an organisation account for a licence
+        # key, and the tool itself is MIT and needs none.
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz gitleaks
+          ./gitleaks git --no-banner --redact --exit-code 1 .
