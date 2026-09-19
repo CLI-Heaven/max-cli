@@ -29,6 +29,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "smoke:bun": "bun run scripts/smoke.ts",
+    "probe:ids": "pnpm build && node --experimental-strip-types scripts/id-shape.ts",
     "prepare": "lefthook install || true",
     "secrets:scan": "gitleaks git --no-banner --redact .",
     "prepublishOnly": "pnpm build"
