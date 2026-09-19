@@ -72,6 +72,10 @@ now, in their own pass. How to add an operation is
 
 **Still open from that phase:**
 
+- **RES-6** · P2 · Watch what opcode 36 actually returns — one read-only call on the real account,
+  with the owner present — and close or re-write `PROTO-1`. It decides whether `max contacts sync`
+  can mean "every contact" or only "everyone MAX has already named"
+  (`docs_ai/plans/2026-09-20-contacts-and-paging.md` §3.1). Blocks `MAX-10`.
 - **RES-5** · 🟡 P2 · Whether `LOGIN` itself moves presence or read state. Reading history does not
   (we never send `CHAT_MARK`, and a test asserts it), but the login flag `interactive` is
   unexplained by every source. Needs a second device watching.
@@ -135,6 +139,11 @@ there, which `NEED-59` leaves alone.
 - **MAX-7** · P2 · The SQLite cache: chats, messages, contacts and their sync counters, behind a
   driver seam because `node:sqlite` and `bun:sqlite` are not the same module (`NEED-14`, `NEED-11`).
   Never the session token. Needs `--no-cache` and a clear command from the first commit.
+- **MAX-10** · P2 · Contacts as a store rather than a five-minute cache: `last_messaged_at`,
+  where a row came from, and the dialog partner persisted so "who did I last message" is a query
+  (`src/cache/schema.ts:32`). Then `max contacts sync` with a request budget, and a bounded
+  refresh at the start of a command that needs names (`NEED-81`).
+  Plan: `docs_ai/plans/2026-09-20-contacts-and-paging.md`. Needs `MAX-7` merged first — same files.
 - **MAX-8** · P3 · Telemetry as other clients send it — a later phase, and only once our own
   traffic is understood (`NEED-16`).
 - **MAX-9** · P3 · The rest of the messenger surface, in the order of §35: attachments and
@@ -157,6 +166,10 @@ are all built; `"record": true` and `keepRunsForDays` now reach `src/runs/record
   §3.6–§3.7.
 - **CLI-5** · P3 · The debug escape hatch — `max raw` / `max protocol invoke` — spec-validated,
   explicitly advanced, never arbitrary packet injection (§22).
+- **CLI-6** · 🚩 P2 · The same paging parameters on every listing command — `--limit`, `--page`,
+  `--all`, pushed into SQL rather than slicing — and `contacts list` ordered by who was last
+  messaged (`NEED-81`). 🚩 because what `--json` answers for a paged list is an open question:
+  `docs_ai/plans/2026-09-20-contacts-and-paging.md` §6.
 
 ## Risks carried
 
