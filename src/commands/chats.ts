@@ -14,7 +14,7 @@ export const chatsCommand = (): Command => {
     .action(async function (this: Command) {
       const options = this.optsWithGlobals()
       const { renderer } = resolveOutput(options)
-      const cache = await openProfileCache(options.profile)
+      const cache = await openProfileCache(options.profile, { onProblem: (message) => renderer.note(message) })
       const client = new MaxClient({
         store: new SessionStore({ profile: options.profile }),
         ...(cache ? { cache } : {}),

@@ -19,7 +19,7 @@ export const messagesCommand = (): Command => {
     .action(async function (this: Command, chat: string) {
       const options = this.optsWithGlobals()
       const { renderer } = resolveOutput(options)
-      const cache = await openProfileCache(options.profile)
+      const cache = await openProfileCache(options.profile, { onProblem: (message) => renderer.note(message) })
       const client = new MaxClient({
         store: new SessionStore({ profile: options.profile }),
         ...(cache ? { cache } : {}),
@@ -52,7 +52,7 @@ export const messagesCommand = (): Command => {
     .action(async function (this: Command, chat: string, text: string) {
       const options = this.optsWithGlobals()
       const { renderer } = resolveOutput(options)
-      const cache = await openProfileCache(options.profile)
+      const cache = await openProfileCache(options.profile, { onProblem: (message) => renderer.note(message) })
       const client = new MaxClient({
         store: new SessionStore({ profile: options.profile }),
         ...(cache ? { cache } : {}),
