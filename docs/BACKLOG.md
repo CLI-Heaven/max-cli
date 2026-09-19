@@ -69,6 +69,10 @@ in `docs_ai/plans/` on the machine that did the work.
 - **OPS-3** · P2 · A `generate` script plus a CI check that fails when generated output is stale —
   regenerate, then assert the working tree did not change (§8).
 - **OPS-4** · P3 · Publishing and releasing, once there is something worth installing.
+- **OPS-8** · P2 · Typecheck the test files. `tsconfig.json:24` excludes `src/**/*.test.ts`, so no
+  test is ever checked — which is how `src/client.test.ts:177` came to compare against
+  `Opcode.CHAT_MARK`, a constant that does not exist, and pass. A second `tsconfig.test.json` with
+  `noEmit`; removing the exclude instead would emit tests into `dist`.
 
 ## The foundation
 
@@ -84,7 +88,8 @@ in `docs_ai/plans/` on the machine that did the work.
 - **SPEC-0** · P1 · **The next piece of work.** Opcodes and payload shapes are hand-written
   constants in `src/protocol/session.ts` and object literals in `src/client.ts`; `NEED-7` ruled the
   spec is a TypeScript module with Valibot schemas as its literal source, and none of it exists
-  yet. Ten opcodes are in use, each one added by hand.
+  yet. ⚠ **Correction 2026-09-19: eight opcode constants exist and seven are sent**, not ten —
+  counted in `src/protocol/session.ts:4-18`; `PROFILE` 16 and `LOGOUT` 20 are never sent.
 
 - **SPEC-1** · P1 · The v1 specification, covering what is already implemented by hand: `INIT` 6,
   `LOGIN` 19, `LOGOUT` 20, `CONTACT_INFO` 32, `CHAT_HISTORY` 49, `CHATS_LIST` 53, `MSG_SEND` 64 —
