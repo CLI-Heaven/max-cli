@@ -18,6 +18,34 @@ decision.
 
 ---
 
+## 2026-09-20
+
+**NEED-84 · Must the profile be the very first word, or are leading global flags skipped?**
+**The very first word, strictly.** «2 A». `max personal chats list` works and
+`max --json personal chats list` does not — `personal` is read as a command there and the command
+fails. The rule is one sentence to explain and one line to implement; skipping leading flags is
+argument parsing before argument parsing, and it breaks as soon as a global flag takes a value.
+
+**NEED-81 · Does `contacts list` show everyone by default, or 20 like the other commands?**
+**Twenty — but the question was answered wider than it was asked.** The contacts a person sees
+first are **the twenty they last exchanged messages with**, not the first twenty by name; contacts
+live in SQLite with a **sync** of their own; a profile that has been synced is **refreshed at the
+start of a command, inside a request budget** («a limit of say 5 requests»); and **paging
+parameters are standard across every command** — per-page and a way to ask for the next page —
+with defaults in the configuration file.
+
+«store contacts in sqlite … I'd for sure add smth like contacts sync to get all contacts and if
+they were synced I'd update them on start (with a limit of say 5 requests etc). So yes we can show
+maybe 20 last contacts user messaged by default, but I'd add more settings like per-page and allow
+pagination etc (these params shoudl be standard for all commands)».
+
+⚠ **One part of this cannot be built yet, and it is the first one.** "All contacts" needs an
+operation that enumerates them, and we do not have one: `contacts.info` answers only about ids we
+already hold, and opcode 36 is `CONTACT_LIST` in two clients and `GET_BLOCKED` in the protocol
+documentation, unused and unwatched (`PROTO-1`). Until somebody sees what it returns, a sync can
+only cover the people MAX already tells us about. The plan is
+`docs_ai/plans/2026-09-20-contacts-and-paging.md`.
+
 ## 2026-09-18
 
 **NEED-1 · What are the command, the npm package and the repository called?**
