@@ -40,6 +40,13 @@ export interface Operation<
   readonly kind: "operation"
   /** Dotted and grouped by subject: `chats.list`, `messages.send`. The generator splits on the dot. */
   readonly name: string
+  /**
+   * MAX's own name for the number, as captured traffic and other clients spell it — `MSG_SEND`,
+   * not `MESSAGES_SEND`. Written out rather than derived from `name`, because the two vocabularies
+   * are not the same one: ours groups by subject, MAX's has to match what a frame is called
+   * everywhere else (`CONVENTIONS.md`, wire names below the adapter).
+   */
+  readonly constant: string
   readonly opcode: number
   /** Whether it may only be sent after LOGIN. */
   readonly auth: boolean
@@ -61,6 +68,7 @@ export interface Operation<
 export interface Reservation {
   readonly kind: "reservation"
   readonly name: string
+  readonly constant: string
   readonly opcode: number
   /** Why it is known and still never sent. This is the whole value of the entry. */
   readonly reason: string

@@ -5,6 +5,7 @@ import { defineOperation } from "./define.js"
 
 const operation = defineOperation({
   name: "chats.history",
+  constant: "CHAT_HISTORY",
   opcode: 49,
   auth: true,
   request: v.strictObject({ chatId: v.string() }),
