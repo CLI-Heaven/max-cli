@@ -1,5 +1,5 @@
 {
-  "name": "max-cli",
+  "name": "@cli-heaven/max-cli",
   "version": "0.0.0",
   "description": "A local command line interface for a personal MAX Messenger account, built for agents and scripts",
   "license": "MIT",
@@ -14,7 +14,7 @@
   },
   "packageManager": "pnpm@11.20.0",
   "bin": {
-    "max": "./dist/bin/max.js"
+    "max": "dist/bin/max.js"
   },
   "files": [
     "dist",
@@ -30,7 +30,8 @@
     "test:watch": "vitest",
     "smoke:bun": "bun run scripts/smoke.ts",
     "prepare": "lefthook install || true",
-    "secrets:scan": "gitleaks git --no-banner --redact ."
+    "secrets:scan": "gitleaks git --no-banner --redact .",
+    "prepublishOnly": "pnpm build"
   },
   "dependencies": {
     "commander": "^15.0.0",
@@ -45,5 +46,8 @@
     "typescript": "^5.9.3",
     "vitest": "^3.2.4",
     "lefthook": "^2.1.8"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

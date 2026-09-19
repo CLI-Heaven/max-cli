@@ -21,6 +21,17 @@ decision.
 ## 2026-09-18
 
 **NEED-1 · What are the command, the npm package and the repository called?**
+**Command `max`, repository `CLI-Heaven/max-cli`, package ~~`max-cli`~~ `@cli-heaven/max-cli`.**
+
+⚠ **Correction 2026-09-19: the unscoped `max-cli` is not ours to take.** `npm view max-cli`
+reports version 1.0.3, published 2018-07-04 by `ruanjiayou`, an unrelated scaffolding tool. A
+publish attempt failed on it. This is the second time in this family of projects that an unscoped
+name was already occupied — `braze-cli` became `@leemour/brazecli` for the same reason — so the
+scope is now the default rather than the fallback: «but we need to publish it under cli-heaven».
+The typed command is unaffected and stays `max` (`NEED-4`).
+
+The original ruling, which the scope narrows rather than overturns:
+
 **`max-cli`.** «1 max-cli». The repository half is measured rather than decided: `origin` is
 already `git@github.com:CLI-Heaven/max-cli.git`, and the organisation holds exactly two
 repositories — [`CLI-Heaven/max-cli`](https://github.com/CLI-Heaven/max-cli) and
