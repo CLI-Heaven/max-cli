@@ -90,7 +90,7 @@ do not hide it.
 tell which is current.
 
 **Write the trap, not the rule.** "Close the connection" is weaker than "a MAX WebSocket left open
-keeps the process alive after the result has printed, so a script that pipes `max chats --json`
+keeps the process alive after the result has printed, so a script that pipes `max chats list --json`
 never returns." The failure mode is what the reader needs to recognise.
 
 **No inventories, no archaeology, no placeholders.** A table of every class ages instantly. How a

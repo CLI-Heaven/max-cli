@@ -85,13 +85,13 @@ somebody's incoming message instead.
 Every command follows `connect → do the thing → print → close`, with the close in a `finally`.
 `Connection` owns the socket, the per-request timers and the listeners, and `close()` clears all
 three. **A command that prints its result and then hangs is a defect**: an open WebSocket or a live
-timer keeps Node alive, and a script that pipes `max chats --json` would never return.
+timer keeps Node alive, and a script that pipes `max chats list --json` would never return.
 
 `INIT` (6) then `LOGIN` (19) precede everything — MAX answers nothing before them. The handshake
 is handwritten in `src/session/handshake.ts` and will stay that way (§9 of the brief); what the
 specification supplies is the two payloads, so the field names have one home rather than two. The login
 response is unusually generous: profile, chats, contacts, recent messages and presence all arrive
-with it, so `max me` and `max chats` need **no further request**. This is why `PROFILE` (16) is not
+with it, so `max account show` and `max chats list` need **no further request**. This is why `PROFILE` (16) is not
 used to read a profile: it is a profile *update* and refuses an empty payload.
 
 `interactive: false` on login and on history. The web client sends `true` because a person is
@@ -121,7 +121,7 @@ held across two separate connections and logins, which is the case a retry actua
 
 So a lost send is retried **once, with the same `cid`**, never a fresh one. If the retry also
 fails, the answer is `outcome_unknown` — never failed, never sent — and it names the `cid`, so
-`max send --cid <n>` repeats the attempt without risking a second copy.
+`max messages send --cid <n>` repeats the attempt without risking a second copy.
 
 ⚠ Unmeasured: how long MAX remembers a `cid`. Both probes were seconds apart.
 
@@ -142,7 +142,8 @@ would then present MAX a different device every time — which is exactly what �
 prevent. Found by a test.
 
 `MAX_TOKEN` is read before the keyring, which is how CI and the probes work without touching a real
-keychain. `max login --token` imports a session obtained elsewhere; the interactive phone-and-code
+keychain. `max session start` imports a session obtained elsewhere, asking for the token without echoing
+it; the interactive phone-and-code
 flow is not built yet.
 
 ## 8. We look like the official client
@@ -155,7 +156,7 @@ undici version.
 
 ## 9. A name is never resolved by guessing
 
-`max messages "Ivan"` matches chat titles — exactly first, then as a fragment. **An ambiguous name
+`max messages list "Ivan"` matches chat titles — exactly first, then as a fragment. **An ambiguous name
 is an error listing the candidates, not a choice.** Sending to the wrong conversation does not
 undo. Verified live, where a full contact name matched two chats and the command stopped.
 

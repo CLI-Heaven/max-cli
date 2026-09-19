@@ -13,7 +13,7 @@ export interface SecretInput {
  * second copy nobody remembers to delete. Both are avoided by never letting it land anywhere: it
  * is typed or piped, goes straight to the keyring, and is never echoed.
  *
- * The prompt goes to **stderr**, not stdout, so that `max login --json` still writes one JSON
+ * The prompt goes to **stderr**, not stdout, so that `max session start --json` still writes one JSON
  * value and nothing else.
  */
 export const readSecret = async (

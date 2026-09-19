@@ -7,7 +7,7 @@
  * **It prints shapes, never values.** No id, no title, no message and no token reaches the output:
  * this runs against a real personal account and a terminal is a place things get pasted from.
  *
- *   max login        # once, the token goes to the OS keyring
+ *   max session start   # once, the token goes to the OS keyring
  *   pnpm probe:ids
  *
  * It imports from `dist/`, not `src/`: Node's type stripping does not resolve a `.js` specifier
@@ -23,7 +23,7 @@ const store = new SessionStore({ profile: process.env.MAX_PROFILE ?? "default" }
 const token = store.readToken()
 
 if (!token) {
-  console.error("no session on this profile — run `max login` first")
+  console.error("no session on this profile — run `max session start` first")
   process.exit(2)
 }
 

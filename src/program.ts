@@ -1,12 +1,10 @@
 import { CliError, exitCodeFor, GENERIC_FAILURE, processStreams, type Streams } from "@cli-heaven/cli-core"
 import { Command, CommanderError } from "commander"
+import { accountCommand } from "./commands/account.js"
 import { chatsCommand } from "./commands/chats.js"
 import { contactsCommand } from "./commands/contacts.js"
-import { loginCommand } from "./commands/login.js"
-import { logoutCommand } from "./commands/logout.js"
-import { meCommand } from "./commands/me.js"
 import { messagesCommand } from "./commands/messages.js"
-import { sendCommand } from "./commands/send.js"
+import { sessionCommand } from "./commands/session.js"
 import { VERSION } from "./version.js"
 
 export interface RunOptions {
@@ -41,22 +39,33 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
     .option("--verbose", "diagnostics on, without anything that identifies you")
     .showHelpAfterError()
 
-  program.addCommand(loginCommand())
-  program.addCommand(meCommand())
+  // One resource per command, one action per subcommand — `max chats list`, `max messages send`.
+  // The shape `braze-cli` uses, and the reason there is no `max send`: an action is never a
+  // top-level command, so there is one rule instead of a list of exceptions.
+  program.addCommand(sessionCommand())
+  program.addCommand(accountCommand())
   program.addCommand(chatsCommand())
   program.addCommand(contactsCommand())
   program.addCommand(messagesCommand())
-  program.addCommand(sendCommand())
-  program.addCommand(logoutCommand())
 
+  // Depth-first: Commander does not pass `configureOutput` down to a command added with
+  // `addCommand`, so `max messages --help` would write to the real terminal while the top level
+  // wrote to the injected streams — and a test reading stdout would see nothing at all.
   if (out || err) {
-    program.configureOutput({
-      writeOut: (text) => out?.(text),
-      writeErr: (text) => err?.(text),
-    })
+    forEachCommand(program, (command) =>
+      command.configureOutput({
+        writeOut: (text) => out?.(text),
+        writeErr: (text) => err?.(text),
+      }),
+    )
   }
 
   return program
+}
+
+const forEachCommand = (command: Command, apply: (command: Command) => void): void => {
+  apply(command)
+  for (const child of command.commands) forEachCommand(child, apply)
 }
 
 /**
@@ -75,8 +84,10 @@ export const run = async (argv: string[], options: RunOptions = {}): Promise<num
 
   // Commander calls process.exit for --help and --version. A library that kills the process cannot
   // be tested and cannot be embedded, so it throws instead and `run` decides the exit code.
-  program.exitOverride()
-  for (const command of program.commands) command.exitOverride()
+  //
+  // Depth-first, not one level: `max chats list --nonsense` is handled by the subcommand, and a
+  // subcommand left with the default behaviour kills the process from inside a test.
+  forEachCommand(program, (command) => command.exitOverride())
 
   try {
     await program.parseAsync(argv, { from: "user" })

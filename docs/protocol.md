@@ -28,7 +28,7 @@ sources disagree.
 
 A number in the registry is not permission to use it.
 
-- **LOGOUT** (20) — `max logout` forgets the token locally and tells MAX nothing. Ending the session server-side would also end it for the browser tab the token came from, which is not what the command promises.
+- **LOGOUT** (20) — `max session end` forgets the token locally and tells MAX nothing. Ending the session server-side would also end it for the browser tab the token came from, which is not what the command promises.
 - **PROFILE** (16) — It does not read a profile, it updates one, and it refuses an empty payload. Your own profile arrives with the login response, so nothing needs to send this. It is declared here so that fact keeps a home.
 - **UNIDENTIFIED_36** (36) — Nobody agrees what it is: tsmax and PyMax call it `CONTACT_LIST`; the protocol documentation calls it `GET_BLOCKED`. Sending it to find out would be sending an unknown command to a real account. It stays unsent until somebody watches a real client send it (`PROTO-1`).
 - **CHAT_MARK** (50) — Reading is observational by construction. Marking a conversation read is a change to somebody's account that no read command asked for, so 50 is declared here and never sent — and `src/client.test.ts` asserts its absence from everything the client sent.
