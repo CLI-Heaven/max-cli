@@ -61,7 +61,8 @@ in `docs_ai/plans/` on the machine that did the work.
 The specification and its generator closed the same way: `SPEC-0`, `SPEC-1`, `SPEC-2` and
 `OPS-3`. Every opcode and payload shape is declared once in `src/spec/`, the registry, the
 operation table, the wire wrappers and [`protocol.md`](protocol.md) are generated from it, and CI
-regenerates and asserts the tree did not change. How to add an operation is
+regenerates and asserts the tree did not change. `OPS-8` closed with it: the tests are typechecked
+now, in their own pass. How to add an operation is
 [`ARCHITECTURE.md`](ARCHITECTURE.md) §12; what was ruled is `NEED-7`, `NEED-34` and `NEED-35`.
 
 **Still open from that phase:**
@@ -78,10 +79,6 @@ regenerates and asserts the tree did not change. How to add an operation is
   first import, because Node's type stripping will not resolve a `.js` specifier to a `.ts` file.
   `scripts/id-shape.ts` shows the working shape: import from `dist/` and build first. It also
   calls opcode 16, which is an update, against a real account.
-- **OPS-8** · P2 · Typecheck the test files. `tsconfig.json:24` excludes `src/**/*.test.ts`, so no
-  test is ever checked — which is how `src/client.test.ts:177` came to compare against
-  `Opcode.CHAT_MARK`, a constant that does not exist, and pass. A second `tsconfig.test.json` with
-  `noEmit`; removing the exclude instead would emit tests into `dist`.
 
 ## The foundation
 
