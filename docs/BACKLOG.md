@@ -168,8 +168,8 @@ are all built; `"record": true` and `keepRunsForDays` now reach `src/runs/record
   explicitly advanced, never arbitrary packet injection (§22).
 - **CLI-6** · 🚩 P2 · The same paging parameters on every listing command — `--limit`, `--page`,
   `--all`, pushed into SQL rather than slicing — and `contacts list` ordered by who was last
-  messaged (`NEED-81`). 🚩 because what `--json` answers for a paged list is an open question:
-  `docs_ai/plans/2026-09-20-contacts-and-paging.md` §6.
+  messaged (`NEED-81`). 🚩 on `NEED-86`: whether `--json` answers a paged list with an array or
+  with an object carrying the page. Plan: `docs_ai/plans/2026-09-20-contacts-and-paging.md` §3.6.
 
 ## Risks carried
 
