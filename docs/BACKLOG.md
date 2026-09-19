@@ -6,10 +6,14 @@ stays in git history, and in `BACKLOG_DONE.md` once a first closed item starts t
 The brief this is cut from: [`REQUIREMENTS.md`](REQUIREMENTS.md). The plan for the current
 thread: `docs_ai/plans/` (local only, not committed).
 
-**Working as of 2026-09-19**: seven commands — `login`, `me`, `chats`, `contacts`, `messages`,
-`send`, `logout` — verified against the real MAX, and every request they send is built from the
-specification in `src/spec/`. 78 tests. What each part does and why is
+**Working as of 2026-09-20**: seven commands — `session start|end`, `account show`, `chats list`,
+`contacts list`, `messages list|send` — verified against the real MAX, and every request they send
+is built from the specification in `src/spec/`. `--verbose` shows each request as it happens and
+`--record` keeps it under `max runs`. 148 tests. What each part does and why is
 [`ARCHITECTURE.md`](ARCHITECTURE.md); what was ruled is [`DECISIONS.md`](DECISIONS.md).
+
+⚠ **Correction 2026-09-20: this line still listed `login`, `me`, `send` and `logout`** — the names
+`NEED-48` replaced on 2026-09-19. They have not existed since.
 
 <details>
 <summary>Rules of this file — read once</summary>
@@ -116,8 +120,14 @@ there, which `NEED-59` leaves alone.
 
 ## The command
 
-- **CLI-4** · P2 · Profiles, `--verbose`, `--quiet`, configuration and its precedence order (§11,
-  §13).
+- **CLI-4** · 🟡 P2 · Profiles, `--quiet`, configuration and its precedence order (§11, §13). The
+  `--verbose` half is closed: one event per request, two sinks, `src/runs/events.ts`
+  ([`ARCHITECTURE.md`](ARCHITECTURE.md) §13). What is left is the configuration file, the
+  precedence order, the profile as the first word, and routing the protocol note through the
+  renderer (`BUG-7`).
+- **CLI-6** · P3 · The configuration's `"record": true` and `keepRunsForDays` have nowhere to come
+  from until `CLI-4` lands the file. `--record` and `--no-record` work; absent means off, where it
+  should mean "ask the configuration" — `src/runs/recording.ts` already takes the third state.
 - **CLI-5** · P3 · The debug escape hatch — `max raw` / `max protocol invoke` — spec-validated,
   explicitly advanced, never arbitrary packet injection (§22).
 
@@ -137,6 +147,9 @@ there, which `NEED-59` leaves alone.
   seconds apart; a retry minutes later is unproven.
 - **PROTO-3** · P3 · The upper bound on `chatsCount` in `LOGIN`. 100 works, 200 is refused as "out
   of range"; the boundary is somewhere between. The specification caps it at 100 meanwhile.
+- **PROTO-6** · P3 · What `messages` in the `LOGIN` answer actually holds. Measured 2026-09-20: it
+  is an **object**, not the array the specification declared, and nothing in the code reads it —
+  `src/spec/operations/session.ts` now says `unknown` rather than guessing.
 - **PROTO-5** · P3 · How long a message id can get, and whether a chat id ever crosses 2⁵³.
   Measured 2026-09-19 over 25 chats and 6 contacts: chat ids reach 14 digits, contact ids 9, none
   past 2⁵³. The login carried no messages that run, so the 18-digit message id remains a single

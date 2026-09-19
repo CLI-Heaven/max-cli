@@ -5,6 +5,20 @@ export const MAX_WEBSOCKET_URL = "wss://ws-api.oneme.ru/websocket"
 /** MAX's web client sends this; we send what it sends rather than announcing ourselves (§34). */
 export const WEB_ORIGIN = "https://web.max.ru"
 
+/**
+ * What one frame cost, reported as it happens.
+ *
+ * The transport is the only layer that knows the `seq` it allocated and how many bytes actually
+ * went over the socket, and it is the only one that can time the wait. It reports those and
+ * nothing else — **who is asking, and why, stays above it** (`ARCHITECTURE.md` §2).
+ */
+export interface WireEvent {
+  phase: "sent" | "received"
+  seq: number
+  opcode: number
+  bytes: number
+}
+
 export interface ConnectionOptions {
   url?: string
   origin?: string
@@ -44,7 +58,11 @@ export class Connection {
   readonly #createSocket: (url: string, origin: string) => WebSocket
   readonly #pending = new Map<
     number,
-    { resolve: (frame: InboundFrame) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }
+    {
+      resolve: (answer: { frame: InboundFrame; bytes: number }) => void
+      reject: (error: Error) => void
+      timer: ReturnType<typeof setTimeout>
+    }
   >()
 
   #socket: WebSocket | undefined
@@ -89,8 +107,12 @@ export class Connection {
    * MAX interleaves pushed events with responses on one socket, so the `seq` is the only thing
    * tying an answer to its question — a reader that takes the next frame as its answer will
    * eventually read somebody's incoming message instead.
+   *
+   * `watch` is told what left and what came back, for the caller that is keeping a diagnostic. It
+   * is called synchronously on the way out, so a request that never gets an answer is still on
+   * record — which is the run somebody actually wants to read.
    */
-  async invoke(opcode: number, payload: Payload = {}): Promise<Payload> {
+  async invoke(opcode: number, payload: Payload = {}, watch?: (event: WireEvent) => void): Promise<Payload> {
     if (!Number.isInteger(opcode)) {
       // A typo in an opcode constant is otherwise a round trip to MAX that comes back
       // "неизвестный opcode", which reads as the protocol's fault rather than ours.
@@ -103,15 +125,20 @@ export class Connection {
     const seq = this.#seq
     const socket = this.#socket
 
-    const frame = await new Promise<InboundFrame>((resolve, reject) => {
+    const answer = await new Promise<{ frame: InboundFrame; bytes: number }>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.#pending.delete(seq)
         reject(new Error(`MAX did not answer opcode ${opcode} within ${this.#timeoutMs}ms`))
       }, this.#timeoutMs)
 
       this.#pending.set(seq, { resolve, reject, timer })
-      socket.send(encodeFrame({ seq, opcode, payload }))
+      const sent = encodeFrame({ seq, opcode, payload })
+      socket.send(sent)
+      watch?.({ phase: "sent", seq, opcode, bytes: Buffer.byteLength(sent) })
     })
+
+    const frame = answer.frame
+    watch?.({ phase: "received", seq, opcode, bytes: answer.bytes })
 
     if (frame.cmd === Command.ERROR) {
       const reason = typeof frame.payload?.error === "string" ? frame.payload.error : "an error with no reason given"
@@ -150,7 +177,7 @@ export class Connection {
 
     clearTimeout(waiting.timer)
     this.#pending.delete(frame.seq as number)
-    waiting.resolve(frame)
+    waiting.resolve({ frame, bytes: Buffer.byteLength(raw) })
   }
 
   #failAll(error: Error): void {

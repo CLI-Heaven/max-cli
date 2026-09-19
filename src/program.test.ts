@@ -22,7 +22,7 @@ describe("the program", () => {
 
   it("offers every resource at the top level", async () => {
     const { stdout } = await runWith(["--help"])
-    for (const command of ["session", "account", "chats", "contacts", "messages", "cache"]) {
+    for (const command of ["session", "account", "chats", "contacts", "messages", "cache", "runs"]) {
       expect(stdout).toContain(command)
     }
   })
@@ -44,6 +44,35 @@ describe("the program", () => {
     const untouched = createProgram()
     untouched.parseOptions([])
     expect(untouched.opts().offline).toBeUndefined()
+  })
+
+  it("reads a run back three ways, and records nothing while doing it", async () => {
+    const { stdout } = await runWith(["runs", "--help"])
+    for (const action of ["list", "show", "path"]) expect(stdout).toContain(action)
+  })
+
+  it("**tells `--record`, `--no-record` and neither apart**, because the third is the configuration's", () => {
+    const asked = createProgram()
+    asked.parseOptions(["--record"])
+    expect(asked.opts().record).toBe(true)
+
+    const refused = createProgram()
+    refused.parseOptions(["--no-record"])
+    expect(refused.opts().record).toBe(false)
+
+    // Not `true` and not `false`: nothing on the command line means the configuration file decides,
+    // and a default here would quietly outrank it.
+    const untouched = createProgram()
+    untouched.parseOptions([])
+    expect(untouched.opts().record).toBeUndefined()
+  })
+
+  it("promises only what `--verbose` actually does", async () => {
+    // `commander` wraps the column, so the promise is checked in the piece that survives wrapping.
+    const { stdout } = await runWith(["--help"])
+    expect(stdout).toContain("ids and timings")
+    // It said "without anything that identifies you" until 2026-09-20, and the line names the chat.
+    expect(stdout).not.toContain("without anything that identifies you")
   })
 
   it("**puts the action under the resource, never beside it**", async () => {
