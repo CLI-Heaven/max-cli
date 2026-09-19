@@ -93,37 +93,47 @@ export class MaxClient {
   }
 
   /**
-   * Sends one message, and **never retries it**.
+   * Sends one message, retrying **only with the same `cid`**.
    *
-   * MAX carries a client-generated `cid` on every outgoing message, and the protocol
-   * documentation calls it a deduplication identifier — but that is reverse-engineered
-   * documentation, and nobody has measured what the server does with a repeated one. Until
-   * somebody has, a send whose outcome we did not see is reported as exactly that: `outcome_unknown`,
-   * never as failed and never as sent. A duplicate message is worse than an honest "I do not know"
-   * (REQUIREMENTS §17).
+   * §17 allows a send to be retried when the protocol has a verified deduplication handle. It has
+   * one, measured against MAX on 2026-09-19: sending the same `cid` twice returned the same message
+   * id and left **one** copy in the chat — and it held across two separate connections and logins,
+   * which is the case a retry actually faces.
+   *
+   * So one retry, same `cid`, and nothing beyond that. What is still unmeasured is how long the
+   * server remembers a `cid`; the two probes were seconds apart. If the retry also fails the answer
+   * is `outcome_unknown` — never failed, never sent — and it names the `cid`, because
+   * `max send --cid <n>` can then repeat the attempt without risking a second message.
    */
   async sendMessage(chatId: Id, text: string, options: { cid?: number; notify?: boolean } = {}): Promise<Message> {
     const session = this.#session()
     const cid = options.cid ?? this.#nextCid()
 
+    const request = {
+      chatId: Number(chatId),
+      message: { text, cid, elements: [], attaches: [] },
+      notify: options.notify ?? true,
+    }
+
     let answer: Payload
     try {
-      answer = await this.#connection.invoke(Opcode.MSG_SEND, {
-        chatId: Number(chatId),
-        message: { text, cid, elements: [], attaches: [] },
-        notify: options.notify ?? true,
-      })
+      answer = await this.#connection.invoke(Opcode.MSG_SEND, request)
     } catch (error) {
       const failure = asCliError(error)
-      // The request left and no answer came back: MAX may well have delivered it.
-      if (failure.code === "timeout" || failure.code === "network_error") {
+      if (failure.code !== "timeout" && failure.code !== "network_error") throw failure
+
+      // No answer came back, so MAX may already have delivered it. Repeating the identical `cid`
+      // is what makes asking again safe rather than reckless.
+      try {
+        answer = await this.#connection.invoke(Opcode.MSG_SEND, request)
+      } catch {
         throw new CliError(
           "outcome_unknown",
-          `the message may or may not have been sent (${failure.message}) — check the chat before sending it again`,
+          `the message may or may not have been sent (${failure.message}) — ` +
+            `\`max send --cid ${cid}\` repeats the attempt without risking a second copy`,
           { cid },
         )
       }
-      throw failure
     }
 
     const sent = record(answer.message) ?? answer

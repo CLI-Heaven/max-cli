@@ -169,6 +169,31 @@ describe("MaxClient", () => {
     expect(new Set(cids).size).toBe(2)
   })
 
+  it("retries a lost send once, with the same client id and never a new one", async () => {
+    let attempts = 0
+    const max = mockMax({
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: loginAnswer,
+        [Opcode.MSG_SEND]: () => {
+          attempts += 1
+          // Silent the first time: the request left, nothing came back, and MAX may have kept it.
+          return attempts === 1 ? undefined : { message: { id: 7, time: 1789776000000, sender: 10000001, text: "hi" } }
+        },
+      },
+    })
+    const { client } = clientWith(max)
+
+    await client.connect()
+    const sent = await client.sendMessage("111", "hi", { cid: 4242 })
+    await client.close()
+
+    const sends = max.sent.filter((call) => call.opcode === Opcode.MSG_SEND)
+    expect(sends).toHaveLength(2)
+    expect(sends.map((call) => (call.payload.message as { cid: number }).cid)).toEqual([4242, 4242])
+    expect(sent.id).toBe("7")
+  })
+
   it("**never turns a lost answer into a claim either way**", async () => {
     const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
     const { client } = clientWith(max)
@@ -180,6 +205,7 @@ describe("MaxClient", () => {
     await client.close()
 
     expect(failure).toMatchObject({ code: "outcome_unknown" })
+    expect(String((failure as { message: string }).message)).toContain("--cid")
     expect(max.unexpected).toContain(Opcode.MSG_SEND)
   })
 

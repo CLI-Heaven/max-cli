@@ -4,7 +4,8 @@ import { Command, decodeFrame, encodeFrame, type Payload } from "../protocol/fra
 
 export interface MockMaxOptions {
   /** One answer per opcode. An opcode with no answer is an unexpected call, and the test fails. */
-  answers: Record<number, Payload | (() => Payload)>
+  /** A function may return `undefined` to stay silent, which is how a timeout is scripted. */
+  answers: Record<number, Payload | (() => Payload | undefined)>
   /** Opcodes to refuse, as MAX does: `cmd=3` with an `error` in the payload. */
   refuse?: Record<number, string>
 }
@@ -50,12 +51,10 @@ export const mockMax = ({ answers, refuse = {} }: MockMaxOptions): MockMax => {
         return
       }
 
-      this.answer({
-        seq: frame.seq ?? 0,
-        opcode: frame.opcode,
-        payload: typeof answer === "function" ? answer() : answer,
-        cmd: Command.RESPONSE,
-      })
+      const payload = typeof answer === "function" ? answer() : answer
+      if (payload === undefined) return // Silence: the caller will time out, as MAX sometimes does.
+
+      this.answer({ seq: frame.seq ?? 0, opcode: frame.opcode, payload, cmd: Command.RESPONSE })
     }
 
     answer(frame: { seq: number; opcode: number; payload: Payload; cmd: Command }): void {

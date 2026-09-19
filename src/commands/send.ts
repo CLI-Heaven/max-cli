@@ -15,6 +15,9 @@ export const sendCommand = (): Command =>
     .argument("<chat>", "chat id")
     .argument("<text>", "what to say")
     .description("send one text message")
+    .option("--cid <n>", "reuse a client id from an earlier ambiguous send; MAX collapses the duplicate", (value) =>
+      Number.parseInt(value, 10),
+    )
     .action(async function (this: Command, chat: string, text: string) {
       const options = this.optsWithGlobals()
       const { renderer } = resolveOutput(options)
@@ -22,7 +25,7 @@ export const sendCommand = (): Command =>
 
       try {
         await client.connect()
-        renderer.result(await client.sendMessage(chat, text))
+        renderer.result(await client.sendMessage(chat, text, options.cid === undefined ? {} : { cid: options.cid }))
       } finally {
         await client.close()
       }
