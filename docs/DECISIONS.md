@@ -59,6 +59,24 @@ a second copy.
 
 ## 2026-09-19 (later)
 
+**NEED-51 · Does the run log go into the SQLite database the cache phase brings?**
+**No — files for the log, SQLite for the cache.** «1 A». Two reasons decide it. They have opposite
+lifecycles: the cache is disposable and rebuilds from MAX, the run log is the one thing that
+cannot be rebuilt, so one store means clearing a corrupt cache throws away the audit trail. And
+two `max` invocations run at once here, because scripts and agents drive it — two appends to two
+files never conflict, while two writers on one database take a lock and a busy writer starts
+failing the command it was only supposed to describe.
+
+Supporting: an append-only file keeps everything written up to the moment a process died, which is
+the run worth reading; and logging through the injected driver seam (`NEED-11`) would tie the log
+writer to the runtime and block it on a cache phase that has not started.
+
+**NEED-59 · The `ExperimentalWarning` `node:sqlite` prints on Node 22.**
+**Left alone.** «2 C». Measured 2026-09-19: Node 22.23.2 has `node:sqlite` unflagged and working,
+and prints `ExperimentalWarning: SQLite is an experimental feature` to stderr on import; Node 24 is
+silent. It does not break the stdout contract, and suppressing warnings process-wide to hide one
+line costs more than it saves.
+
 **NEED-48 · Is every command a resource and an action, including `login` and `logout`?**
 **Yes, with no exceptions.** «1 B». `max session start` and `max session end`, alongside
 `max account show`, `max chats list`, `max contacts list`, `max messages list` and
