@@ -364,6 +364,12 @@ protocol/API surface for:
 Potential command surface: `max login` · `max me` · `max chats` · `max messages <chat>` ·
 `max send <chat> <message>`· `max logout`.
 
+⚠ **Superseded 2026-09-19 (`NEED-48`).** Every command is now a resource and an action —
+`max session start`, `max account show`, `max chats list`, `max messages list <chat>`,
+`max messages send <chat> <text>`, `max session end`. The surface this section sketched is
+unchanged in what it does; only the spelling moved. Left as written because this file is the brief,
+not a description of the code — [`ARCHITECTURE.md`](ARCHITECTURE.md) is that.
+
 Potential options: `--json` · `--limit` · `--profile` · `--verbose` · `--quiet`. Only add options
 supported by real use cases.
 

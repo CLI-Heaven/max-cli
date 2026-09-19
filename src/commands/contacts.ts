@@ -10,8 +10,11 @@ import { SessionStore } from "../session/store.js"
  * documentation calls `GET_BLOCKED`, and until somebody has watched what it actually returns, this
  * lists what we can establish without guessing.
  */
-export const contactsCommand = (): Command =>
-  new Command("contacts")
+export const contactsCommand = (): Command => {
+  const command = new Command("contacts").description("people you have a one-to-one chat with")
+
+  command
+    .command("list")
     .description("people you have a one-to-one chat with")
     .option("--limit <n>", "how many to show", (value) => Number.parseInt(value, 10))
     .action(async function (this: Command) {
@@ -27,3 +30,6 @@ export const contactsCommand = (): Command =>
         await client.close()
       }
     })
+
+  return command
+}

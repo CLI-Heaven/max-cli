@@ -79,6 +79,6 @@ export const logout = reserveOpcode({
   constant: "LOGOUT",
   opcode: 20,
   reason:
-    "`max logout` forgets the token locally and tells MAX nothing. Ending the session server-side would also end it for the browser tab the token came from, which is not what the command promises.",
+    "`max session end` forgets the token locally and tells MAX nothing. Ending the session server-side would also end it for the browser tab the token came from, which is not what the command promises.",
   provenance: { confidence: "observed", sources: ["max-api-docs/protocol/auth.md"] },
 })

@@ -188,7 +188,10 @@ export class MaxClient {
   async connect(): Promise<void> {
     const token = this.#store.readToken()
     if (!token) {
-      throw new CliError("authentication_error", `no session for profile "${this.#store.profile}" — run \`max login\``)
+      throw new CliError(
+        "authentication_error",
+        `no session for profile "${this.#store.profile}" — run \`max session start\``,
+      )
     }
 
     const state = this.#store.readState()
@@ -324,7 +327,10 @@ const asCliError = (error: unknown): CliError => {
   if (error instanceof ProtocolError) {
     const text = error.message.toLowerCase()
     if (text.includes("token") || text.includes("auth")) {
-      return new CliError("authentication_error", `${error.message} — the session may have expired; run \`max login\``)
+      return new CliError(
+        "authentication_error",
+        `${error.message} — the session may have expired; run \`max session start\``,
+      )
     }
     return new CliError("provider_error", error.message, { operation: String(error.opcode) })
   }

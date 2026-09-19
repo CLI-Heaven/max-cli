@@ -59,6 +59,29 @@ a second copy.
 
 ## 2026-09-19 (later)
 
+**NEED-48 · Is every command a resource and an action, including `login` and `logout`?**
+**Yes, with no exceptions.** «1 B». `max session start` and `max session end`, alongside
+`max account show`, `max chats list`, `max contacts list`, `max messages list` and
+`max messages send`. The shape is `braze-cli`'s, read from its source rather than its README —
+`../braze-cli/packages/cli/src/commands/runs.ts:49,69,81`.
+
+I argued for keeping `login` and `logout` as the two words every tool on earth uses, and for an
+agent that has never read our help. Overruled in favour of one rule with no exceptions to
+remember, and **no aliases** — two spellings of one command is what `--profile` was deleted for.
+
+**NEED-49 · How long does a recorded run live?**
+**30 days, pruned when a run is recorded.** «2 A», with the number as a configuration setting.
+Pruning happens only while something is being recorded: a tool that is not recording has no
+business walking that directory.
+
+**NEED-52 · Does `max runs` survive recording being off by default?**
+**Yes, and an empty list says why.** «3 A». `max runs list` with nothing to show prints that
+recording is off and names `--record`, rather than an empty result that reads as broken.
+
+**NEED-45 · Is `--profile` kept alongside the profile as the first word?**
+**No, deleted.** «no, but accept env var». `max personal chats list`, or `MAX_PROFILE`, and
+nothing else.
+
 **NEED-34 · Do the generated per-operation functions become public, or does one client stay the only door?**
 **One door, and it is regrouped.** «2 C». Not the two options first put — the third: the seven
 existing methods take the shape `REQUIREMENTS.md` §8 sketched — `client.chats.list(...)`,
@@ -99,7 +122,7 @@ be found. Worth recording because the obvious heuristic is wrong: "one participa
 
 **NEED-30 · What comes after the vertical slice?**
 **Contacts.** «2 да». Names for one-to-one chats and addressing a chat by name — without them
-`max chats` shows a column of blanks for exactly the chats a person recognises.
+`max chats list` shows a column of blanks for exactly the chats a person recognises.
 
 **NEED-31 · Documents, the spec and generator, or an interactive login?**
 **Documents first.** «1 A». `ARCHITECTURE.md` and bringing the rest in line with the code, before

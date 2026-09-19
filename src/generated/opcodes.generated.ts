@@ -15,7 +15,7 @@ export const Opcode = {
   PROFILE: 16,
   LOGIN: 19,
   /**
-   * **Declared, never sent.** `max logout` forgets the token locally and tells MAX nothing. Ending the session
+   * **Declared, never sent.** `max session end` forgets the token locally and tells MAX nothing. Ending the session
    * server-side would also end it for the browser tab the token came from, which is not what the command promises.
    */
   LOGOUT: 20,

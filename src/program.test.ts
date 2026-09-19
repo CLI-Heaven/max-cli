@@ -20,9 +20,27 @@ describe("the program", () => {
     expect((await runWith(["--help"])).stdout).toContain("Usage: max")
   })
 
-  it("offers the whole slice", async () => {
+  it("offers every resource at the top level", async () => {
     const { stdout } = await runWith(["--help"])
-    for (const command of ["login", "me", "chats", "messages", "logout"]) expect(stdout).toContain(command)
+    for (const command of ["session", "account", "chats", "contacts", "messages"]) expect(stdout).toContain(command)
+  })
+
+  it("**puts the action under the resource, never beside it**", async () => {
+    const messages = await runWith(["messages", "--help"])
+    expect(messages.stdout).toContain("list")
+    expect(messages.stdout).toContain("send")
+
+    // `max send` was a top-level command until 2026-09-19. One rule, no exceptions to remember.
+    const gone = await runWith(["send", "0", "hello"])
+    expect(gone.stderr).toContain("unknown command")
+    expect(gone.code).not.toBe(0)
+  })
+
+  it("keeps a subcommand from killing the process on a bad option", async () => {
+    const { stdout, stderr, code } = await runWith(["chats", "list", "--nonsense"])
+    expect(stdout).toBe("")
+    expect(stderr).toContain("unknown option")
+    expect(code).not.toBe(0)
   })
 
   it("carries the four global options every command needs", async () => {
@@ -44,7 +62,13 @@ describe("the program", () => {
   })
 
   it("**puts a failure on stderr as JSON, never on stdout**", async () => {
-    const { stdout, stderr, code } = await runWith(["me", "--json", "--profile", "a-profile-that-does-not-exist"])
+    const { stdout, stderr, code } = await runWith([
+      "account",
+      "show",
+      "--json",
+      "--profile",
+      "a-profile-that-does-not-exist",
+    ])
 
     expect(stdout).toBe("")
     expect(JSON.parse(stderr).error.code).toBe("authentication_error")
@@ -54,10 +78,10 @@ describe("the program", () => {
 
   it("tells a person what to do next, rather than printing JSON at them", async () => {
     const streams = captureStreams()
-    const code = await run(["me", "--profile", "a-profile-that-does-not-exist"], { streams, tty: true })
+    const code = await run(["account", "show", "--profile", "a-profile-that-does-not-exist"], { streams, tty: true })
 
     expect(streams.stdout).toEqual([])
-    expect(streams.stderr.join("")).toContain("max login")
+    expect(streams.stderr.join("")).toContain("max session start")
     expect(code).toBe(4)
   })
 })

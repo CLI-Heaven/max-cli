@@ -47,7 +47,7 @@ describe("MaxClient", () => {
     const { client } = clientWith(max, "")
 
     await expect(client.connect()).rejects.toMatchObject({ code: "authentication_error" })
-    expect(String(await client.connect().catch((error: Error) => error.message))).toContain("max login")
+    expect(String(await client.connect().catch((error: Error) => error.message))).toContain("max session start")
   })
 
   it("does INIT then LOGIN, in that order, before anything else", async () => {
@@ -212,7 +212,7 @@ describe("MaxClient", () => {
     await client.close()
   })
 
-  it("treats a refusal naming the token as something `max login` fixes", async () => {
+  it("treats a refusal naming the token as something `max session start` fixes", async () => {
     const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {} }, refuse: { [Opcode.LOGIN]: "login.token.invalid" } })
     const { client } = clientWith(max)
 
