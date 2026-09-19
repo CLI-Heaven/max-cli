@@ -28,7 +28,10 @@ const clientWith = (max: ReturnType<typeof mockMax>, token = "a-token") => {
   const store = new SessionStore({ keyring, configDir: dir, stateDir: join(dir, "state"), env: {} })
   if (token) store.writeToken(token)
 
-  return { store, client: new MaxClient({ store, connection: new Connection({ createSocket: max.createSocket }) }) }
+  return {
+    store,
+    client: new MaxClient({ store, connection: new Connection({ createSocket: max.createSocket, timeoutMs: 50 }) }),
+  }
 }
 
 describe("MaxClient", () => {
@@ -121,6 +124,63 @@ describe("MaxClient", () => {
 
     await expect(client.connect()).rejects.toMatchObject({ code: "authentication_error" })
     await client.close()
+  })
+
+  it("sends a message with a client id, and reports what came back", async () => {
+    const sendAnswer = {
+      message: { id: 900000000000000001n, time: 1789776000000, sender: 10000001, text: "hello", attaches: [] },
+    }
+    const max = mockMax({
+      answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer, [Opcode.MSG_SEND]: sendAnswer },
+    })
+    const { client } = clientWith(max)
+
+    await client.connect()
+    const sent = await client.sendMessage("111", "hello", { cid: 12345 })
+    await client.close()
+
+    const request = max.sent.at(-1)
+    expect(request?.opcode).toBe(Opcode.MSG_SEND)
+    const message = (request?.payload.message ?? {}) as { cid?: unknown; text?: unknown }
+    expect(message.cid).toBe(12345)
+    expect(message.text).toBe("hello")
+    expect(sent.id).toBe("900000000000000001")
+    expect(sent.outgoing).toBe(true)
+  })
+
+  it("gives each send its own client id, so two sends are two messages", async () => {
+    const max = mockMax({
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: loginAnswer,
+        [Opcode.MSG_SEND]: { message: { id: 1, time: 1 } },
+      },
+    })
+    const { client } = clientWith(max)
+
+    await client.connect()
+    await client.sendMessage("111", "one")
+    await client.sendMessage("111", "two")
+    await client.close()
+
+    const cids = max.sent
+      .filter((call) => call.opcode === Opcode.MSG_SEND)
+      .map((call) => (call.payload.message as { cid: number }).cid)
+    expect(new Set(cids).size).toBe(2)
+  })
+
+  it("**never turns a lost answer into a claim either way**", async () => {
+    const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
+    const { client } = clientWith(max)
+
+    await client.connect()
+    // MSG_SEND has no scripted answer: the request leaves and nothing comes back, which is exactly
+    // the case where the message may already have been delivered.
+    const failure = await client.sendMessage("111", "hello").catch((error: { code: string }) => error)
+    await client.close()
+
+    expect(failure).toMatchObject({ code: "outcome_unknown" })
+    expect(max.unexpected).toContain(Opcode.MSG_SEND)
   })
 
   it("closes the socket, so the process can exit", async () => {

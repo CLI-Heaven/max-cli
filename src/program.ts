@@ -5,6 +5,7 @@ import { loginCommand } from "./commands/login.js"
 import { logoutCommand } from "./commands/logout.js"
 import { meCommand } from "./commands/me.js"
 import { messagesCommand } from "./commands/messages.js"
+import { sendCommand } from "./commands/send.js"
 import { VERSION } from "./version.js"
 
 export interface RunOptions {
@@ -43,6 +44,7 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
   program.addCommand(meCommand())
   program.addCommand(chatsCommand())
   program.addCommand(messagesCommand())
+  program.addCommand(sendCommand())
   program.addCommand(logoutCommand())
 
   if (out || err) {

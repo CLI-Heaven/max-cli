@@ -24,6 +24,7 @@ export class MaxClient {
   readonly #store: SessionStore
   readonly #connection: Connection
   #login: Payload | undefined
+  #previousCid = 0
 
   constructor({ store, timeoutMs, connection }: MaxClientOptions) {
     this.#store = store
@@ -91,8 +92,60 @@ export class MaxClient {
     return asArray(answer.messages).map((raw) => toMessage(raw, chatId, lookup))
   }
 
+  /**
+   * Sends one message, and **never retries it**.
+   *
+   * MAX carries a client-generated `cid` on every outgoing message, and the protocol
+   * documentation calls it a deduplication identifier — but that is reverse-engineered
+   * documentation, and nobody has measured what the server does with a repeated one. Until
+   * somebody has, a send whose outcome we did not see is reported as exactly that: `outcome_unknown`,
+   * never as failed and never as sent. A duplicate message is worse than an honest "I do not know"
+   * (REQUIREMENTS §17).
+   */
+  async sendMessage(chatId: Id, text: string, options: { cid?: number; notify?: boolean } = {}): Promise<Message> {
+    const session = this.#session()
+    const cid = options.cid ?? this.#nextCid()
+
+    let answer: Payload
+    try {
+      answer = await this.#connection.invoke(Opcode.MSG_SEND, {
+        chatId: Number(chatId),
+        message: { text, cid, elements: [], attaches: [] },
+        notify: options.notify ?? true,
+      })
+    } catch (error) {
+      const failure = asCliError(error)
+      // The request left and no answer came back: MAX may well have delivered it.
+      if (failure.code === "timeout" || failure.code === "network_error") {
+        throw new CliError(
+          "outcome_unknown",
+          `the message may or may not have been sent (${failure.message}) — check the chat before sending it again`,
+          { cid },
+        )
+      }
+      throw failure
+    }
+
+    const sent = record(answer.message) ?? answer
+    return toMessage(sent, chatId, { names: namesFrom(session.contacts), ...viewer(this.#store) })
+  }
+
   async close(): Promise<void> {
     await this.#connection.close()
+  }
+
+  /**
+   * A client id that never repeats within a process.
+   *
+   * `Date.now()` alone is not enough: two sends in the same millisecond get the same number, and if
+   * MAX really does deduplicate by `cid` the second message vanishes with no error anywhere. Caught
+   * by a test, not by a lost message. Across processes this is still millisecond-grained, which is
+   * safe while one invocation sends one message.
+   */
+  #nextCid(): number {
+    const now = Date.now()
+    this.#previousCid = now > this.#previousCid ? now : this.#previousCid + 1
+    return this.#previousCid
   }
 
   #session(): Payload {
