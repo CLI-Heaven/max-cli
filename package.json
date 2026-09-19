@@ -23,6 +23,7 @@
   ],
   "scripts": {
     "build": "tsc --build",
+    "generate": "pnpm build && node --experimental-strip-types scripts/generate.ts",
     "typecheck": "tsc --build --force --emitDeclarationOnly",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",

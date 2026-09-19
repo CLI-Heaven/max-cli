@@ -1,8 +1,8 @@
 import type { Entry, Operation, Reservation } from "./define.js"
-import { logout, sessionInit, sessionLogin } from "./operations/auth.js"
 import { chatMark, chatsHistory, chatsList } from "./operations/chats.js"
 import { contactsInfo, profile, unidentified36 } from "./operations/contacts.js"
 import { messageDelete, messagesSend } from "./operations/messages.js"
+import { logout, sessionInit, sessionLogin } from "./operations/session.js"
 
 export { checkResponse } from "./check.js"
 export * from "./define.js"

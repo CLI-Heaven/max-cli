@@ -1,0 +1,35 @@
+<!-- Generated from src/spec/ by scripts/generate.ts. Do not edit; run `pnpm generate`. -->
+
+# The MAX operations this project knows
+
+Generated from `src/spec/`. Every shape here was written down once, in TypeScript, and the
+validators, the opcode registry and this page all come from that one place.
+
+**Confidence** says what the shape rests on. `measured` means we sent it and read the answer;
+`confirmed` means two independent implementations agree and we have not run it; `observed`
+means one does; `inferred` means it follows from something next to it; `unknown` means the
+sources disagree.
+
+| Operation | Opcode | MAX's name | When | Confidence | Where it came from |
+|---|---|---|---|---|---|
+| `session.init` | 6 | `SESSION_INIT` | before login | measured | measured against MAX 2026-09-19; max-api-docs/protocol/auth.md; tsmax createWebAgent |
+| `session.login` | 19 | `LOGIN` | before login | measured | measured against MAX 2026-09-19 |
+| `session.logout` | 20 | `LOGOUT` | **never sent** | observed | max-api-docs/protocol/auth.md |
+| `contacts.info` | 32 | `CONTACT_INFO` | after login | measured | measured against MAX 2026-09-19: asked for ten, got ten |
+| `account.update` | 16 | `PROFILE` | **never sent** | measured | measured against MAX 2026-09-19: refused an empty payload |
+| `protocol.unidentified36` | 36 | `UNIDENTIFIED_36` | **never sent** | unknown | tsmax and PyMax call it CONTACT_LIST; max-api-docs calls it GET_BLOCKED |
+| `chats.history` | 49 | `CHAT_HISTORY` | after login | measured | measured against MAX 2026-09-19 |
+| `chats.mark` | 50 | `CHAT_MARK` | **never sent** | confirmed | tsmax; max-api-docs/protocol/chats.md |
+| `chats.list` | 53 | `CHATS_LIST` | after login | measured | measured against MAX 2026-09-19; max-api-docs/protocol/chats.md |
+| `messages.send` | 64 | `MSG_SEND` | after login | measured | measured against MAX 2026-09-19, including deduplication by `cid` across two connections |
+| `messages.delete` | 66 | `MSG_DELETE` | **never sent** | observed | tsmax |
+
+## The numbers that are declared and never sent
+
+A number in the registry is not permission to use it.
+
+- **LOGOUT** (20) — `max logout` forgets the token locally and tells MAX nothing. Ending the session server-side would also end it for the browser tab the token came from, which is not what the command promises.
+- **PROFILE** (16) — It does not read a profile, it updates one, and it refuses an empty payload. Your own profile arrives with the login response, so nothing needs to send this. It is declared here so that fact keeps a home.
+- **UNIDENTIFIED_36** (36) — Nobody agrees what it is: tsmax and PyMax call it `CONTACT_LIST`; the protocol documentation calls it `GET_BLOCKED`. Sending it to find out would be sending an unknown command to a real account. It stays unsent until somebody watches a real client send it (`PROTO-1`).
+- **CHAT_MARK** (50) — Reading is observational by construction. Marking a conversation read is a change to somebody's account that no read command asked for, so 50 is declared here and never sent — and `src/client.test.ts` asserts its absence from everything the client sent.
+- **MSG_DELETE** (66) — Deliberately never called. Giving this tool the ability to destroy somebody's messages, in order to tidy up after a test, is a poor trade (`NEED-32`).
