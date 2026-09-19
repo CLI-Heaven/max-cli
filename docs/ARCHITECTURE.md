@@ -2,9 +2,11 @@
 
 How this repository is put together and, more usefully, which seams you are not allowed to cross.
 
-**Status 2026-09-19: this describes working code, not a plan.** Six commands run against MAX;
-1 986 lines of TypeScript, 57 tests. Everything below was verified against the real service unless
-it says otherwise. The brief is [`REQUIREMENTS.md`](REQUIREMENTS.md); rulings are in
+**Status 2026-09-19: this describes working code, not a plan.** Seven commands run against MAX,
+and every request they send is now built from the specification in `src/spec/`; 78 tests.
+Everything below was verified against the real service unless it says otherwise. ⚠ The one thing
+not re-verified live since the specification landed is the round trip itself — the suite and both
+runtimes pass, and the commands have not been run against MAX again. The brief is [`REQUIREMENTS.md`](REQUIREMENTS.md); rulings are in
 [`DECISIONS.md`](DECISIONS.md).
 
 ---
@@ -16,13 +18,19 @@ it says otherwise. The brief is [`REQUIREMENTS.md`](REQUIREMENTS.md); rulings ar
             │          speaks the domain model, owns no protocol knowledge
             ▼
      src/client.ts     MaxClient — the only thing above here that knows MAX exists
-            │
-    ┌───────┴────────────────────────┐
-    ▼                                ▼
- src/domain/                   src/protocol/
- Chat · Message · Contact       frame codec · connection · session
- mapping from wire shapes       seq correlation · INIT → LOGIN
+            │          client.chats.list() · client.messages.send() · client.account.me()
+    ┌───────┼────────────────┬──────────────────┐
+    ▼       ▼                ▼                  ▼
+ src/domain/  src/spec/          src/generated/    src/protocol/
+ Chat         one operation,     opcode registry   frame codec
+ Message      declared once      operation table   connection
+ Contact      Valibot schemas    wire wrappers     seq correlation
+ mapping      provenance         never hand-edited
+                                         ▲
+                        src/session/   handshake (INIT → LOGIN) · keyring · state
 ```
+
+**Adding an operation, and what is generated from what: §12.**
 
 Underneath all of it, [`@cli-heaven/cli-core`](https://github.com/CLI-Heaven/cli-core) supplies the
 output streams, the renderer, the error model and exit codes, the keyring, config and clocks —
@@ -30,8 +38,9 @@ the half that has nothing to do with MAX and is shared with `braze-cli`.
 
 **One package reaches npm** (`@cli-heaven/max-cli`, command `max`) and the split inside it is by
 directory, not by workspace (`NEED-12`). The rule that the package boundary used to enforce is now
-a lint rule: **`src/commands/` may not import from `src/protocol/`** — Biome fails the build, with
-that sentence as the message. Verified by writing the forbidden import and watching it go red.
+a lint rule: **`src/commands/` may not import from `src/protocol/`, `src/spec/` or
+`src/generated/`** — Biome fails the build, with that sentence as the message. Verified by writing
+the forbidden import and watching it go red, once for each direction.
 
 ## 2. What each layer may know
 
@@ -40,8 +49,10 @@ that sentence as the message. Verified by writing the forbidden import and watch
 | `commands/` | `Chat`, `Message`, `Contact`, the renderer, exit codes | opcodes, frames, `ws`, MAX field names |
 | `client.ts` | opcodes, the session, the domain model | rendering, `process.stdout`, argv |
 | `domain/` | MAX's wire shapes, and only to translate them out | the network, the session |
-| `protocol/` | frames, seq, the socket | who is asking or why |
-| `session/` | the keyring, the state file | anything it can ask `cli-core` for |
+| `spec/` | every operation, its shape and where it came from | the socket, the session, output |
+| `generated/` | what follows from `spec/` | being edited by hand |
+| `protocol/` | frames, seq, the socket | who is asking or why — **including the handshake** |
+| `session/` | the keyring, the state file, INIT → LOGIN | anything it can ask `cli-core` for |
 
 The point of the seam is replaceability: if MAX's transport changes, `protocol/` and `client.ts`
 change and nothing above them notices. That was the whole argument for writing our own adapter
@@ -70,7 +81,9 @@ Every command follows `connect → do the thing → print → close`, with the c
 three. **A command that prints its result and then hangs is a defect**: an open WebSocket or a live
 timer keeps Node alive, and a script that pipes `max chats --json` would never return.
 
-`INIT` (6) then `LOGIN` (19) precede everything — MAX answers nothing before them. The login
+`INIT` (6) then `LOGIN` (19) precede everything — MAX answers nothing before them. The handshake
+is handwritten in `src/session/handshake.ts` and will stay that way (§9 of the brief); what the
+specification supplies is the two payloads, so the field names have one home rather than two. The login
 response is unusually generous: profile, chats, contacts, recent messages and presence all arrive
 with it, so `max me` and `max chats` need **no further request**. This is why `PROFILE` (16) is not
 used to read a profile: it is a profile *update* and refuses an empty payload.
@@ -82,8 +95,13 @@ settled (`RES-5`).
 ## 5. Reading is observational, by construction
 
 `CHAT_HISTORY` (49) and `CHAT_MARK` (50) are separate operations. We simply never send 50, and
-`src/client.test.ts` asserts that opcode 50 is absent from everything the client sent — so "reading
-does not mark messages read" is a test rather than a promise.
+`src/client.test.ts` asserts that opcode 50 is absent from everything the client sent.
+
+⚠ **Correction 2026-09-19: that assertion was empty until the specification landed.** It compared
+against `Opcode.CHAT_MARK`, and no such constant existed — so it read `not.toContain(undefined)`
+and passed whatever the client had sent. Nothing caught it because `tsconfig.json` excludes test
+files from type checking (`OPS-8`). 50 is now a declared opcode with the reason it is never sent,
+so the assertion compares against a real number.
 
 The one thing not proven: whether `LOGIN` itself moves presence. That needs a second device
 watching, and until then it is an open question, not a settled one.
@@ -123,7 +141,7 @@ flow is not built yet.
 
 ## 8. We look like the official client
 
-Nothing on the wire names this tool (§34). `WEB_USER_AGENT` in `src/protocol/session.ts` is the web
+Nothing on the wire names this tool (§34). `WEB_USER_AGENT` in `src/spec/identity.ts` is the web
 client's shape, the `Origin` header is `https://web.max.ru`, and the device identity is stable per
 profile. That is also why `ws` is used rather than Node's built-in `WebSocket`: measured on both
 runtimes, `ws` sends custom headers identically, and the built-in's support depends on the bundled
@@ -167,3 +185,56 @@ correctness > not touching someone's account by accident > auditability
 "Not touching someone's account by accident" sits that high because this runs against a real
 personal account: an unwanted send, an accidental read receipt or a message deleted by a retry are
 not test failures, they are things that happened to a person.
+
+## 12. One operation, declared once
+
+Every opcode and every payload shape lives in `src/spec/`, as ordinary TypeScript whose Valibot
+schemas **are** the definition rather than a copy of it (`NEED-7`). `src/generated/` holds what
+follows from that and is never edited by hand.
+
+| Generated, committed, checked in CI | Handwritten, and staying that way |
+|---|---|
+| `src/generated/opcodes.generated.ts` — the registry | the socket, `seq` correlation, timeouts |
+| `src/generated/operations.generated.ts` — the table | the INIT → LOGIN handshake |
+| `src/generated/client.generated.ts` — wire wrappers | the schemas themselves — they are the spec |
+| [`protocol.md`](protocol.md) — the reference page | the domain mapping, and error classification |
+
+### Adding one
+
+1. Write it in `src/spec/operations/<subject>.ts` with `defineOperation`: a dotted `name`, MAX's
+   own `constant`, the opcode, a **strict** request shape, a **loose** response shape, and where
+   the shape came from.
+2. `pnpm generate`. A duplicate opcode, a duplicate name or a dotted name that is not
+   `<group>.<method>` stops it with a sentence naming both sides.
+3. Call it from `MaxClient`. The generated wrapper is typed from the schema and stays internal.
+
+**A number you know and will not send gets `reserveOpcode` instead**, with the reason in the entry.
+It reaches the registry and never gets a method, which is what makes "do not call an opcode because
+it is in the enum" a property of the code rather than a rule to remember.
+
+### Two directions, two schemas
+
+**Requests are strict**: a field nobody has seen is refused before it reaches the socket.
+**Responses are loose**: a field MAX adds passes through untouched, every field we do not depend on
+is optional, and nothing about a response can fail a command (§29 of the brief, `NEED-35`).
+
+Every answer is still compared with what we declared, and a mismatch is **one line on stderr** — a
+field we rely on that stopped being what it was is worth hearing about, and the failure being
+prevented is the quiet one where a renamed field turns a column into blanks.
+
+⚠ **That note is assembled by hand from the field path and the expected type.** Valibot's own
+message quotes the value it saw, and the value may be somebody's message (§14, §24). A test asserts
+a message body never appears in a note.
+
+### An id is a string above the codec and a `bigint` on the wire
+
+`asId` reads; `id()` in `src/spec/scalars.ts` writes. Before the specification there was no write
+direction and `Number(chatId)` stood in for it, which silently rounds anything past 15 digits —
+`Number("7268926000000000001")` is a different chat. Ids below 2⁵³ produce the identical bytes they
+did before, so the repair is invisible except where it matters.
+
+### Staleness
+
+`pnpm generate` writes the files and formats them in the same step, then CI regenerates and asserts
+the tree did not change (`OPS-3`). The banner carries no date and no version: anything that moves
+on its own turns that check into a permanent failure.

@@ -7,7 +7,8 @@ The brief this is cut from: [`REQUIREMENTS.md`](REQUIREMENTS.md). The plan for t
 thread: `docs_ai/plans/` (local only, not committed).
 
 **Working as of 2026-09-19**: seven commands — `login`, `me`, `chats`, `contacts`, `messages`,
-`send`, `logout` — verified against the real MAX. 57 tests. What each part does and why is
+`send`, `logout` — verified against the real MAX, and every request they send is built from the
+specification in `src/spec/`. 78 tests. What each part does and why is
 [`ARCHITECTURE.md`](ARCHITECTURE.md); what was ruled is [`DECISIONS.md`](DECISIONS.md).
 
 <details>
@@ -57,6 +58,12 @@ closed. `RES-1`, `RES-2`, `RES-3`, `CORE-1`…`CORE-4`, `MAX-1`…`MAX-3`, `MAX-
 [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`DECISIONS.md`](DECISIONS.md), and the proposal itself is
 in `docs_ai/plans/` on the machine that did the work.
 
+The specification and its generator closed the same way: `SPEC-0`, `SPEC-1`, `SPEC-2` and
+`OPS-3`. Every opcode and payload shape is declared once in `src/spec/`, the registry, the
+operation table, the wire wrappers and [`protocol.md`](protocol.md) are generated from it, and CI
+regenerates and asserts the tree did not change. How to add an operation is
+[`ARCHITECTURE.md`](ARCHITECTURE.md) §12; what was ruled is `NEED-7`, `NEED-34` and `NEED-35`.
+
 **Still open from that phase:**
 
 - **RES-5** · 🟡 P2 · Whether `LOGIN` itself moves presence or read state. Reading history does not
@@ -66,9 +73,11 @@ in `docs_ai/plans/` on the machine that did the work.
 
 ## Repository and tooling
 
-- **OPS-3** · P2 · A `generate` script plus a CI check that fails when generated output is stale —
-  regenerate, then assert the working tree did not change (§8).
 - **OPS-4** · P3 · Publishing and releasing, once there is something worth installing.
+- **OPS-9** · P3 · `scripts/probe.ts` does not run — the command in its own header fails on the
+  first import, because Node's type stripping will not resolve a `.js` specifier to a `.ts` file.
+  `scripts/id-shape.ts` shows the working shape: import from `dist/` and build first. It also
+  calls opcode 16, which is an update, against a real account.
 - **OPS-8** · P2 · Typecheck the test files. `tsconfig.json:24` excludes `src/**/*.test.ts`, so no
   test is ever checked — which is how `src/client.test.ts:177` came to compare against
   `Opcode.CHAT_MARK`, a constant that does not exist, and pass. A second `tsconfig.test.json` with
@@ -85,23 +94,12 @@ in `docs_ai/plans/` on the machine that did the work.
 
 ## The protocol
 
-- **SPEC-0** · P1 · **The next piece of work.** Opcodes and payload shapes are hand-written
-  constants in `src/protocol/session.ts` and object literals in `src/client.ts`; `NEED-7` ruled the
-  spec is a TypeScript module with Valibot schemas as its literal source, and none of it exists
-  yet. ⚠ **Correction 2026-09-19: eight opcode constants exist and seven are sent**, not ten —
-  counted in `src/protocol/session.ts:4-18`; `PROFILE` 16 and `LOGOUT` 20 are never sent.
-
-- **SPEC-1** · P1 · The v1 specification, covering what is already implemented by hand: `INIT` 6,
-  `LOGIN` 19, `LOGOUT` 20, `CONTACT_INFO` 32, `CHAT_HISTORY` 49, `CHATS_LIST` 53, `MSG_SEND` 64 —
-  each carrying where its shape came from and how confident we are (§10). The shapes exist in
-  `src/protocol/session.ts` and `src/client.ts`; this moves them into one declared place.
-- **SPEC-2** · P1 · The generator: spec → normalized model → deterministic emitters for types,
-  validators, an operation registry and typed client methods. Generated files are marked, are
-  committed, and are never hand-edited (§8, §28).
 - **SPEC-3** · P2 · Sanitized protocol fixtures under `fixtures/protocol/`, synthetic values only
-  — never a real phone number, token, chat id or message (§24).
+  — never a real phone number, token, chat id or message (§24). The seed exists: response shapes
+  are already exercised against made-up payloads in `src/spec/`.
 - **SPEC-4** · P3 · A generated coverage document: which documented operations are implemented
-  (§8, §30).
+  (§8, §30). Deferred on purpose — counting what MAX has that we do not means maintaining a list
+  of MAX's whole surface, which is the research database §10 warns against.
 
 ## MAX
 
@@ -139,4 +137,7 @@ in `docs_ai/plans/` on the machine that did the work.
 - **PROTO-2** · P2 · How long MAX remembers a `cid`. The retry rule rests on deduplication measured
   seconds apart; a retry minutes later is unproven.
 - **PROTO-3** · P3 · The upper bound on `chatsCount` in `LOGIN`. 100 works, 200 is refused as "out
-  of range"; the boundary is somewhere between.
+  of range"; the boundary is somewhere between. The specification caps it at 100 meanwhile.
+- **PROTO-4** · P2 · Whether any real id on this account is past 2⁵³. Until the specification
+  landed, `Number(chatId)` rounded every outgoing id, which for an id that long is a different
+  chat. Repaired regardless; `pnpm probe:ids` says whether it was ever doing damage.
