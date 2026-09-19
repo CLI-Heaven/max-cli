@@ -82,10 +82,13 @@ if (process.argv.includes("--send-to-saved")) {
   console.log("\nthe send path was NOT checked — pass --send-to-saved to include it")
 }
 
+// An old spelling is now read as a profile name — `max me` is the profile `me` with no command —
+// so what has to hold is not one particular sentence but that it fails, says why on stderr, and
+// leaves stdout empty. Help printed on stdout would be a refusal a script cannot tell from data.
 console.log("\nand the shapes that must no longer exist:")
 for (const gone of [["send", "0", "x"], ["me"], ["login"]]) {
   const result = run(gone)
-  const refused = result.status !== 0 && result.stderr.includes("unknown command")
+  const refused = result.status !== 0 && result.stdout === "" && result.stderr !== ""
   console.log(`  ${refused ? "✓" : "✗"} max ${gone.join(" ")} — ${refused ? "refused" : "STILL ACCEPTED"}`)
   if (!refused) failures.push(`max ${gone.join(" ")} is still accepted`)
 }
