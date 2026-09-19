@@ -82,8 +82,10 @@ now, in their own pass. How to add an operation is
 
 ## The foundation
 
-- **CORE-6** · P1 · Check `node:sqlite` on Node **22** — it may still need `--experimental-sqlite`
-  there, and only Node 24 was measured. Before the cache phase, not before the slice (`NEED-11`).
+`CORE-6` is closed: measured 2026-09-19, `node:sqlite` works on Node 22.23.2 with no flag and a
+write-then-read round trip returns what it stored. It prints an experimental warning to stderr
+there, which `NEED-59` leaves alone.
+
 
 - **CORE-5** · P2 · Move `braze-cli` onto the extracted `cli-core` rather than leaving it on its
   own copy — the whole point of extracting rather than copying. Another repository, so it is its
