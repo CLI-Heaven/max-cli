@@ -138,6 +138,17 @@ describe("the program", () => {
     expect(code).toBe(4)
   })
 
+  it("**refuses a profile with no command instead of printing help on stdout**", async () => {
+    // `max me` — renamed away on 2026-09-19 — is now the profile `me` and nothing else. Commander
+    // answers a missing command with help on stdout, which a script cannot tell from a result.
+    const { stdout, stderr, code } = await runWith(["me"])
+
+    expect(stdout).toBe("")
+    expect(JSON.parse(stderr).error.code).toBe("validation_error")
+    expect(JSON.parse(stderr).error.message).toContain("read as a profile name")
+    expect(code).toBe(2)
+  })
+
   it("explains itself when the first word was a mistyped command", async () => {
     // `max chat list` — one letter short. Without this line the only message is "unknown command
     // 'list'", which names the wrong word entirely.

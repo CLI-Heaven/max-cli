@@ -107,6 +107,19 @@ export const run = async (argv: string[], options: RunOptions = {}): Promise<num
   const { profile, rest } = liftProfile(argv, commandWords(program))
   if (profile !== undefined) program.setOptionValue("profile", profile)
 
+  // `max me` — a command that was renamed away — is now a profile with nothing after it, and
+  // commander answers a missing command by printing help **on stdout**. That breaks the one
+  // contract this program has, and it tells the person nothing about why their command vanished.
+  if (profile !== undefined && rest.length === 0) {
+    report(streams, options, {
+      code: "validation_error",
+      message:
+        `"${profile}" is not a command, so it was read as a profile name — and no command followed it. ` +
+        `Run \`max --help\` for the commands, or \`max ${profile} account show\` if "${profile}" is your profile.`,
+    })
+    return exitCodeFor("validation_error")
+  }
+
   try {
     await program.parseAsync(rest, { from: "user" })
     return process.exitCode === undefined ? 0 : Number(process.exitCode)
