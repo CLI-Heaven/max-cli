@@ -705,6 +705,41 @@ describe("with a cache", () => {
       expect(second.hasMore).toBe(false)
     })
 
+    it("**`contacts sync` forgets the marker**, so the login it makes asks for everything", async () => {
+      const cache = await cacheStore()
+
+      const first = mockMax({
+        answers: { [Opcode.SESSION_INIT]: {}, [Opcode.CONTACT_INFO]: { contacts: [] }, [Opcode.LOGIN]: syncing() },
+      })
+      const warm = clientSharing(cache, first)
+      await warm.chats.list()
+      await warm.close()
+      expect(cache.syncMarker()).toBe(1_789_776_000_000)
+
+      const max = mockMax({
+        answers: { [Opcode.SESSION_INIT]: {}, [Opcode.CONTACT_INFO]: { contacts: [] }, [Opcode.LOGIN]: syncing() },
+      })
+      const client = clientSharing(cache, max)
+      const summary = await client.contacts.sync()
+      await client.close()
+
+      expect(max.sent.find((call) => call.opcode === Opcode.LOGIN)?.payload.contactsSync).toBe(0)
+      expect(summary).toMatchObject({ full: true, known: 1 })
+    })
+
+    it("names nobody in the sync summary", async () => {
+      const cache = await cacheStore()
+      const max = mockMax({
+        answers: { [Opcode.SESSION_INIT]: {}, [Opcode.CONTACT_INFO]: { contacts: [] }, [Opcode.LOGIN]: syncing() },
+      })
+      const client = clientSharing(cache, max)
+      const summary = await client.contacts.sync()
+      await client.close()
+
+      expect(JSON.stringify(summary)).not.toContain("Someone Else")
+      expect(Object.keys(summary).sort()).toEqual(["added", "changed", "full", "known"])
+    })
+
     it("**does not advance the marker when the merge fails, and does not fail the command**", async () => {
       const cache = await cacheStore()
       const notes: string[] = []

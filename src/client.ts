@@ -1,5 +1,5 @@
 import { CliError } from "@leemour/cli-core"
-import type { CacheStore, PersonOrder } from "./cache/store.js"
+import type { CacheStore, PersonOrder, SyncSummary } from "./cache/store.js"
 import { namesFrom, toChat, toContact, toMessage, toProfile } from "./domain/map.js"
 import type { Chat, Contact, Id, Message, Page, Profile } from "./domain/models.js"
 import { type Invoke, wireClient } from "./generated/client.generated.js"
@@ -63,6 +63,7 @@ export class MaxClient {
   #login: Payload | undefined
   #previousCid = 0
   #people: Map<Id, Contact> | undefined
+  #merged: SyncSummary | undefined
 
   constructor({ store, timeoutMs, connection, warn, cache, offline = false, events }: MaxClientOptions) {
     this.#store = store
@@ -169,6 +170,40 @@ export class MaxClient {
 
       const items = cache.people.contacts({ order, limit: limit ?? Number.MAX_SAFE_INTEGER, offset })
       return { items, hasMore: offset + items.length < cache.people.countContacts() }
+    },
+
+    /**
+     * **Start again from zero**: forget the marker, so this login asks for the whole collection
+     * rather than for what changed, and name everybody it mentions.
+     *
+     * It is a repair tool, not the way contacts arrive. The delta rides on the login every command
+     * already performs, so there is nothing to schedule and no budget to spend — what this is for
+     * is a store that has drifted, or a full re-take after a schema rebuild threw the rows away.
+     * It is also the only thing that could ever prune somebody MAX has stopped returning, which is
+     * the second reason it exists.
+     */
+    sync: async (): Promise<SyncSummary & { full: true }> => {
+      if (this.#offline) {
+        throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot sync")
+      }
+
+      const cache = this.#cache
+      if (!cache) {
+        throw new CliError(
+          "configuration_error",
+          `there is no local store for profile "${this.#store.profile}" to sync into — the note above says why`,
+        )
+      }
+
+      // Before connecting, or the login would carry the marker this is meant to discard.
+      cache.forgetSyncMarker()
+      await this.#connectOnce()
+
+      // The login names a fraction of the people in its own chats, so a full take that stopped
+      // here would store ids without names for most of them.
+      await this.#peopleFor(asArray(this.#session().chats))
+
+      return { ...(this.#merged ?? { known: 0, added: 0, changed: 0 }), known: cache.people.count(), full: true }
     },
   }
 
@@ -327,7 +362,7 @@ export class MaxClient {
     }
 
     try {
-      cache.mergeDelta({
+      this.#merged = cache.mergeDelta({
         chats: chats.map(toChat).filter((chat) => chat.id !== ""),
         people: asArray(this.#session().contacts)
           .map(toContact)
