@@ -22,8 +22,9 @@ export const Opcode = {
   CONTACT_INFO: 32,
   /**
    * **Declared, never sent.** Nobody agrees what it is: tsmax and PyMax call it `CONTACT_LIST`; the protocol
-   * documentation calls it `GET_BLOCKED`. Sending it to find out would be sending an unknown command to a real
-   * account. It stays unsent until somebody watches a real client send it (`PROTO-1`).
+   * documentation calls it `GET_BLOCKED`. Sent once with the owner's permission on 2026-09-20 and it exists — but it
+   * refuses every payload we can guess, and one guess closed the connection. It stays unsent until somebody watches a
+   * real client send it (`PROTO-1`).
    */
   UNIDENTIFIED_36: 36,
   CHAT_HISTORY: 49,

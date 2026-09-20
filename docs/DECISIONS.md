@@ -20,6 +20,31 @@ decision.
 
 ## 2026-09-20
 
+**NEED-100 · Three shapes of the contacts work, settled together.**
+
+- **The envelope is built by a helper each command calls**, not inside `renderer.result`. «where
+  the envelope is built: a helper». `account show` and `session start|end` are not lists and keep
+  answering a bare object, which a renderer-level envelope could not distinguish.
+- **The sync merges before the command renders.** «refresh runs before». The names it brings are
+  what the listing prints, so rendering first would show the previous run's names and be one
+  command stale for no reason.
+- **`--before` on `messages list` takes a message id, and a timestamp when the id cannot be
+  resolved.** «and timestamp if no id under the hood (eg message deleted, use timestamp)». A
+  deleted message is exactly that case: it is gone from the history MAX returns, so its id means
+  nothing to anybody, and refusing would strand the caller at a boundary they cannot get past. A
+  bare integer is always an id; a time must be ISO 8601, because a message id and epoch
+  milliseconds are both bare integers and telling them apart by length is a trap.
+
+**NEED-99 · May opcode 36 be sent once, to find out what it is?**
+**Yes.** «2 A». Done 2026-09-20 and it did not settle `PROTO-1`: the opcode **exists and validates
+its payload** — `{}` and `{marker: 0}` come back `proto.payload`, and `{marker: 0, count: 100}`
+closed the connection, which is where the guessing stopped. Three guesses on a real account is a
+measurement; a dozen is fishing. What is left is a traffic capture (`RES-7`).
+
+The same run answered a bigger question nobody had asked — see `ARCHITECTURE.md` §7 and `MAX-10`:
+`contactsSync` and `chatsSync` are delta markers, and sending `0` in them is why every command
+re-fetches everything.
+
 **NEED-86 · For a paged list, does `--json` print an array or an object carrying the page?**
 **An object, and only in the machine modes.** «1 B». `{items, page, limit, hasMore}` on stdout for
 `--json` and for a pipe; a person still gets the table. An array cannot say whether another page
