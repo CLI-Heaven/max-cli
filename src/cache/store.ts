@@ -54,6 +54,9 @@ export interface CacheStore {
   chats: {
     read(freshForMs: number): Chat[] | undefined
     write(chats: Chat[]): void
+    /** One page, newest first, in SQL rather than by building the whole list and slicing it. */
+    page(options: { limit: number; offset: number }): Chat[]
+    count(): number
   }
   contacts: {
     read(freshForMs: number): Contact[] | undefined
@@ -91,6 +94,13 @@ export interface CacheStore {
     write(chatId: Id, messages: Message[]): void
     /** After a send, what we hold for that chat is missing the message we just added. */
     invalidate(chatId: Id): void
+    /**
+     * When a message was sent, for `messages list --before <id>`.
+     *
+     * `undefined` for an id we have never stored — which is exactly what a deleted message looks
+     * like, since it is no longer in the history MAX returns either.
+     */
+    timeOf(id: Id): number | undefined
   }
   /** True when this process may go to MAX for that window; false when somebody else already is. */
   claim(chatId: Id, anchor: string, holder: string, forMs: number): boolean
@@ -232,6 +242,14 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
         if (!isFresh("chats", freshForMs)) return undefined
         return database.prepare("SELECT * FROM chats ORDER BY last_message_at DESC").all().map(toChat)
       },
+      page: ({ limit, offset }) =>
+        database
+          .prepare("SELECT * FROM chats ORDER BY last_message_at DESC LIMIT ? OFFSET ?")
+          .all(limit, offset)
+          .map(toChat),
+
+      count: () => Number((database.prepare("SELECT COUNT(*) AS n FROM chats").get() as { n?: number })?.n ?? 0),
+
       write: (chats) => {
         const at = now()
         for (const chat of chats) {
@@ -405,6 +423,12 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
       },
       invalidate: (chatId) => {
         database.prepare("DELETE FROM fetched WHERE kind = ?").run(`messages:${chatId}`)
+      },
+      timeOf: (id) => {
+        const row = database.prepare("SELECT time FROM messages WHERE id = ? LIMIT 1").get(id) as
+          | { time?: number }
+          | undefined
+        return row?.time === undefined ? undefined : Number(row.time)
       },
     },
 

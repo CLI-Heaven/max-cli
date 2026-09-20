@@ -42,6 +42,8 @@ export interface GlobalFlags {
   quiet?: boolean
   verbose?: boolean
   limit?: number
+  page?: number
+  all?: boolean
   record?: boolean
 }
 
@@ -53,6 +55,10 @@ export interface Settings {
   /** Unset means "decide from the terminal", which is `resolveOutput`'s job, not this one's. */
   color: boolean | undefined
   limit: number
+  /** Which page, 1-based. Per invocation only — a page number in a configuration file is a setting nobody wants twice. */
+  page: number
+  /** Every row, no paging. Also per invocation only. */
+  all: boolean
   /** Unset means the transport's own default; the number lives in `protocol/connection.ts`. */
   timeoutMs: number | undefined
   record: boolean
@@ -91,6 +97,8 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
     verbose: flags.verbose === true,
     color: configured.color,
     limit: flags.limit ?? configured.limit ?? DEFAULT_LIMIT,
+    page: flags.page ?? 1,
+    all: flags.all === true,
     timeoutMs: configured.timeoutMs,
     record: flags.record ?? configured.record ?? false,
     keepRunsForDays: configured.keepRunsForDays ?? DEFAULT_KEEP_RUNS_FOR_DAYS,
@@ -101,6 +109,16 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
   // gets here, which slices an array to nothing without complaining.
   if (!Number.isInteger(settings.limit) || settings.limit < 1) {
     throw new CliError("validation_error", `--limit takes a whole number from 1 upwards, not ${flags.limit}`)
+  }
+
+  if (!Number.isInteger(settings.page) || settings.page < 1) {
+    throw new CliError("validation_error", `--page takes a whole number from 1 upwards, not ${flags.page}`)
+  }
+
+  // Refused rather than resolved: one of the two would silently win, and which one is exactly the
+  // sort of thing a caller discovers from a wrong answer rather than from a message.
+  if (settings.all && flags.page !== undefined) {
+    throw new CliError("validation_error", "--all and --page ask for different things; use one or the other")
   }
 
   return settings

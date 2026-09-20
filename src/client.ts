@@ -87,16 +87,20 @@ export class MaxClient {
      * time, and the name is filled in. Without this, `max chats` shows a column of blanks for
      * exactly the chats a person recognises by name.
      */
-    list: async (limit?: number): Promise<Chat[]> => {
+    list: async (options: PageRequest = {}): Promise<Page<Chat>> => {
+      const { limit, offset = 0 } = options
+
       if (this.#offline) {
-        const cached = this.#recorded(this.#cache?.chats.read(ANY_AGE), "chats")
-        return limit === undefined ? cached : cached.slice(0, limit)
+        return paged(this.#recorded(this.#cache?.chats.read(ANY_AGE), "chats"), limit, offset)
       }
 
       await this.#connectOnce()
       const raw = asArray(this.#session().chats)
       const people = await this.#peopleFor(raw)
 
+      // A one-to-one chat has no title of its own — its name is the other person's, and MAX does
+      // not put it in the chat object. Without this, the chats a person recognises by name are a
+      // column of blanks.
       const chats = raw.map((chat) => {
         const mapped = toChat(chat)
         if (mapped.title !== null || mapped.kind !== "dialog") return mapped
@@ -106,8 +110,15 @@ export class MaxClient {
         return { ...mapped, title: name }
       })
 
-      this.#cache?.chats.write(chats)
-      return limit === undefined ? chats : chats.slice(0, limit)
+      const cache = this.#cache
+      if (!cache) return paged(chats, limit, offset)
+
+      // Written first, then read back: the titles just resolved have to be in the store before it
+      // is asked to order and page over them, and the delta this login carried is only a slice of
+      // what it now holds.
+      cache.chats.write(chats)
+      const items = cache.chats.page({ limit: limit ?? Number.MAX_SAFE_INTEGER, offset })
+      return { items, hasMore: offset + items.length < cache.chats.count() }
     },
 
     /**
@@ -120,7 +131,7 @@ export class MaxClient {
     resolve: async (reference: string): Promise<Id> => {
       if (/^-?\d+$/.test(reference.trim())) return reference.trim()
 
-      const chats = await this.chats.list()
+      const { items: chats } = await this.chats.list()
       const wanted = reference.trim().toLowerCase()
       const titled = chats.filter((chat) => chat.title !== null)
 
@@ -208,8 +219,21 @@ export class MaxClient {
   }
 
   readonly messages = {
-    list: async (chatId: Id, limit = 20): Promise<Message[]> => {
-      if (this.#offline) return this.#recorded(this.#cache?.messages.read(chatId, limit, ANY_AGE), "messages")
+    /**
+     * **Paged backwards through time, not by page number.** MAX's history is already anchored —
+     * it takes a moment and answers with what came before it — so `--before` is exact where a page
+     * number over a live conversation would repeat and skip rows.
+     *
+     * `hasMore` here is a claim about the copy we hold, never about the chat: a full page back is
+     * the only evidence there is that another page exists.
+     */
+    list: async (chatId: Id, options: { limit?: number; before?: number } = {}): Promise<Page<Message>> => {
+      const limit = options.limit ?? 20
+
+      if (this.#offline) {
+        const stored = this.#recorded(this.#cache?.messages.read(chatId, limit, ANY_AGE), "messages")
+        return { items: stored, hasMore: stored.length >= limit }
+      }
 
       await this.#connectOnce()
       const session = this.#session()
@@ -217,7 +241,7 @@ export class MaxClient {
       // `interactive: false` and no CHAT_MARK: reading history must not mark anything read (§19).
       const answer = await this.#wire.chats.history({
         chatId,
-        from: Date.now(),
+        from: options.before ?? Date.now(),
         forward: 0,
         backward: limit,
         forwardTime: 0,
@@ -231,7 +255,40 @@ export class MaxClient {
       const lookup = { names: namesFrom(session.contacts), ...viewer(this.#store) }
       const messages = asArray(answer.messages).map((raw) => toMessage(raw, chatId, lookup))
       this.#cache?.messages.write(chatId, messages)
-      return messages
+      return { items: messages, hasMore: messages.length >= limit }
+    },
+
+    /**
+     * Turns what `--before` was given into a moment.
+     *
+     * **ISO 8601 is a time; a bare integer is a message id.** Both a millisecond timestamp and a
+     * message id are runs of digits — 13 and 18 of them on this account — and deciding between
+     * them by length is a trap that fires the first time either changes size. So the rule is what
+     * the string looks like, not how big it is.
+     *
+     * An id we have never stored is exactly what a deleted message looks like, because it is gone
+     * from the history MAX returns too. That is a refusal naming the way round it rather than a
+     * guess: read as milliseconds, an 18-digit id points six hundred million years from now.
+     */
+    before: (reference: string): number => {
+      const wanted = reference.trim()
+
+      if (!/^\d+$/.test(wanted)) {
+        const time = Date.parse(wanted)
+        if (Number.isNaN(time)) {
+          throw new CliError("validation_error", `--before takes a message id or an ISO 8601 time, not "${wanted}"`)
+        }
+        return time
+      }
+
+      const time = this.#cache?.messages.timeOf(wanted)
+      if (time === undefined) {
+        throw new CliError(
+          "not_found",
+          `no message ${wanted} in this profile's record — read the chat once first, or give --before an ISO 8601 time`,
+        )
+      }
+      return time
     },
 
     /**
