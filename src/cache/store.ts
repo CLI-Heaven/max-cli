@@ -21,6 +21,21 @@ export interface PageOptions {
  * chat named here has its rows replaced rather than added to. A chat absent from the map keeps
  * the members it already had.
  */
+/**
+ * What a merge did, in counts and **nothing else** — no name, no username, no description. It is
+ * what `max contacts sync` prints, and a summary that named anybody would be the one place the
+ * sixth constraint leaks.
+ *
+ * `changed` is "already known and sent again". A delta carries only what moved, so for an ordinary
+ * login that is exactly what it sounds like; for a full re-take, where MAX resends everything, it
+ * reads as "re-sent" instead — which is what `full` in the command's output is there to say.
+ */
+export interface SyncSummary {
+  known: number
+  added: number
+  changed: number
+}
+
 export interface SyncDelta {
   chats: Chat[]
   people: Contact[]
@@ -57,6 +72,8 @@ export interface CacheStore {
     countContacts(): number
     /** Everyone we can put a name to, contact or not. */
     page(options: PageOptions): Contact[]
+    /** Everyone, counted — what `max contacts sync` reports as known. */
+    count(): number
     /** Carries how we met them. Never deletes: absence from a delta means unchanged. */
     upsert(people: Contact[], source: PersonSource): void
     /** The chats this person is in — which, every chat here being one we are in, is the shared set. */
@@ -65,7 +82,7 @@ export interface CacheStore {
   /** The `time` the last login answered with, or `undefined` for a store that has never synced. */
   syncMarker(): number | undefined
   /** Rows, memberships, recency and the marker — **in one transaction**. */
-  mergeDelta(delta: SyncDelta): void
+  mergeDelta(delta: SyncDelta): SyncSummary
   /** Makes the next login ask for everything again. */
   forgetSyncMarker(): void
   messages: {
@@ -262,6 +279,8 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
 
       upsert: (people, source) => upsertPeople(people, source, now()),
 
+      count: () => Number((database.prepare("SELECT COUNT(*) AS n FROM people").get() as { n?: number })?.n ?? 0),
+
       chatsWith: (personId) =>
         database
           .prepare("SELECT chat_id FROM chat_members WHERE person_id = ?")
@@ -275,7 +294,16 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
 
     mergeDelta: ({ chats, people, members, marker }) => {
       const at = now()
+      const summary: SyncSummary = { known: 0, added: 0, changed: 0 }
+
       inTransaction(() => {
+        const known = database.prepare("SELECT 1 FROM people WHERE id = ?")
+        for (const person of people) {
+          if (!person.id) continue
+          if (known.get(person.id)) summary.changed += 1
+          else summary.added += 1
+        }
+
         for (const chat of chats) {
           putChat.run(
             chat.id,
@@ -321,7 +349,11 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
             "INSERT INTO sync_marker (id, marker) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET marker = excluded.marker",
           )
           .run(marker)
+
+        summary.known = Number((database.prepare("SELECT COUNT(*) AS n FROM people").get() as { n?: number })?.n ?? 0)
       })
+
+      return summary
     },
 
     forgetSyncMarker: () => {
