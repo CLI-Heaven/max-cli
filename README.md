@@ -1,80 +1,171 @@
-# MAX CLI
+# max-cli
 
-A local command line interface for a normal personal [MAX Messenger](https://max.ru) account:
-connect, run one operation, print the result, disconnect. Built for AI agents and scripts first
-and for people second — every data command answers with stable JSON on request.
+Читать и писать в свой личный аккаунт [MAX Messenger](https://max.ru) из терминала или из
+скрипта — чаты, сообщения, контакты, — не открывая браузер.
 
-**Status 2026-09-20: it works, and it is not released.** Published one day as
-`@cli-heaven/max-cli`; typed as `max`. Seven operations run against the real service —
-`session start|end`, `account show`, `chats list`, `contacts list`, `messages list|send` — under
-Node 22+ and Bun. Every request they send is declared once in `src/spec/`, and `max runs` reads
-back what the tool did. Nothing is on npm yet. What it is meant to be, in the owner's own words, is
-[`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md); how it is put together is
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); what is left is
-[`docs/BACKLOG.md`](docs/BACKLOG.md).
+Сделано **в первую очередь для агентов и скриптов**: любой результат доступен как одно
+детерминированное значение JSON, у любого отказа есть код, на который можно ветвиться, а stdout
+никогда не несёт ничего, кроме данных. Та же дисциплина делает его приятным для человека: в
+терминале таблицы и цвет, и ничего не происходит само.
 
 ```sh
-max session start                   # asks for a token; nothing is echoed, nothing is written to a file
+max session start          # один раз: токен уходит в ключницу
 max chats list --limit 5
-max messages list 0 --json          # 0 was the Saved-messages dialog on the account this was measured on
-max messages send 0 "a note to myself"
+max messages list "Иван Петров"
 ```
 
-A chat is named by its id or by part of its title, and an ambiguous title is refused rather than
-guessed at.
+> ⚠ **Версия `0.1.0` ещё не опубликована.** На npm лежит `0.0.0` — заготовка от 19.09.2026, в
+> которой ничего из описанного ниже нет. Пока — [установка из исходников](docs/installation.md).
 
-## Profiles and settings
+## Что это даёт
 
-**The first word is the profile whenever it is not a command.** There is no `--profile`.
+- **Один запуск — одна операция.** Соединиться, сделать, напечатать, отключиться. Ничего не висит
+  фоном, не держит сокет и не слушает события: команда, которая напечатала ответ и не вышла, — это
+  дефект, а не особенность.
+- **Чтение ничего не помечает прочитанным.** В протоколе «получить историю» и «отметить
+  прочитанным» — разные операции; вторая не отправляется никогда, и это проверяется тестом, а не
+  обещается в README.
+- **Токен не касается ни файла, ни истории оболочки.** Он спрашивается без эха или читается из
+  трубы и уходит в ключницу операционной системы. В схеме настроек нет поля, куда его можно было
+  бы положить.
+- **Отправка, которая не врёт об исходе.** Если ответ не пришёл, это `outcome_unknown`, а не
+  «ошибка» и не «отправлено»: сообщение могло уйти. Повтор возможен только с тем же `--cid`, и
+  MAX схлопывает дубль — это измерено на реальном аккаунте, а не предположено.
+- **Имя чата не угадывается.** Часть названия, подходящая к двум чатам, — это отказ со списком
+  кандидатов. Отправить не в тот разговор нельзя отменить.
+- **Диагностика, в которой нет содержимого.** `--verbose` показывает по строке на запрос,
+  `--record` кладёт их в каталог запуска на 30 дней. Операция, опкод, идентификаторы, байты,
+  длительности — да. Название чата, имя, текст, телефон, токен — никогда, ни обрезанными, ни
+  хэшем.
+- **По умолчанию не записывается ничего.** Мессенджер, который сам собирает каталог с историей
+  того, кого вы читали, — это чужая жизнь в чужом логе; запись включается флагом.
+- **Два рантайма, и это проверяется.** Node 22+ и Bun; под обоими в CI выполняется собранная
+  команда, а не только проверка типов.
+- **Мы выглядим как официальный клиент.** На проводе нет ни нашего имени, ни своего user-agent:
+  поля, которыми клиент представляется, копируют веб-клиент MAX.
+
+## Содержание
+
+- [Установка](#установка)
+- [Вход](#вход)
+- [Использование](#использование)
+- [Для скриптов и агентов](#для-скриптов-и-агентов)
+- [Документация](#документация)
+- [Разработка](#разработка)
+- [Лицензия](#лицензия)
+
+## Установка
+
+Пакет — **`@cli-heaven/max-cli`**, команда, которую он ставит, — **`max`**. Имя без области занято
+чужим пакетом с 2018 года.
+
+Пока `0.1.0` не опубликован, ставится из исходников:
 
 ```sh
-max personal chats list             # the profile is `personal`
-MAX_PROFILE=personal max chats list # the same, for a whole shell session
-max chats list                      # the configured default, or `default`
+git clone git@github.com:CLI-Heaven/max-cli.git
+cd max-cli && pnpm install && pnpm build && pnpm link --global
+max --version      # 0.1.0
 ```
 
-A setting is decided in one order — **flag, then environment, then the configuration file, then
-the built-in default.** The file is optional; without it everything has a default.
+Нужен **Node 22 или новее**, либо **Bun 1.3+**. Подробности, переменные окружения и то, куда
+ложатся файлы, — [docs/installation.md](docs/installation.md).
 
-`~/.config/max-cli/config.json`:
+## Вход
+
+Своего входа по номеру телефона пока нет: `max session start` импортирует токен, полученный в
+официальном клиенте, и кладёт его в ключницу.
+
+```sh
+max session start                      # спросит токен, не отображая ввод
+pass show max/token | max session start # или из трубы
+max account show                       # кто вы
+```
+
+Несколько аккаунтов — несколько профилей, и профиль называется **первым словом**, а не флагом:
+
+```sh
+max chats list              # профиль default
+max personal chats list     # профиль personal
+export MAX_PROFILE=personal # или на всю сессию оболочки
+```
+
+## Использование
+
+```sh
+max chats list --limit 5
+max contacts list
+max messages list 0 --limit 50        # по id чата
+max messages list "Иван Петров"       # или по части названия
+max messages send 0 "текст"
+```
+
+Что делала команда:
+
+```sh
+max chats list --verbose     # показать по строке на запрос, ничего не сохраняя
+max chats list --record      # сохранить, ничего не показывая
+max runs list                # что делалось, новое сверху
+max runs show <id>
+```
+
+Локальная копия — чтобы было чем ответить без сети:
+
+```sh
+max chats list --offline
+max cache clear
+```
+
+Полностью: [docs/usage.md](docs/usage.md). Каждая команда и каждая опция:
+[docs/commands.md](docs/commands.md) — эта страница собирается из самой программы, поэтому описать
+версию, которой не существует, она не может.
+
+## Для скриптов и агентов
+
+```sh
+max chats list --json
+```
+
+`--json` — это **ровно одно значение JSON на stdout и больше ничего**: ни спиннера, ни галочки, ни
+предупреждения. То же самое включается само, когда stdout не терминал. Ошибка уходит на stderr, а
+stdout остаётся пустым, поэтому отказ невозможно принять за результат:
 
 ```json
-{
-  "defaultProfile": "default",
-  "profiles": {
-    "default": { "limit": 20, "timeoutMs": 30000, "color": true }
-  }
-}
+{"error":{"code":"authentication_error","message":"no session for profile \"default\" — run `max session start`"}}
 ```
 
-Every field is optional and **none of them can hold a secret** — no token, no phone number, no
-chat id. The token lives in the OS keyring; the file only says how the tool behaves. A misspelled
-field is refused by name rather than ignored, so a setting that seems to do nothing is a bug, not
-a typo you have to find. The order, the traps and the two environment variables that outrank all
-of it are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §14.
+Ветвиться надо по коду возврата: `4` — нет сессии, `6` — не найдено, `9` — таймаут, `14` — исход
+неизвестен, `130` — прервано. Вся таблица — в [docs/commands.md](docs/commands.md).
 
-## What it keeps, and what it never keeps
+## Документация
 
-Nothing is written unless you ask. `--verbose` shows one line per request on stderr as it happens;
-`--record` keeps the same lines under `max runs list`, for 30 days. Both carry the operation, the
-opcode, the ids the request named, the timings and the sizes — and **never a chat title, a name, a
-message body, a phone number or a token** ([`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §13).
+| | |
+|---|---|
+| [docs/installation.md](docs/installation.md) | установка, обновление, куда что ложится |
+| [docs/usage.md](docs/usage.md) | вход, чтение, отправка, диагностика, настройки |
+| [docs/commands.md](docs/commands.md) | каждая команда и опция — **генерируется** из программы |
+| [docs/protocol.md](docs/protocol.md) | каждый опкод и откуда известна его форма — **генерируется** |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | как это устроено и какие швы нельзя пересекать |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | что и почему решено — читать прежде, чем «чинить» странное |
+| [docs/BACKLOG.md](docs/BACKLOG.md) | что осталось |
 
-```text
-→ chats.history   op 49  seq 3  chat 0
-← chats.history   op 49  seq 3  118ms  4.2 kB  3 messages
+Оглавление целиком — [docs/README.md](docs/README.md).
+
+## Разработка
+
+```sh
+pnpm install
+pnpm lint && pnpm typecheck && pnpm test
+pnpm build && pnpm smoke:bun          # собранная команда под вторым рантаймом
+pnpm generate                         # переписать сгенерированные файлы
 ```
 
-It is a sibling of `braze-cli`, deliberately: the same TypeScript, pnpm, Commander, Valibot and
-Pino stack, the same separation between a portable core and the terminal, and the same rule that
-in machine mode stdout carries data and nothing else. The half both commands share is being
-extracted into [`CLI-Heaven/cli-core`](https://github.com/CLI-Heaven/cli-core) rather than copied.
+Протокол MAX неофициальный и разобран обратной инженерией: это не Bot API. Каждый опкод и форма
+каждого сообщения объявлены один раз в `src/spec/`, а реестр, типизированный клиент и
+[docs/protocol.md](docs/protocol.md) из них генерируются — и CI падает, если дерево устарело.
 
-Not the official MAX Bot API — this speaks the protocol a normal user account speaks, which is
-unofficial and reverse engineered ([`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) §4).
+Половина, не имеющая отношения к MAX — потоки вывода, рендерер, коды ошибок, ключница, часы, —
+вынесена в [`@cli-heaven/cli-core`](https://github.com/CLI-Heaven/cli-core) и общая с `braze-cli`.
 
-Documentation index: [`docs/README.md`](docs/README.md).
+## Лицензия
 
-## Licence
-
-MIT.
+MIT — см. [LICENSE](LICENSE).

@@ -455,3 +455,12 @@ discarding the difference (`NEED-102`). What opcode 36 would add is only people 
 at all.
 
 The plan is `docs_ai/plans/2026-09-20-contacts-and-paging.md`, rewritten around both.
+
+**NEED-109 · How much of `DOC-2` is written now, and how much waits?**
+**Two pages now — `installation.md` and `usage.md` — the rest afterwards.** «1 C». They are the
+two a person needs in order to install the tool and read their own chats, which is the readiness
+test the release plan sets; the remaining five are written without holding the release behind them.
+
+Recorded because it also sets the shape of what "done" means for `OPS-4`: a release ships when
+somebody can follow the instructions on a clean machine, not when the documentation set is
+complete.
