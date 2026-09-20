@@ -104,6 +104,26 @@ is raised to where it lands, which is what `--quiet` was silently failing to cov
 **`pnpm probe:contacts`** re-measures the login's delta markers and prints no content
 ([`ARCHITECTURE.md`](ARCHITECTURE.md) §7). It is a probe, not a test: it needs a real session.
 
+### The delta sync has one failure no offline test can catch
+
+Run a listing **twice** against the real account:
+
+```sh
+node dist/bin/max.js chats list --limit 3 --json
+node dist/bin/max.js chats list --limit 3 --json   # the second run receives a near-empty delta
+```
+
+The second login answers with only what changed, which after a moment is nothing. Anything that
+renders the response instead of the store shows a full list once and an empty one every time
+after — and it shows it here and nowhere else, because every fixture starts from an empty store
+and only ever sees a first login. `pnpm verify:live` now runs the listing twice for this reason.
+
+Then open the database and check `chat_members` against a group you are in: the count should match
+what the app shows, and those people should be in `people` **without** appearing in
+`contacts list`. That is the ruling of [`ARCHITECTURE.md`](ARCHITECTURE.md) §15 made visible, and
+no fixture proves it against a real account. Check by eye, too, that the first contacts really are
+the people most recently talked to, and that `max contacts sync` names nobody in its summary.
+
 ## What to write
 
 Prefer the test that pins a contract someone could plausibly break over the one that restates the
