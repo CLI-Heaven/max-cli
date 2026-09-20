@@ -18,6 +18,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
+      # `max --version` reads src/version.ts, not package.json, so the two can drift apart in
+      # silence — and the day they do is a release day (OPS-4).
+      - run: pnpm version:check
       - run: pnpm test
       - run: pnpm build
       # Generated files are committed, so a specification change that was not regenerated is a

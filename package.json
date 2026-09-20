@@ -30,6 +30,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "smoke:bun": "bun run scripts/smoke.ts",
+    "version:check": "node --experimental-strip-types scripts/version.ts",
+    "version:sync": "node --experimental-strip-types scripts/version.ts --sync",
     "probe:ids": "pnpm build && node --experimental-strip-types scripts/id-shape.ts",
     "probe:edits": "pnpm build && node --experimental-strip-types scripts/probe-edits.ts",
     "verify:live": "pnpm build && node --experimental-strip-types scripts/verify-commands.ts",
