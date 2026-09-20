@@ -185,6 +185,30 @@ data that was never stored.
 seventeen dialog partners when measured on 2026-09-19. A delta keeps that subset current; it does
 not widen it.
 
+All four markers take the same value harmlessly — measured the same day, with a week-old marker in
+`presenceSync` and `draftsSync` as well: the answer was unchanged and the profile still arrived.
+Nothing reads presence or drafts, so they stay at `0` until something does.
+
+### A chat carries its members, and nothing asks who they are
+
+`chat.participants` is an object **keyed by contact id**, and `#partnerOf` (`src/client.ts:406`)
+returns `undefined` unless exactly one of those ids is not ours. So a group of three names nobody,
+and `MaxClient` drops ids it is already holding.
+
+Measured 2026-09-20 on a real account: the chats the login returned held **23 distinct people**
+while its `contacts` named **6**.
+
+| kind | chats | participants listed | claimed |
+|---|---|---|---|
+| `DIALOG` | 17 | 33 | 33 |
+| `CHAT` | 4 | 22 | 22 |
+| `CHANNEL` | 4 | 4 | 178 011 |
+
+**A group lists all of it; a channel does not**, and a channel's `participantsCount` is its
+subscriber count — a membership nobody could enumerate and nobody wants as contacts. Naming
+everyone in every group is therefore one `CONTACT_INFO` over ids already in hand, not a request
+per chat. That is `MAX-10`.
+
 ## 8. We look like the official client
 
 Nothing on the wire names this tool (§34). `WEB_USER_AGENT` in `src/spec/identity.ts` is the web
