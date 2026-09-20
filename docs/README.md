@@ -19,16 +19,21 @@ before the rename (`NEED-48`), the cache (`MAX-7`) and the run log (`CLI-4`).
 | [TESTING.md](TESTING.md) | how to check it yourself, and what each check is for |
 | [BACKLOG.md](BACKLOG.md) | what is left |
 
-## Not written yet, and now scheduled
+## Reference — generated, never hand-written
 
-`installation.md`, `usage.md`, `commands.md` and the rest of the pages a person installing this
-would open do not exist. They waited on purpose — `max --help` was the whole reference, and a page
-repeating it would be one more thing to keep true — and they are now the work of `DOC-2`, in
-**Russian**, alongside the first shareable release (`OPS-4`).
+| | |
+|---|---|
+| [commands.md](commands.md) | every command, option and exit code — **generated**, `pnpm generate` |
+| [protocol.md](protocol.md) | every opcode and where its shape came from — **generated** |
 
-The command reference among them will be **generated** from the program and checked in CI, the way
-[`protocol.md`](protocol.md) already is (`OPS-10`): a reference that can drift from the command is
-worth less than no reference at all.
+Neither is edited by hand. `pnpm generate` rewrites both and CI asserts the tree did not change,
+so a reference that quotes a command the program no longer has cannot reach `main`.
+
+## Not written yet
+
+`installation.md`, `usage.md` and the rest of the pages a person installing this would open do not
+exist yet. They are `DOC-2`, in **Russian** (`NEED-108`), alongside the first shareable release
+(`OPS-4`).
 
 `ARCHITECTURE.md` describes the code as it behaves today. **When a document disagrees with the
 code, the code is right and the document gets corrected in place.**

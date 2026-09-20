@@ -33,4 +33,7 @@ const files = () => [
   "src/generated/operations.generated.ts",
   "src/generated/client.generated.ts",
   "docs/protocol.md",
+  // Not from `src/spec/` but from the command tree (`OPS-10`); the same check guards it, because
+  // the failure is the same one — a page that quotes a command the program no longer has.
+  "docs/commands.md",
 ]

@@ -93,13 +93,14 @@ now, in their own pass. How to add an operation is
   version he can hand to somebody. Not "publish what exists" — the pieces are the plan
   `docs_ai/plans/2026-09-20-first-release.md`: the version — `0.1.0`, set 2026-09-20 (`NEED-107`) —
   a `CHANGELOG.md`,
-  `docs/releasing.md` taken from the sibling, the npm publish itself, and `DOC-2` beside it,
+  `docs/releasing.md` taken from the sibling, the npm publish itself, and `DOC-2` beside it
+  (`OPS-10`, its command reference, is done),
   because a release nobody can read the instructions for is not shareable. `pnpm version:check`
   exists and runs in CI as of 2026-09-20.
-- **OPS-10** · P2 · A generated command reference — `docs:generate` writes `docs/commands.md`
-  from the `commander` tree, `docs:check` fails CI when it drifts, exactly as `pnpm generate` and
-  `git diff --exit-code` already do for [`protocol.md`](protocol.md) (`OPS-3`). Feeds `DOC-2`: the
-  one page nobody should be writing by hand is the list of options.
+- **OPS-10** · ✅ Closed 2026-09-20 — [`commands.md`](commands.md) is written by
+  `scripts/commands.ts` from the command tree, on every `pnpm generate`. It needed no new CI step:
+  the staleness check that already guarded [`protocol.md`](protocol.md) guards it too, and the
+  suite compares the committed page with what the generator produces right now.
 - **OPS-9** · P3 · `scripts/probe.ts` does not run — the command in its own header fails on the
   first import, because Node's type stripping will not resolve a `.js` specifier to a `.ts` file.
   `scripts/id-shape.ts` shows the working shape: import from `dist/` and build first. It also
