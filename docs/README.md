@@ -29,11 +29,17 @@ before the rename (`NEED-48`), the cache (`MAX-7`) and the run log (`CLI-4`).
 Neither is edited by hand. `pnpm generate` rewrites both and CI asserts the tree did not change,
 so a reference that quotes a command the program no longer has cannot reach `main`.
 
-## Not written yet
+## Using it — Russian, per `NEED-108`
 
-`installation.md`, `usage.md` and the rest of the pages a person installing this would open do not
-exist yet. They are `DOC-2`, in **Russian** (`NEED-108`), alongside the first shareable release
-(`OPS-4`).
+| | |
+|---|---|
+| [installation.md](installation.md) | установка, требования, куда ложатся файлы, обновление |
+| [usage.md](usage.md) | вход, профили, чтение, отправка, диагностика, настройки |
+
+Still to come, and tracked as `DOC-2`: `sessions.md`, `configuration.md`, `diagnostics.md`,
+`security.md`, `troubleshooting.md`, `releasing.md` and a `CHANGELOG.md`. The two pages above are
+the ones the release needs — a person can install the tool and read their chats from them alone,
+which is the readiness test the plan sets.
 
 `ARCHITECTURE.md` describes the code as it behaves today. **When a document disagrees with the
 code, the code is right and the document gets corrected in place.**
