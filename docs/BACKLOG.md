@@ -150,6 +150,11 @@ there, which `NEED-59` leaves alone.
   `max contacts sync` becomes the repair tool that forgets the marker (`NEED-81`).
   Plan and handoff: `docs_ai/plans/2026-09-20-contacts-and-paging.md` and its `-handoff.md`
   (`NEED-90`). Needs `MAX-7` merged first — same files.
+- **MAX-11** · P2 · Persist the rotated token the login response returns (`NEED-106`, `NEED-8`).
+  Today `session.login` answers with a `token` field and `MaxClient.connect` drops it, so the
+  session keeps the credential that was pasted in months ago. Write it to the keyring **after** a
+  successful login only, keep the old one if that write fails, and print neither. Its own commit
+  and its own live check: it changes what is in the owner's keyring.
 - **MAX-8** · P3 · Telemetry as other clients send it — a later phase, and only once our own
   traffic is understood (`NEED-16`).
 - **MAX-9** · P3 · The rest of the messenger surface, in the order of §35: attachments and
