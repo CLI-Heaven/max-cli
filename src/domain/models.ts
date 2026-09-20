@@ -54,6 +54,25 @@ export interface Contact {
   username: string | null
   /** Whatever they wrote about themselves. */
   description: string | null
+  /**
+   * The newest message in a one-to-one chat with them, ISO 8601, and `null` for somebody we have
+   * only ever met in a group. It is what `--order recent` sorts on.
+   *
+   * MAX does not send this on a contact: it comes from the chat, and only the store has both.
+   */
+  lastMessagedAt: string | null
+}
+
+/**
+ * One page of a listing, and **the same shape whether it came from MAX or from the store** — where
+ * rows come from is the exit code's business and the diagnostics', never the answer's.
+ *
+ * `hasMore` rather than a total: a pager asks whether to offer the next page, and counting rows
+ * MAX has not sent is a second question with a second cost.
+ */
+export interface Page<T> {
+  items: T[]
+  hasMore: boolean
 }
 
 export interface Profile {

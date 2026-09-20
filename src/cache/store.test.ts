@@ -32,6 +32,7 @@ const person = (id: string, name: string | null = `person ${id}`): Contact => ({
   name,
   username: null,
   description: null,
+  lastMessagedAt: null,
 })
 
 const delta = (over: Partial<Parameters<CacheStore["mergeDelta"]>[0]> = {}) => ({

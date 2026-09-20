@@ -41,11 +41,13 @@ export const toMessage = (raw: Payload, chatId: Id, lookup: NameLookup = {}): Me
   }
 }
 
+/** `lastMessagedAt` is always `null` here: MAX puts it on the chat, and only the store has both. */
 export const toContact = (raw: Payload): Contact => ({
   id: asId(raw.id) ?? "",
   name: displayName(raw.names) ?? text(raw.name),
   username: text(raw.link),
   description: text(raw.description),
+  lastMessagedAt: null,
 })
 
 export const toProfile = (raw: Payload): Profile => {
