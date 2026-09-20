@@ -8,6 +8,19 @@ export interface SessionOptions {
   deviceId: string
   /** How many chats LOGIN should return with the profile. The specification caps it at 100. */
   chatsCount?: number
+  /**
+   * The `time` the previous login answered with, or `0` for "send me everything".
+   *
+   * **The four markers are moments, not flags** — measured 2026-09-20. MAX returns only what
+   * changed in each collection since the one given, so a stored marker is the difference between
+   * re-fetching every chat and every contact on every invocation and receiving the handful that
+   * moved. Where it is kept, and why the merge and the marker share a transaction, is
+   * `ARCHITECTURE.md`.
+   *
+   * All four carry the same value: nothing reads presence or drafts, and sending the marker in
+   * those two as well was measured harmless on the real account (`NEED-103`).
+   */
+  sync?: number
 }
 
 /**
@@ -28,7 +41,7 @@ export interface SessionOptions {
  */
 export const startSession = async (
   invoke: Invoke,
-  { token, deviceId, chatsCount = 40 }: SessionOptions,
+  { token, deviceId, chatsCount = 40, sync = 0 }: SessionOptions,
 ): Promise<Payload> => {
   await invoke(sessionInit, { userAgent: WEB_USER_AGENT, deviceId })
 
@@ -37,9 +50,9 @@ export const startSession = async (
     // A script reading is not a person looking; see the specification for why this is never true.
     interactive: false,
     chatsCount,
-    chatsSync: 0,
-    contactsSync: 0,
-    presenceSync: 0,
-    draftsSync: 0,
+    chatsSync: sync,
+    contactsSync: sync,
+    presenceSync: sync,
+    draftsSync: sync,
   })
 }

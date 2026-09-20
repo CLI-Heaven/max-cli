@@ -247,9 +247,15 @@ export class MaxClient {
 
     const state = this.#store.readState()
 
+    const sync = this.#cache?.syncMarker()
+
     try {
       await this.#connection.open()
-      this.#login = await startSession(this.#invoke, { token, deviceId: state.deviceId })
+      this.#login = await startSession(this.#invoke, {
+        token,
+        deviceId: state.deviceId,
+        ...(sync === undefined ? {} : { sync }),
+      })
     } catch (error) {
       throw asCliError(error)
     }
@@ -261,6 +267,58 @@ export class MaxClient {
       logins: state.logins + 1,
       lastLoginAt: new Date().toISOString(),
     })
+
+    this.#mergeLogin(viewerId)
+  }
+
+  /**
+   * Writes what the login just told us into the store, **before the command renders**, so a
+   * listing prints the names this run brought rather than the previous run's.
+   *
+   * ⚠ **A delta is mostly empty and that is correct.** After the first login MAX sends only what
+   * changed, so an absent person is an unchanged person — never a departed one. Nothing here
+   * deletes, with the single exception of a chat's membership, which MAX restates in full whenever
+   * it sends that chat at all.
+   *
+   * **It never fails the command.** Nobody asked for the store; a locked database or a full disk
+   * must not lose an answer MAX has already given. The reason goes to the diagnostic stream,
+   * because failing quietly is not the same as failing invisibly (`NEED-97`) — and the marker
+   * stays where it was, so the next login asks for the same delta again rather than for changes
+   * since rows that were never written.
+   */
+  #mergeLogin(viewerId: string | undefined): void {
+    const cache = this.#cache
+    const marker = asMarker(this.#session().time)
+    if (!cache || marker === undefined) return
+
+    const chats = asArray(this.#session().chats)
+    const members = new Map<Id, Id[]>()
+    for (const raw of chats) {
+      const chat = toChat(raw)
+      // A channel lists four of its hundred and seventy-eight thousand subscribers, so its
+      // `participants` is not a membership — storing it would be storing a wrong answer.
+      if (!chat.id || chat.kind === "channel") continue
+      members.set(chat.id, this.#participantsOf(raw, viewerId))
+    }
+
+    try {
+      cache.mergeDelta({
+        chats: chats.map(toChat).filter((chat) => chat.id !== ""),
+        people: asArray(this.#session().contacts)
+          .map(toContact)
+          .filter((contact) => contact.id !== ""),
+        members,
+        marker,
+      })
+    } catch (error) {
+      this.#warn(`the local record did not take this login, so nothing was kept from it: ${reasonOf(error)}`)
+    }
+  }
+
+  /** Everyone in the chat except us. Ids only — a name for each of them is `#peopleFor`'s job. */
+  #participantsOf(chat: Payload, viewerId: string | undefined): Id[] {
+    const participants = record(chat.participants)
+    return participants === undefined ? [] : Object.keys(participants).filter((id) => id !== viewerId)
   }
 
   async close(): Promise<void> {
@@ -420,6 +478,20 @@ export class MaxClient {
 
 /** `--offline` was asked for explicitly, so age is not a reason to refuse what was recorded. */
 const ANY_AGE = Number.POSITIVE_INFINITY
+
+/**
+ * The marker only means anything if MAX gave us one. A login without a `time` is not a reason to
+ * store `0` — that would tell the next login to send everything, which is exactly what a stored
+ * marker exists to stop.
+ */
+const asMarker = (time: unknown): number | undefined =>
+  typeof time === "number" && Number.isFinite(time) && time > 0 ? time : undefined
+
+/** The reason, never the payload: a store's failure is a code, and the rows are people's names. */
+const reasonOf = (error: unknown): string => {
+  const code = (error as { code?: unknown })?.code
+  return typeof code === "string" ? code : error instanceof Error ? error.name : "an unknown problem"
+}
 
 const viewer = (store: SessionStore) => {
   const viewerId = store.readState().viewerId
