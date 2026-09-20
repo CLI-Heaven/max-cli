@@ -1,0 +1,206 @@
+<!-- Сгенерировано из дерева команд скриптом scripts/commands.ts. Не редактировать; `pnpm generate`. -->
+
+# Команды
+
+Справочник: каждая команда, каждая опция, каждый код возврата. Страница **собирается из самой
+программы**, поэтому описать версию, которой не существует, она не может.
+
+Как устроена строка:
+
+```sh
+max [профиль] [опции] <команда> <действие> [аргументы]
+```
+
+**Первое слово — профиль**, если оно не совпадает с именем команды: `max personal chats list`
+читает чаты профиля `personal`, а `max chats list` — профиля по умолчанию. То же самое говорит
+переменная `MAX_PROFILE`; без неё профиль называется `default`.
+
+⚠ Описания команд и опций ниже — ровно те, что печатает `max --help`, то есть по-английски. Это
+не недоработка перевода: текст живёт в программе, и второй его копии здесь быть не должно.
+
+## Общие опции
+
+Действуют на любую команду.
+
+| Опция | Что делает |
+|---|---|
+| `-v, --version` | output the version number |
+| `--json` | machine-readable output: one JSON value on stdout, nothing else |
+| `--quiet` | diagnostics off |
+| `--verbose` | diagnostics on: ids and timings on stderr, never message content |
+| `--offline` | answer from what was recorded and never connect; fails if nothing was |
+| `--record` | keep this run under `max runs` — ids and timings, never message content |
+| `--no-record` | do not keep it, whatever the configuration says |
+
+## `max session`
+
+the stored MAX session for this profile
+### `max session start`
+
+store a MAX session for this profile
+
+```sh
+max session start [options]
+```
+
+### `max session end`
+
+forget the stored session for this profile
+
+```sh
+max session end [options]
+```
+
+## `max account`
+
+the account this profile is logged in as
+### `max account show`
+
+who this profile is logged in as
+
+```sh
+max account show [options]
+```
+
+## `max chats`
+
+the chats this account is in
+### `max chats list`
+
+the chats this account is in
+
+```sh
+max chats list [options]
+```
+
+| Опция | Что делает |
+|---|---|
+| `--limit <n>` | how many to show |
+
+## `max contacts`
+
+people you have a one-to-one chat with
+### `max contacts list`
+
+people you have a one-to-one chat with
+
+```sh
+max contacts list [options]
+```
+
+| Опция | Что делает |
+|---|---|
+| `--limit <n>` | how many to show |
+
+## `max messages`
+
+read and send messages in a chat
+### `max messages list`
+
+recent messages in a chat, oldest first
+
+```sh
+max messages list [options] <chat>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+
+| Опция | Что делает |
+|---|---|
+| `--limit <n>` | how many to read |
+
+### `max messages send`
+
+send one text message
+
+```sh
+max messages send [options] <chat> <text>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+| `text` | обязательный | what to say |
+
+| Опция | Что делает |
+|---|---|
+| `--cid <n>` | reuse a client id from an earlier ambiguous send; MAX collapses the duplicate |
+
+## `max cache`
+
+the local copy of chats, contacts and messages
+### `max cache clear`
+
+forget everything this profile has cached
+
+```sh
+max cache clear [options]
+```
+
+## `max runs`
+
+recorded runs — what this tool did, and when
+### `max runs list`
+
+recorded runs, newest first
+
+```sh
+max runs list [options]
+```
+
+| Опция | Что делает |
+|---|---|
+| `--limit <n>` | how many to show По умолчанию: `20`. |
+
+### `max runs show`
+
+one run: what it was, and one line per request
+
+```sh
+max runs show [options] <run-id>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `run-id` | обязательный | an id from `max runs list` |
+
+### `max runs path`
+
+the directory holding one run
+
+```sh
+max runs path [options] <run-id>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `run-id` | обязательный | an id from `max runs list` |
+
+## Коды возврата
+
+Скрипт ветвится по коду, а не по тексту: текст меняется, код — нет.
+
+| Код | Когда |
+|---|---|
+| `0` | получилось |
+| `2` | `validation_error` |
+| `3` | `configuration_error` |
+| `4` | `authentication_error` |
+| `5` | `permission_error` |
+| `6` | `not_found` |
+| `7` | `confirmation_required` |
+| `8` | `rate_limited` |
+| `9` | `timeout` |
+| `10` | `network_error` |
+| `11` | `provider_error` |
+| `12` | `provider_unavailable` |
+| `13` | `invalid_response` |
+| `14` | `outcome_unknown` |
+| `130` | `cancelled` |
+| `1` | всё остальное |
+
+`0` и только `0` означает, что операция выполнена. `14` — `outcome_unknown` — означает, что
+сообщение **могло** уйти: не отправлено и не провалено, и повторять его можно только с тем же
+`--cid`.
