@@ -24,7 +24,7 @@ export const contactsCommand = (): Command => {
         const client = createClient({ events, ...(cache ? { cache } : {}) })
 
         try {
-          renderer.result((await client.contacts.list()).slice(0, settings.limit))
+          renderer.result((await client.contacts.list({ limit: settings.limit })).items)
         } finally {
           await client.close()
           cache?.close()

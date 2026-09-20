@@ -59,7 +59,10 @@ describe("the schema", () => {
     const path = file()
     const first = await openCache(path)
     const store = openStore({ database: first })
-    store.people.upsert([{ id: "alice", name: "Alice", username: null, description: null }], "login")
+    store.people.upsert(
+      [{ id: "alice", name: "Alice", username: null, description: null, lastMessagedAt: null }],
+      "login",
+    )
     store.close()
 
     const second = await openCache(path)

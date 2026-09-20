@@ -123,6 +123,7 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
     name: row.name === null ? null : String(row.name),
     username: row.username === null ? null : String(row.username),
     description: row.description === null ? null : String(row.description),
+    lastMessagedAt: row.last_messaged_at === null ? null : new Date(Number(row.last_messaged_at)).toISOString(),
   })
 
   /**

@@ -174,7 +174,13 @@ describe("MaxClient", () => {
     const contacts = await client.contacts.list()
     await client.close()
 
-    expect(contacts).toContainEqual({ id: "10000003", name: "Ivan Petrov", username: "ivan", description: "hi" })
+    expect(contacts.items).toContainEqual({
+      id: "10000003",
+      name: "Ivan Petrov",
+      username: "ivan",
+      description: "hi",
+      lastMessagedAt: null,
+    })
   })
 
   it("**never marks anything read while reading history**", async () => {
@@ -570,6 +576,11 @@ describe("with a cache", () => {
       const max = mockMax({
         answers: {
           [Opcode.SESSION_INIT]: {},
+          // The third person is in a group of three and nowhere else. Before this, `#partnerOf`
+          // gave up on any chat with more than one other person and never asked who they were.
+          [Opcode.CONTACT_INFO]: {
+            contacts: [{ id: 10000003, names: [{ name: "Group Only", type: "FULL_NAME" }] }],
+          },
           [Opcode.LOGIN]: syncing({
             chats: [
               { id: 111, title: "A group", type: "CHAT", participants: { 10000001: 1, 10000002: 1, 10000003: 1 } },
@@ -586,7 +597,36 @@ describe("with a cache", () => {
       // 10000001 is us and is never a member of anything; the other two are.
       expect(cache.people.chatsWith("10000002").sort()).toEqual(["111", "222"])
       expect(cache.people.chatsWith("10000003")).toEqual(["111"])
+
+      const everyone = cache.people.page({ order: "name", limit: 20, offset: 0 })
+      expect(everyone.map((p) => p.name)).toContain("Group Only")
       expect(cache.people.contacts({ order: "recent", limit: 20, offset: 0 }).map((p) => p.id)).toEqual(["10000002"])
+    })
+
+    it("asks for the ids the login left unnamed **in one request, not one per chat**", async () => {
+      const cache = await cacheStore()
+      const max = mockMax({
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.CONTACT_INFO]: { contacts: [] },
+          [Opcode.LOGIN]: syncing({
+            chats: [
+              { id: 111, type: "CHAT", participants: { 10000001: 1, 20: 1, 21: 1 } },
+              { id: 222, type: "CHAT", participants: { 10000001: 1, 22: 1, 23: 1 } },
+              { id: 333, type: "DIALOG", participants: { 10000001: 1, 24: 1 } },
+            ],
+          }),
+        },
+      })
+
+      const client = clientSharing(cache, max)
+      await client.chats.list()
+      await client.close()
+
+      const asked = max.sent.filter((call) => call.opcode === Opcode.CONTACT_INFO)
+      expect(asked).toHaveLength(1)
+      // Ids go onto the wire as numbers, the way MAX sends them; they are strings everywhere above.
+      expect(asked[0]?.payload.contactIds).toEqual([20, 21, 22, 23, 24])
     })
 
     it("**does not store a channel's members**, because what it lists is not its membership", async () => {
@@ -608,6 +648,61 @@ describe("with a cache", () => {
       await client.close()
 
       expect(cache.people.chatsWith("9")).toEqual([])
+    })
+
+    it("**answers from the store, not from the delta**, which after the first login is empty", async () => {
+      const cache = await cacheStore()
+
+      const full = mockMax({
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.CONTACT_INFO]: { contacts: [] },
+          [Opcode.LOGIN]: syncing({ chats: [{ id: 222, type: "DIALOG", participants: { 10000001: 1, 10000002: 1 } }] }),
+        },
+      })
+      const client = clientSharing(cache, full)
+      expect((await client.contacts.list()).items).toHaveLength(1)
+      await client.close()
+
+      const empty = mockMax({
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.LOGIN]: { profile: loginAnswer.profile, chats: [], contacts: [], time: 1_789_776_000_001 },
+        },
+      })
+      const second = clientSharing(cache, empty)
+      const again = await second.contacts.list()
+      await second.close()
+
+      expect(again.items.map((person) => person.id)).toEqual(["10000002"])
+    })
+
+    it("pages contacts in SQL and says whether another page exists", async () => {
+      const cache = await cacheStore()
+      const max = mockMax({
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.CONTACT_INFO]: { contacts: [] },
+          [Opcode.LOGIN]: syncing({
+            chats: [
+              { id: 1, type: "DIALOG", lastEventTime: 300, participants: { 10000001: 1, 31: 1 } },
+              { id: 2, type: "DIALOG", lastEventTime: 200, participants: { 10000001: 1, 32: 1 } },
+              { id: 3, type: "DIALOG", lastEventTime: 100, participants: { 10000001: 1, 33: 1 } },
+            ],
+            contacts: [{ id: 31 }, { id: 32 }, { id: 33 }],
+          }),
+        },
+      })
+
+      const client = clientSharing(cache, max)
+      const first = await client.contacts.list({ limit: 2 })
+      const second = await client.contacts.list({ limit: 2, offset: 2 })
+      await client.close()
+
+      expect(first.items.map((person) => person.id)).toEqual(["31", "32"])
+      expect(first.hasMore).toBe(true)
+      expect(second.items.map((person) => person.id)).toEqual(["33"])
+      expect(second.hasMore).toBe(false)
     })
 
     it("**does not advance the marker when the merge fails, and does not fail the command**", async () => {

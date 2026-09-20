@@ -1,7 +1,7 @@
 import { CliError } from "@leemour/cli-core"
-import type { CacheStore } from "./cache/store.js"
+import type { CacheStore, PersonOrder } from "./cache/store.js"
 import { namesFrom, toChat, toContact, toMessage, toProfile } from "./domain/map.js"
-import type { Chat, Contact, Id, Message, Profile } from "./domain/models.js"
+import type { Chat, Contact, Id, Message, Page, Profile } from "./domain/models.js"
 import { type Invoke, wireClient } from "./generated/client.generated.js"
 import { asFirstWord } from "./profile.js"
 import { Connection, ProtocolError } from "./protocol/connection.js"
@@ -135,15 +135,40 @@ export class MaxClient {
   }
 
   readonly contacts = {
-    /** The people this account has a one-to-one chat with, named. */
-    list: async (): Promise<Contact[]> => {
-      if (this.#offline) return this.#recorded(this.#cache?.contacts.read(ANY_AGE), "contacts")
+    /**
+     * The people this account has a one-to-one chat with, named, newest conversation first.
+     *
+     * **It answers from the store**, which the login has just brought up to date (`#mergeLogin`),
+     * so the order and the paging happen in SQL over every person we know rather than over the
+     * handful this particular login mentioned. A delta carries almost nothing after the first run;
+     * rendering the response instead of the store would show an empty list on the second command.
+     *
+     * ⚠ **A group member is not in this answer** and nothing marks them as excluded: the query
+     * asks for people a *dialog* exists with, and they are outside it (`NEED-105`). They are in
+     * the store, with the chats they share with us, for the commands that will want them.
+     */
+    list: async (options: PageRequest = {}): Promise<Page<Contact>> => {
+      const { order = "recent", limit, offset = 0 } = options
+
+      if (this.#offline) {
+        return paged(this.#recorded(this.#cache?.contacts.read(ANY_AGE), "contacts"), limit, offset)
+      }
 
       await this.#connectOnce()
       const people = await this.#peopleFor(asArray(this.#session().chats))
-      const contacts = [...people.values()].filter((contact) => contact.id !== "")
-      this.#cache?.contacts.write(contacts)
-      return contacts
+      const cache = this.#cache
+
+      // No store — it failed to open, and that is not a reason to lose the answer MAX just gave.
+      // What is lost is only the ordering and the paging the store does better.
+      if (!cache)
+        return paged(
+          [...people.values()].filter((contact) => contact.id !== ""),
+          limit,
+          offset,
+        )
+
+      const items = cache.people.contacts({ order, limit: limit ?? Number.MAX_SAFE_INTEGER, offset })
+      return { items, hasMore: offset + items.length < cache.people.countContacts() }
     },
   }
 
@@ -442,19 +467,27 @@ export class MaxClient {
       if (contact.id) people.set(contact.id, contact)
     }
 
+    const viewerId = this.#store.readState().viewerId
     const missing = new Set<Id>()
     for (const chat of chats) {
-      const partner = this.#partnerOf(chat)
-      if (partner !== undefined && !people.has(partner)) missing.add(partner)
+      if (toChat(chat).kind === "channel") continue
+      for (const id of this.#participantsOf(chat, viewerId)) if (!people.has(id)) missing.add(id)
     }
 
-    if (missing.size > 0) {
-      const answer = await this.#wire.contacts.info({ contactIds: [...missing] })
+    const named: Contact[] = []
+    for (const batch of batched([...missing], CONTACT_INFO_BATCH)) {
+      const answer = await this.#wire.contacts.info({ contactIds: batch })
       for (const raw of asArray(answer.contacts)) {
         const contact = toContact(raw)
-        if (contact.id) people.set(contact.id, contact)
+        if (!contact.id) continue
+        people.set(contact.id, contact)
+        named.push(contact)
       }
     }
+
+    // Written here rather than left in memory: the process ends in a moment, and the next one
+    // should not pay for these names again.
+    if (named.length > 0) this.#cache?.people.upsert(named, "info")
 
     this.#people = people
     return people
@@ -474,6 +507,33 @@ export class MaxClient {
     if (!this.#login) throw new CliError("configuration_error", "connect() was never called")
     return this.#login
   }
+}
+
+/** What every listing takes. Absent means "the caller did not say", never a number chosen here. */
+export interface PageRequest {
+  order?: PersonOrder
+  limit?: number
+  offset?: number
+}
+
+/**
+ * **One `CONTACT_INFO` for a hundred people.** The bound is unmeasured; the comparable one is
+ * `chatsCount`, where 100 is accepted and 200 comes back out of range (`PROTO-3`). Somebody in
+ * forty groups is the case that will find the real number, and it will find it as a refusal that
+ * names itself rather than as a wrong answer.
+ */
+const CONTACT_INFO_BATCH = 100
+
+const batched = <T>(items: T[], size: number): T[][] => {
+  const batches: T[][] = []
+  for (let at = 0; at < items.length; at += size) batches.push(items.slice(at, at + size))
+  return batches
+}
+
+/** Paging over a list already in hand — the fallback for when there is no store to page in SQL. */
+const paged = <T>(items: T[], limit: number | undefined, offset: number): Page<T> => {
+  const page = limit === undefined ? items.slice(offset) : items.slice(offset, offset + limit)
+  return { items: page, hasMore: offset + page.length < items.length }
 }
 
 /** `--offline` was asked for explicitly, so age is not a reason to refuse what was recorded. */
