@@ -71,6 +71,23 @@ try {
     ["sender ids", collect(login.messages, "sender")],
   ]
 
+  // PROTO-6: the specification declared this an array and MAX sends an object. Report the shape,
+  // never the contents — one run of this answers what it actually is.
+  const carried = login.messages
+  console.log(
+    `the login's \`messages\` field: ${
+      carried === undefined
+        ? "absent"
+        : Array.isArray(carried)
+          ? `an array of ${carried.length}`
+          : typeof carried === "object" && carried !== null
+            ? `an object with ${Object.keys(carried).length} key(s), first key looks like ${
+                /^\d+$/.test(Object.keys(carried)[0] ?? "") ? "an id" : "a name"
+              }`
+            : typeof carried
+    }\n`,
+  )
+
   console.log("how many digits, and how many of those a number cannot hold:\n")
   for (const [name, values] of groups) {
     const { total, unsafe, spread } = shapeOf(values)
