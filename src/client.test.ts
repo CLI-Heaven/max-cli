@@ -513,6 +513,167 @@ describe("with a cache", () => {
     expect(max.sent).toEqual([])
   })
 
+  describe("the delta sync", () => {
+    /** A login that answers with a `time`, which is the marker to send back next run. */
+    const syncing = (over: Record<string, unknown> = {}) => ({ ...loginAnswer, time: 1_789_776_000_000, ...over })
+
+    const markerOf = (max: ReturnType<typeof mockMax>) => max.sent.find((call) => call.opcode === Opcode.LOGIN)?.payload
+
+    it("**sends `0` until there is a marker, then sends the one it stored**", async () => {
+      const cache = await cacheStore()
+
+      const first = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: syncing() } })
+      const client = clientSharing(cache, first)
+      await client.chats.list()
+      await client.close()
+      expect(markerOf(first)?.contactsSync).toBe(0)
+
+      const second = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: syncing() } })
+      const again = clientSharing(cache, second)
+      await again.chats.list()
+      await again.close()
+
+      expect(markerOf(second)).toMatchObject({
+        chatsSync: 1_789_776_000_000,
+        contactsSync: 1_789_776_000_000,
+        presenceSync: 1_789_776_000_000,
+        draftsSync: 1_789_776_000_000,
+      })
+    })
+
+    it("**keeps what an earlier login brought when a later one carries nothing**", async () => {
+      const cache = await cacheStore()
+
+      const full = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: syncing() } })
+      const client = clientSharing(cache, full)
+      await client.chats.list()
+      await client.close()
+
+      // The second login is a delta: MAX has nothing new to say, which is not the same as saying
+      // there is nothing. A store that replaced instead of merging would empty itself here.
+      const empty = mockMax({
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.LOGIN]: { profile: loginAnswer.profile, chats: [], contacts: [], time: 1_789_776_000_001 },
+        },
+      })
+      const second = clientSharing(cache, empty)
+      await second.chats.list()
+      await second.close()
+
+      expect(cache.people.page({ order: "name", limit: 20, offset: 0 })).toHaveLength(1)
+      expect(cache.chats.read(Number.POSITIVE_INFINITY)).toHaveLength(2)
+    })
+
+    it("**stores everyone in a group, and none of them as a contact**", async () => {
+      const cache = await cacheStore()
+      const max = mockMax({
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.LOGIN]: syncing({
+            chats: [
+              { id: 111, title: "A group", type: "CHAT", participants: { 10000001: 1, 10000002: 1, 10000003: 1 } },
+              { id: 222, type: "DIALOG", participants: { 10000001: 1, 10000002: 1 } },
+            ],
+          }),
+        },
+      })
+
+      const client = clientSharing(cache, max)
+      await client.chats.list()
+      await client.close()
+
+      // 10000001 is us and is never a member of anything; the other two are.
+      expect(cache.people.chatsWith("10000002").sort()).toEqual(["111", "222"])
+      expect(cache.people.chatsWith("10000003")).toEqual(["111"])
+      expect(cache.people.contacts({ order: "recent", limit: 20, offset: 0 }).map((p) => p.id)).toEqual(["10000002"])
+    })
+
+    it("**does not store a channel's members**, because what it lists is not its membership", async () => {
+      const cache = await cacheStore()
+      const max = mockMax({
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.CONTACT_INFO]: { contacts: [] },
+          [Opcode.LOGIN]: syncing({
+            chats: [
+              { id: 333, title: "A channel", type: "CHANNEL", participantsCount: 178011, participants: { 9: 1 } },
+            ],
+          }),
+        },
+      })
+
+      const client = clientSharing(cache, max)
+      await client.chats.list()
+      await client.close()
+
+      expect(cache.people.chatsWith("9")).toEqual([])
+    })
+
+    it("**does not advance the marker when the merge fails, and does not fail the command**", async () => {
+      const cache = await cacheStore()
+      const notes: string[] = []
+      const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: syncing() } })
+
+      const dir = mkdtempSync(join(tmpdir(), "max-cli-"))
+      const store = new SessionStore({
+        keyring: memoryKeyring(),
+        configDir: dir,
+        stateDir: join(dir, "state"),
+        env: {},
+      })
+      store.writeToken("a-token")
+      const client = new MaxClient({
+        store,
+        cache: {
+          ...cache,
+          mergeDelta: () => {
+            throw new Error("the disk is full")
+          },
+        },
+        warn: (note) => notes.push(note),
+        connection: new Connection({ createSocket: max.createSocket, timeoutMs: 50 }),
+      })
+
+      expect(await client.chats.list()).toHaveLength(2)
+      await client.close()
+
+      expect(cache.syncMarker()).toBeUndefined()
+      expect(notes.join(" ")).toContain("did not take this login")
+    })
+
+    it("names nobody in the note it writes when the merge fails", async () => {
+      const cache = await cacheStore()
+      const notes: string[] = []
+      const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: syncing() } })
+
+      const dir = mkdtempSync(join(tmpdir(), "max-cli-"))
+      const store = new SessionStore({
+        keyring: memoryKeyring(),
+        configDir: dir,
+        stateDir: join(dir, "state"),
+        env: {},
+      })
+      store.writeToken("a-token")
+      const client = new MaxClient({
+        store,
+        cache: {
+          ...cache,
+          mergeDelta: () => {
+            throw new Error("Someone Else could not be written")
+          },
+        },
+        warn: (note) => notes.push(note),
+        connection: new Connection({ createSocket: max.createSocket, timeoutMs: 50 }),
+      })
+
+      await client.chats.list()
+      await client.close()
+
+      expect(notes.join(" ")).not.toContain("Someone Else")
+    })
+  })
+
   it("**stops trusting a chat it has just sent to**", async () => {
     const cache = await cacheStore()
     const max = mockMax({
