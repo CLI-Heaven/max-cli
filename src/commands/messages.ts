@@ -1,6 +1,7 @@
 import { Command } from "commander"
 import { openProfileCache } from "../cache/index.js"
 import { forCommand } from "./context.js"
+import { renderPage } from "./paging.js"
 
 export const messagesCommand = (): Command => {
   const command = new Command("messages").description("read and send messages in a chat")
@@ -14,8 +15,14 @@ export const messagesCommand = (): Command => {
     .argument("<chat>", "chat id, or part of a chat name")
     .description("recent messages in a chat, oldest first")
     .option("--limit <n>", "how many to read", (value) => Number.parseInt(value, 10))
+    // Not `--page`: this history is anchored in time, so paging backwards through it is exact
+    // rather than approximate. A message id is what the reader has in front of them, having just
+    // read the output; an ISO 8601 time is what still works once that message is gone.
+    .option("--before <id-or-time>", "read what came before this message id, or this ISO 8601 time")
     .action(async function (this: Command, chat: string) {
-      const { renderer, settings, createClient, run } = forCommand(this.optsWithGlobals())
+      const options = this.optsWithGlobals()
+      const context = forCommand(options)
+      const { renderer, settings, createClient, run } = context
       const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
 
       await run("messages list", async (events) => {
@@ -23,7 +30,8 @@ export const messagesCommand = (): Command => {
 
         try {
           const chatId = await client.chats.resolve(chat)
-          renderer.result(await client.messages.list(chatId, settings.limit))
+          const before = options.before === undefined ? {} : { before: client.messages.before(String(options.before)) }
+          renderPage(context, await client.messages.list(chatId, { limit: settings.limit, ...before }))
         } finally {
           await client.close()
           cache?.close()

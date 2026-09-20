@@ -45,7 +45,7 @@ const readingAChatThatAnswersOddly = async (options: { quiet?: boolean; json?: b
 
   try {
     await client.connect()
-    renderer.result(await client.messages.list("111", 5))
+    renderer.result((await client.messages.list("111", { limit: 5 })).items)
   } finally {
     await client.close()
   }

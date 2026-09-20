@@ -83,7 +83,7 @@ describe("MaxClient", () => {
     await client.connect()
     expect(client.account.me()).toEqual({ id: "10000001", name: "Test Person", phone: null })
 
-    const chats = await client.chats.list()
+    const { items: chats } = await client.chats.list()
     expect(chats).toHaveLength(2)
     expect(chats[0]?.unreadCount).toBe(2)
     expect(chats[1]?.unreadCount).toBeNull()
@@ -115,7 +115,7 @@ describe("MaxClient", () => {
     const { client } = clientWith(max)
 
     await client.connect()
-    const chats = await client.chats.list()
+    const { items: chats } = await client.chats.list()
     await client.close()
 
     expect(chats.map((chat) => chat.title)).toEqual(["Ivan Petrov", "Maria S"])
@@ -190,7 +190,7 @@ describe("MaxClient", () => {
     const { client } = clientWith(max)
 
     await client.connect()
-    await client.messages.list("111", 5)
+    await client.messages.list("111", { limit: 5 })
     await client.close()
 
     expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.CHAT_MARK)
@@ -204,7 +204,7 @@ describe("MaxClient", () => {
     const { client } = clientWith(max)
 
     await client.connect()
-    const [message] = await client.messages.list("111")
+    const [message] = (await client.messages.list("111")).items
     await client.close()
 
     expect(message?.senderName).toBe("Someone Else")
@@ -364,10 +364,10 @@ describe("when MAX answers with something we did not declare", () => {
     const { client, notes } = clientWith(max)
 
     await client.connect()
-    const messages = await client.messages.list("111", 5)
+    const messages = await client.messages.list("111", { limit: 5 })
     await client.close()
 
-    expect(messages).toEqual([])
+    expect(messages.items).toEqual([])
     expect(notes).toHaveLength(1)
     expect(notes[0]).toContain("chats.history")
     expect(notes[0]).toContain("messages")
@@ -385,7 +385,7 @@ describe("when MAX answers with something we did not declare", () => {
     const { client, notes } = clientWith(max)
 
     await client.connect()
-    await client.messages.list("111", 5)
+    await client.messages.list("111", { limit: 5 })
     await client.close()
 
     expect(notes.join("")).not.toContain(SENTINEL)
@@ -402,7 +402,7 @@ describe("when MAX answers with something we did not declare", () => {
     const { client, notes } = clientWith(max)
 
     await client.connect()
-    await client.messages.list("111", 5)
+    await client.messages.list("111", { limit: 5 })
     await client.close()
 
     expect(notes).toEqual([])
@@ -455,7 +455,7 @@ describe("with a cache", () => {
 
     const first = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
     const warm = clientSharing(cache, first)
-    expect(await warm.chats.list()).toHaveLength(2)
+    expect((await warm.chats.list()).items).toHaveLength(2)
     await warm.close()
     expect(first.sent.map((call) => call.opcode)).toEqual([Opcode.SESSION_INIT, Opcode.LOGIN])
 
@@ -477,7 +477,7 @@ describe("with a cache", () => {
       }),
     })
 
-    expect(await offline.chats.list()).toHaveLength(2)
+    expect((await offline.chats.list()).items).toHaveLength(2)
     await offline.close()
   })
 
@@ -740,6 +740,48 @@ describe("with a cache", () => {
       expect(Object.keys(summary).sort()).toEqual(["added", "changed", "full", "known"])
     })
 
+    it("**`--before` takes a message id, and an ISO 8601 time when the id is gone**", async () => {
+      const cache = await cacheStore()
+      const max = mockMax({
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.CONTACT_INFO]: { contacts: [] },
+          [Opcode.LOGIN]: syncing(),
+          [Opcode.CHAT_HISTORY]: historyAnswer,
+        },
+      })
+
+      const client = clientSharing(cache, max)
+      await client.messages.list("111", { limit: 5 })
+
+      // The id was just read, which is the case a person is in when they type it.
+      expect(client.messages.before("116762160362694583")).toBe(1789776000000)
+      expect(client.messages.before("2026-09-20T01:00:00Z")).toBe(Date.parse("2026-09-20T01:00:00Z"))
+
+      // A deleted message is exactly an id the store cannot resolve — so it says so, and names the
+      // way round it, rather than reading eighteen digits as milliseconds.
+      expect(() => client.messages.before("999999999999999999")).toThrow(/ISO 8601/)
+      await client.close()
+    })
+
+    it("anchors the history request at what `--before` resolved to", async () => {
+      const cache = await cacheStore()
+      const max = mockMax({
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.CONTACT_INFO]: { contacts: [] },
+          [Opcode.LOGIN]: syncing(),
+          [Opcode.CHAT_HISTORY]: historyAnswer,
+        },
+      })
+
+      const client = clientSharing(cache, max)
+      await client.messages.list("111", { limit: 5, before: 1_700_000_000_000 })
+      await client.close()
+
+      expect(max.sent.find((call) => call.opcode === Opcode.CHAT_HISTORY)?.payload.from).toBe(1_700_000_000_000)
+    })
+
     it("**does not advance the marker when the merge fails, and does not fail the command**", async () => {
       const cache = await cacheStore()
       const notes: string[] = []
@@ -765,7 +807,7 @@ describe("with a cache", () => {
         connection: new Connection({ createSocket: max.createSocket, timeoutMs: 50 }),
       })
 
-      expect(await client.chats.list()).toHaveLength(2)
+      expect((await client.chats.list()).items).toHaveLength(2)
       await client.close()
 
       expect(cache.syncMarker()).toBeUndefined()
@@ -816,7 +858,7 @@ describe("with a cache", () => {
     })
     const client = clientSharing(cache, max)
 
-    await client.messages.list("111", 5)
+    await client.messages.list("111", { limit: 5 })
     expect(cache.messages.read("111", 5, 60_000), "cached after the first read").toBeDefined()
 
     await client.messages.send("111", "hello")
@@ -854,7 +896,7 @@ describe("one event per request", () => {
     const { client, events } = clientWith(max)
 
     await client.connect()
-    await client.messages.list("111", 5)
+    await client.messages.list("111", { limit: 5 })
     await client.close()
 
     const asked = events.find((event) => event.event === "request" && event.operation === "chats.history")
@@ -879,7 +921,7 @@ describe("one event per request", () => {
     const { client, events } = clientWith(max, "a-secret-token")
 
     await client.connect()
-    await client.messages.list("111", 5)
+    await client.messages.list("111", { limit: 5 })
     await client.messages.send("111", PRIVATE, { cid: 4242 })
     await client.close()
 

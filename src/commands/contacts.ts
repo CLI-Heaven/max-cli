@@ -1,6 +1,9 @@
+import { CliError } from "@cli-heaven/cli-core"
 import { Command } from "commander"
 import { openProfileCache } from "../cache/index.js"
+import type { PersonOrder } from "../cache/store.js"
 import { forCommand } from "./context.js"
+import { renderPage, window, withPaging } from "./paging.js"
 
 /**
  * The people this account has a one-to-one chat with.
@@ -12,19 +15,21 @@ import { forCommand } from "./context.js"
 export const contactsCommand = (): Command => {
   const command = new Command("contacts").description("people you have a one-to-one chat with")
 
-  command
-    .command("list")
-    .description("people you have a one-to-one chat with")
-    .option("--limit <n>", "how many to show", (value) => Number.parseInt(value, 10))
+  withPaging(command.command("list").description("people you have a one-to-one chat with"))
+    .option("--order <recent|name>", "newest conversation first, or alphabetical")
     .action(async function (this: Command) {
-      const { renderer, settings, createClient, run } = forCommand(this.optsWithGlobals())
+      const options = this.optsWithGlobals()
+      const context = forCommand(options)
+      const { renderer, settings, createClient, run } = context
       const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
+
+      const order = orderFrom(options.order)
 
       await run("contacts list", async (events) => {
         const client = createClient({ events, ...(cache ? { cache } : {}) })
 
         try {
-          renderer.result((await client.contacts.list({ limit: settings.limit })).items)
+          renderPage(context, await client.contacts.list({ order, ...window(settings) }))
         } finally {
           await client.close()
           cache?.close()
@@ -62,4 +67,14 @@ export const contactsCommand = (): Command => {
     })
 
   return command
+}
+
+/**
+ * ⚠ **A flag and no configuration field**, deliberately. `--order` and a `contactOrder` setting
+ * would be two spellings of one thing, which is what `--profile` was deleted for.
+ */
+const orderFrom = (value: unknown): PersonOrder => {
+  if (value === undefined) return "recent"
+  if (value === "recent" || value === "name") return value
+  throw new CliError("validation_error", `--order takes "recent" or "name", not "${String(value)}"`)
 }

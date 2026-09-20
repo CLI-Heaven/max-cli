@@ -16,6 +16,32 @@ beforeEach(() => {
   configDir = mkdtempSync(join(tmpdir(), "max-config-"))
 })
 
+describe("paging", () => {
+  it("starts at page one, and turns a page into an offset nobody re-derives", () => {
+    expect(settings().page).toBe(1)
+    expect(settings({ page: 3 }).page).toBe(3)
+    expect(settings().all).toBe(false)
+  })
+
+  it("**refuses `--all` with `--page`** rather than letting one of them quietly win", () => {
+    expect(() => settings({ all: true, page: 2 })).toThrow(/--all and --page/)
+  })
+
+  it("takes `--all` on its own", () => {
+    expect(settings({ all: true }).all).toBe(true)
+  })
+
+  it("refuses a page number that is not one", () => {
+    expect(() => settings({ page: 0 })).toThrow(/--page/)
+    expect(() => settings({ page: Number.NaN })).toThrow(/--page/)
+  })
+
+  it("**has no configuration field for either**, because a page number in a file is a setting nobody wants twice", () => {
+    withConfig(JSON.stringify({ profiles: { default: { page: 2 } } }))
+    expect(() => settings()).toThrow()
+  })
+})
+
 describe("the order a setting is decided in", () => {
   it("prefers the command line to everything else", () => {
     withConfig(JSON.stringify({ defaultProfile: "fromFile" }))

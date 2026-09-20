@@ -34,7 +34,28 @@ const shapeOf = (value: unknown): string => {
   return typeof value
 }
 
-const check = (label: string, args: string[]) => {
+/**
+ * ⚠ **The one thing standing between "converted" and "looks converted".**
+ *
+ * Without it a listing command that was never given the envelope passes green: an array parses as
+ * JSON exactly as well as an object does, so exit 0 and valid JSON say nothing about the shape.
+ * A listing must answer `{ items, page, limit, hasMore }`.
+ */
+const envelopeProblems = (parsed: unknown): string[] => {
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return ["a listing must answer one object, not an array"]
+  }
+
+  const envelope = parsed as Record<string, unknown>
+  const problems: string[] = []
+  if (!Array.isArray(envelope.items)) problems.push("`items` is not an array")
+  if (typeof envelope.hasMore !== "boolean") problems.push("`hasMore` is not a boolean")
+  if (typeof envelope.page !== "number") problems.push("`page` is not a number")
+  if (typeof envelope.limit !== "number") problems.push("`limit` is not a number")
+  return problems
+}
+
+const check = (label: string, args: string[], { listing = false } = {}) => {
   const result = run([...args, "--json"])
   const problems: string[] = []
 
@@ -44,6 +65,7 @@ const check = (label: string, args: string[]) => {
   let parsed: unknown
   try {
     parsed = JSON.parse(result.stdout)
+    if (listing) problems.push(...envelopeProblems(parsed))
   } catch {
     problems.push("stdout is not one JSON value")
   }
@@ -67,10 +89,17 @@ if (session.status !== 0) {
 console.log("the renamed commands, against the real service — no content is printed:\n")
 
 check("account show", ["account", "show"])
-check("chats list", ["chats", "list", "--limit", "3"])
-check("contacts list", ["contacts", "list", "--limit", "3"])
+check("chats list", ["chats", "list", "--limit", "3"], { listing: true })
+check("contacts list", ["contacts", "list", "--limit", "3"], { listing: true })
+check("contacts list --page 2", ["contacts", "list", "--limit", "2", "--page", "2"], { listing: true })
+check("contacts list --all", ["contacts", "list", "--all"], { listing: true })
+check("contacts list --order name", ["contacts", "list", "--limit", "3", "--order", "name"], { listing: true })
 // Chat 0 is the owner's Saved-messages dialog: the one chat it is safe to touch without asking.
-check("messages list", ["messages", "list", "0", "--limit", "3"])
+check("messages list", ["messages", "list", "0", "--limit", "3"], { listing: true })
+
+// The second run of the same listing receives a near-empty delta. Anything rendering the response
+// instead of the store answers emptily here and nowhere else, which no offline test can catch.
+check("chats list, again", ["chats", "list", "--limit", "3"], { listing: true })
 
 if (process.argv.includes("--send-to-saved")) {
   // Chat 0 is the owner's Saved-messages dialog — the only chat a test may write to, and the
@@ -86,7 +115,7 @@ if (process.argv.includes("--send-to-saved")) {
 // so what has to hold is not one particular sentence but that it fails, says why on stderr, and
 // leaves stdout empty. Help printed on stdout would be a refusal a script cannot tell from data.
 console.log("\nand the shapes that must no longer exist:")
-for (const gone of [["send", "0", "x"], ["me"], ["login"]]) {
+for (const gone of [["send", "0", "x"], ["me"], ["login"], ["contacts", "list", "--all", "--page", "2"]]) {
   const result = run(gone)
   const refused = result.status !== 0 && result.stdout === "" && result.stderr !== ""
   console.log(`  ${refused ? "✓" : "✗"} max ${gone.join(" ")} — ${refused ? "refused" : "STILL ACCEPTED"}`)
