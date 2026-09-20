@@ -72,10 +72,6 @@ now, in their own pass. How to add an operation is
 
 **Still open from that phase:**
 
-- **RES-6** · P2 · Watch what opcode 36 actually returns — one read-only call on the real account,
-  with the owner present — and close or re-write `PROTO-1`. It decides whether `max contacts sync`
-  can mean "every contact" or only "everyone MAX has already named"
-  (`docs_ai/plans/2026-09-20-contacts-and-paging.md` §3.1). Blocks `MAX-10`.
 - **RES-5** · 🟡 P2 · Whether `LOGIN` itself moves presence or read state. Reading history does not
   (we never send `CHAT_MARK`, and a test asserts it), but the login flag `interactive` is
   unexplained by every source. Needs a second device watching.
@@ -124,6 +120,11 @@ there, which `NEED-59` leaves alone.
 
 ## The protocol
 
+- **RES-7** · P3 · Capture what a real MAX client sends as opcode 36's payload. Measured
+  2026-09-20 (`pnpm probe:contacts`): the opcode exists and validates its arguments — `{}` and
+  `{marker}` are refused `proto.payload`, `{marker, count}` closes the connection — so the shape
+  cannot be guessed, only watched. It is the only route to contacts who are in no chat; `MAX-10`
+  no longer waits on it. Supersedes the probe half of `RES-6`, which is closed.
 - **SPEC-3** · P2 · Sanitized protocol fixtures under `fixtures/protocol/`, synthetic values only
   — never a real phone number, token, chat id or message (§24). The seed exists: response shapes
   are already exercised against made-up payloads in `src/spec/`.
@@ -139,12 +140,15 @@ there, which `NEED-59` leaves alone.
 - **MAX-7** · P2 · The SQLite cache: chats, messages, contacts and their sync counters, behind a
   driver seam because `node:sqlite` and `bun:sqlite` are not the same module (`NEED-14`, `NEED-11`).
   Never the session token. Needs `--no-cache` and a clear command from the first commit.
-- **MAX-10** · P2 · Contacts as a store rather than a five-minute cache: `last_messaged_at`,
-  where a row came from, and the dialog partner persisted so "who did I last message" is a query
-  (`src/cache/schema.ts:32`). Then `max contacts sync` with a request budget, and a bounded
-  refresh at the start of a command that needs names (`NEED-81`).
-  Plan and handoff: `docs_ai/plans/2026-09-20-contacts-and-paging.md` and its `-handoff.md`, both
-  written out in full (`NEED-90`). Needs `MAX-7` merged first — same files.
+- **MAX-10** · P2 · **Ask MAX only for what changed.** `contactsSync` and `chatsSync` in LOGIN are
+  delta markers and we send `0` every time (`src/session/handshake.ts:38-41`), so every command
+  re-fetches everything — measured 2026-09-20, [`ARCHITECTURE.md`](ARCHITECTURE.md) §7. Keep the
+  marker per profile in the cache database, merge the delta and the marker in one transaction, and
+  the contact store becomes the current answer rather than a copy: `last_messaged_at`, where a row
+  came from, the dialog partner persisted (`src/cache/schema.ts:32`). `max contacts sync` becomes
+  the repair tool that forgets the marker (`NEED-81`).
+  Plan and handoff: `docs_ai/plans/2026-09-20-contacts-and-paging.md` and its `-handoff.md`
+  (`NEED-90`). Needs `MAX-7` merged first — same files.
 - **MAX-8** · P3 · Telemetry as other clients send it — a later phase, and only once our own
   traffic is understood (`NEED-16`).
 - **MAX-9** · P3 · The rest of the messenger surface, in the order of §35: attachments and
@@ -184,8 +188,11 @@ are all built; `"record": true` and `keepRunsForDays` now reach `src/runs/record
 
 ## Known unknowns
 
-- **PROTO-1** · P2 · What opcode 36 actually returns. tsmax and PyMax call it `CONTACT_LIST`, the
-  protocol documentation calls it `GET_BLOCKED`. Unused until somebody watches it.
+- **PROTO-1** · 🟡 P2 · What opcode 36 actually returns. tsmax and PyMax call it `CONTACT_LIST`,
+  the protocol documentation calls it `GET_BLOCKED`. Sent once on 2026-09-20 with the owner's
+  permission: **it exists and validates its payload**, but none of `{}`, `{marker}` or
+  `{marker, count}` is right and the last closed the connection. What is left is a traffic
+  capture — `RES-7`.
 - **PROTO-2** · P2 · How long MAX remembers a `cid`. The retry rule rests on deduplication measured
   seconds apart; a retry minutes later is unproven.
 - **PROTO-3** · P3 · The upper bound on `chatsCount` in `LOGIN`. 100 works, 200 is refused as "out

@@ -30,10 +30,15 @@ export const unidentified36 = reserveOpcode({
   constant: "UNIDENTIFIED_36",
   opcode: 36,
   reason:
-    "Nobody agrees what it is: tsmax and PyMax call it `CONTACT_LIST`; the protocol documentation calls it `GET_BLOCKED`. Sending it to find out would be sending an unknown command to a real account. It stays unsent until somebody watches a real client send it (`PROTO-1`).",
+    "Nobody agrees what it is: tsmax and PyMax call it `CONTACT_LIST`; the protocol documentation calls it `GET_BLOCKED`. Sent once with the owner's permission on 2026-09-20 and it exists — but it refuses every payload we can guess, and one guess closed the connection. It stays unsent until somebody watches a real client send it (`PROTO-1`).",
   provenance: {
     confidence: "unknown",
-    sources: ["tsmax and PyMax call it CONTACT_LIST", "max-api-docs calls it GET_BLOCKED"],
-    notes: "This disagreement is the case the confidence field exists to record.",
+    sources: [
+      "tsmax and PyMax call it CONTACT_LIST",
+      "max-api-docs calls it GET_BLOCKED",
+      "measured against MAX 2026-09-20: `{}` and `{marker}` are refused with `proto.payload`, `{marker, count}` closes the connection",
+    ],
+    notes:
+      "The refusal names the payload rather than the opcode, so 36 is real and validates its arguments — we simply do not know its shape. Guessing cost a dropped connection, which is why the ladder stopped at three.",
   },
 })

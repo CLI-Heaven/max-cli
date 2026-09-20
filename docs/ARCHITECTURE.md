@@ -158,6 +158,33 @@ keychain. `max session start` imports a session obtained elsewhere, asking for t
 it; the interactive phone-and-code
 flow is not built yet.
 
+### The login can ask for a delta, and does not yet
+
+`LOGIN` carries `chatsSync`, `contactsSync`, `presenceSync` and `draftsSync`. They are **moments in
+time, not flags**: MAX returns only what changed in that collection since the one given, and the
+response's own `time` is the marker to keep for next time.
+
+Measured 2026-09-20 on a real account (`pnpm probe:contacts`):
+
+| `contactsSync` / `chatsSync` | came back |
+|---|---|
+| `0` | 6 contacts, 25 chats — everything |
+| the `time` the previous login answered with | 0 contacts, 0 chats |
+| a week before that | 1 contact, 11 chats — a subset |
+
+The third row is what makes this a measurement rather than a guess: "nothing came back for a
+current marker" alone would equally support "any non-zero value suppresses the collection". The
+profile is returned either way.
+
+**`src/session/handshake.ts:38-41` sends `0` for all four**, so every command re-fetches every
+chat and contact. Feeding the marker back is `MAX-10`, and it needs the marker and the rows written
+in one transaction — a marker saved without its rows makes the next login ask for changes since
+data that was never stored.
+
+⚠ **The login's `contacts` is a subset, not an address book**: 6 against 25 chats here, and six of
+seventeen dialog partners when measured on 2026-09-19. A delta keeps that subset current; it does
+not widen it.
+
 ## 8. We look like the official client
 
 Nothing on the wire names this tool (§34). `WEB_USER_AGENT` in `src/spec/identity.ts` is the web
