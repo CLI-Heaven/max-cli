@@ -80,16 +80,18 @@ now, in their own pass. How to add an operation is
   eleven pages, each answering one question — and three things are meant to be better than it:
   (a) the command reference is **generated** and CI-checked, never hand-written (`OPS-10`);
   (b) a page for the diagnostics, `--verbose`, `--record` and `max runs`, which the sibling has no
-  equivalent of and which is what an agent-driver needs; (c) the user-facing pages are Russian.
-  ⚠ The split between Russian and English is the plan's open question — `docs/` today holds the
-  engineering documents, and those are cited by section from the code.
-  Ships with `OPS-4`; plan: `docs_ai/plans/2026-09-20-first-release.md`.
+  equivalent of and which is what an agent-driver needs; (c) it is written in Russian.
+  **Language is settled (`NEED-108`): everything written from now on is Russian, and the English
+  documents that already exist are left alone** — a new section inside one of them follows the
+  language of the file it lands in. Ships with `OPS-4`; plan:
+  `docs_ai/plans/2026-09-20-first-release.md`.
 
 ## Repository and tooling
 
 - **OPS-4** · **P1** · **The first release worth sharing.** Owner's instruction 2026-09-20: a
   version he can hand to somebody. Not "publish what exists" — the pieces are the plan
-  `docs_ai/plans/2026-09-20-first-release.md`: a version number (`NEED-107`), a `CHANGELOG.md`,
+  `docs_ai/plans/2026-09-20-first-release.md`: the version — `0.1.0`, set 2026-09-20 (`NEED-107`) —
+  a `CHANGELOG.md`,
   `docs/releasing.md` taken from the sibling, the npm publish itself, and `DOC-2` beside it,
   because a release nobody can read the instructions for is not shareable. `pnpm version:check`
   exists and runs in CI as of 2026-09-20.
