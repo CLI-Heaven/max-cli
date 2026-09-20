@@ -139,22 +139,15 @@ there, which `NEED-59` leaves alone.
 
 ## MAX
 
+**`MAX-7` and `MAX-10` are closed.** The SQLite cache is behind a driver seam, with `--offline` and
+`max cache clear`. The login now carries the stored marker in all four fields, so only a profile's
+first login fetches everything, and the delta, the memberships and the marker go in on one
+transaction. `contacts` became `people` with `chat_members` beside it, everybody in a group is
+named rather than only the other half of a dialog, and `max contacts sync` forgets the marker when
+a store needs re-taking. [`ARCHITECTURE.md`](ARCHITECTURE.md) §7 and §15.
+
 - **MAX-4** · 🟡 P2 · Chat addressing: names work now, and what is left is the parts nobody has
   needed yet — a `@username`, a phone number, a chat you are not in.
-
-- **MAX-7** · P2 · The SQLite cache: chats, messages, contacts and their sync counters, behind a
-  driver seam because `node:sqlite` and `bun:sqlite` are not the same module (`NEED-14`, `NEED-11`).
-  Never the session token. Needs `--no-cache` and a clear command from the first commit.
-- **MAX-10** · P2 · **Ask MAX only for what changed.** `contactsSync` and `chatsSync` in LOGIN are
-  delta markers and we send `0` every time (`src/session/handshake.ts:38-41`), so every command
-  re-fetches everything — measured 2026-09-20, [`ARCHITECTURE.md`](ARCHITECTURE.md) §7. Keep the
-  marker per profile in the cache database, merge the delta and the marker in one transaction, and
-  the contact store becomes the current answer rather than a copy: `last_messaged_at`, where a row
-  came from, the dialog partner persisted (`src/cache/schema.ts:32`), and **everybody in a group
-  named rather than only the other half of a dialog** — 6 of 23 people today (`NEED-102`).
-  `max contacts sync` becomes the repair tool that forgets the marker (`NEED-81`).
-  Plan and handoff: `docs_ai/plans/2026-09-20-contacts-and-paging.md` and its `-handoff.md`
-  (`NEED-90`). Needs `MAX-7` merged first — same files.
 - **MAX-11** · P2 · Persist the rotated token the login response returns (`NEED-106`, `NEED-8`).
   Today `session.login` answers with a `token` field and `MaxClient.connect` drops it, so the
   session keeps the credential that was pasted in months ago. Write it to the keyring **after** a
@@ -168,26 +161,26 @@ there, which `NEED-59` leaves alone.
 
 ## The command
 
-**`CLI-4` and `CLI-6` are closed.** The configuration file, the order a setting is decided in,
-the profile as the first word, `--quiet` over the protocol note, and `--verbose` with the run log
-are all built; `"record": true` and `keepRunsForDays` now reach `src/runs/recording.ts` through
+**`CLI-4`, `CLI-6` and `CLI-7` are closed.** The configuration file, the order a setting is decided
+in, the profile as the first word, `--quiet` over the protocol note, and `--verbose` with the run
+log are all built; `"record": true` and `keepRunsForDays` now reach `src/runs/recording.ts` through
 `resolveSettings` (`src/commands/context.ts`). How it works is
 [`ARCHITECTURE.md`](ARCHITECTURE.md) §13 and §14.
 
-- **CLI-7** · P2 · The same paging parameters on every listing command — `--limit`, `--page`,
-  `--all`, pushed into SQL rather than slicing — and `contacts list` ordered by who was last
-  messaged (`NEED-81`). In machine mode a paged list answers `{items, page, limit, hasMore}`
-  instead of an array (`NEED-86`), which moves `README.md`, `ARCHITECTURE.md` §10 and
-  `scripts/verify-commands.ts` with it. Plan: `docs_ai/plans/2026-09-20-contacts-and-paging.md`
-  §3.6–§3.7.
+`CLI-7` is the paging work: `--limit`, `--page` and `--all` on every listing, resolved once and
+pushed into SQL; `contacts list` ordered by who was last messaged and taking `--order`;
+`messages list` paging by `--before` instead; and a machine-mode listing answering
+`{items, page, limit, hasMore}` rather than an array, with `README.md`,
+[`ARCHITECTURE.md`](ARCHITECTURE.md) §10 and §14 and `scripts/verify-commands.ts` moved with it
+(`NEED-81`, `NEED-86`).
+
+⚠ **Paging was `CLI-6` in the plan and is `CLI-7` here.** `fd023bc` gave it the new number because
+`CLI-6` already meant the run-log settings, and left the old copy behind; the plan and its handoff
+were written before that and name the number that was taken (`FIND-35`). A number keeps its
+meaning: `CLI-6` is the settings item.
+
 - **CLI-5** · P3 · The debug escape hatch — `max raw` / `max protocol invoke` — spec-validated,
   explicitly advanced, never arbitrary packet injection (§22).
-- **CLI-6** · P2 · The same paging parameters on every listing command — `--limit`, `--page`,
-  `--all`, pushed into SQL rather than slicing — and `contacts list` ordered by who was last
-  messaged (`NEED-81`). In machine mode a paged list answers `{items, page, limit, hasMore}`
-  instead of an array (`NEED-86`), which moves `README.md`, `ARCHITECTURE.md` §10 and
-  `scripts/verify-commands.ts` with it. Plan: `docs_ai/plans/2026-09-20-contacts-and-paging.md`
-  §3.6–§3.7. Waits for `CLI-4` C to merge — same files.
 
 ## Risks carried
 

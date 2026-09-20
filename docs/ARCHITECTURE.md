@@ -158,7 +158,7 @@ keychain. `max session start` imports a session obtained elsewhere, asking for t
 it; the interactive phone-and-code
 flow is not built yet.
 
-### The login can ask for a delta, and does not yet
+### The login asks for a delta
 
 `LOGIN` carries `chatsSync`, `contactsSync`, `presenceSync` and `draftsSync`. They are **moments in
 time, not flags**: MAX returns only what changed in that collection since the one given, and the
@@ -176,24 +176,42 @@ The third row is what makes this a measurement rather than a guess: "nothing cam
 current marker" alone would equally support "any non-zero value suppresses the collection". The
 profile is returned either way.
 
-**`src/session/handshake.ts:38-41` sends `0` for all four**, so every command re-fetches every
-chat and contact. Feeding the marker back is `MAX-10`, and it needs the marker and the rows written
-in one transaction — a marker saved without its rows makes the next login ask for changes since
-data that was never stored.
+**`src/session/handshake.ts` sends the stored marker in all four**, so only the first login of a
+profile fetches everything. The marker lives in the cache database, one row (`sync_marker`), beside
+the rows it describes — not in the profile's state file, because `max cache clear` has to forget
+both in the same breath and a marker in another file would survive it.
+
+⚠ **The marker and its rows are written in one transaction** (`src/cache/store.ts`, `mergeDelta`).
+A marker saved over rows that failed to land makes the next login ask for changes since data
+nobody has, and those people are then missing until something else happens to touch them. Nothing
+downstream notices, which is why that case has a test of its own.
+
+⚠ **A delta is mostly empty, and that is correct.** After the first login MAX sends only what
+changed, so an absent person is an unchanged person. The store therefore merges and never deletes
+on absence — with one exception, a chat's membership, which MAX restates in full whenever it sends
+that chat at all. A command rendering the response instead of the store would show a full list once
+and an empty one every time after.
 
 ⚠ **The login's `contacts` is a subset, not an address book**: 6 against 25 chats here, and six of
 seventeen dialog partners when measured on 2026-09-19. A delta keeps that subset current; it does
 not widen it.
 
 All four markers take the same value harmlessly — measured the same day, with a week-old marker in
-`presenceSync` and `draftsSync` as well: the answer was unchanged and the profile still arrived.
-Nothing reads presence or drafts, so they stay at `0` until something does.
+`presenceSync` and `draftsSync` as well: the answer was unchanged and the profile still arrived
+(`NEED-103`).
 
-### A chat carries its members, and nothing asks who they are
+`max contacts sync` forgets the marker so the next login takes the whole list again. It is a repair
+tool for a store that drifted or a schema rebuild that emptied one — not the way contacts arrive,
+because the delta rides on a login every command already performs. It is also the only thing that
+could ever prune somebody MAX has stopped returning, since absence otherwise means unchanged.
 
-`chat.participants` is an object **keyed by contact id**, and `#partnerOf` (`src/client.ts:406`)
-returns `undefined` unless exactly one of those ids is not ours. So a group of three names nobody,
-and `MaxClient` drops ids it is already holding.
+### A chat carries its members, and we now ask who they are
+
+`chat.participants` is an object **keyed by contact id**. `#partnerOf` returns `undefined` unless
+exactly one of those ids is not ours — it still does, because naming a *dialog* needs to know which
+single person is on the other side — but it is no longer what decides whom we look up. `#peopleFor`
+takes every participant of every non-channel chat, which until 2026-09-20 meant a group of three
+named nobody while its ids sat in our hands.
 
 Measured 2026-09-20 on a real account: the chats the login returned held **23 distinct people**
 while its `contacts` named **6**.
@@ -205,9 +223,14 @@ while its `contacts` named **6**.
 | `CHANNEL` | 4 | 4 | 178 011 |
 
 **A group lists all of it; a channel does not**, and a channel's `participantsCount` is its
-subscriber count — a membership nobody could enumerate and nobody wants as contacts. Naming
-everyone in every group is therefore one `CONTACT_INFO` over ids already in hand, not a request
-per chat. That is `MAX-10`.
+subscriber count — a membership nobody could enumerate and nobody wants as contacts. So naming
+everyone in every group is one `CONTACT_INFO` over ids already in hand, batched at a hundred, and
+**channels are skipped entirely**: storing four of a hundred and seventy-eight thousand subscribers
+would be storing a wrong answer rather than a partial one.
+
+The batch size is a choice, not a measurement. The comparable bound is `chatsCount`, where 100 is
+accepted and 200 comes back out of range (`PROTO-3`); somebody in forty groups is the case that
+will find the real number, and it will surface as a refusal that names itself.
 
 ## 8. We look like the official client
 
@@ -242,6 +265,28 @@ A failure never reaches stdout either. `run()` returns an exit code rather than 
 goes to stderr as JSON when piped and as a sentence in a terminal, and the code comes from
 `cli-core`'s table — `4` for an authentication problem, `130` for an interrupt. A script branches on
 that, never on text.
+
+### A listing answers one object, always the same one
+
+```json
+{ "items": [ … ], "page": 1, "limit": 20, "hasMore": true }
+```
+
+`chats list`, `contacts list` and `messages list` answer this in every machine mode — including
+under `--all`, which answers `page: 1` and `hasMore: false`, and under `--offline`, which answers
+out of the record. **The shape never says where the rows came from**; the exit code and the
+diagnostics already do, and a caller that has to branch on which shape it got has gained nothing.
+
+`hasMore` is a boolean and not a total. A pager asks whether to offer another page, and counting
+rows MAX has not sent is a second question with a second cost. It is exact for chats and contacts,
+which are counted in the store; ⚠ **for `messages list` it is a claim about the copy we hold**,
+since history arrives in windows — a full page back is the only evidence there is that another one
+exists.
+
+A person still gets the table, and the line about another page goes to **stderr** as a note. It is
+built by a helper each command calls (`src/commands/paging.ts`) rather than inside
+`renderer.result`, because `account show` and `session start|end` are not listings and keep
+answering a bare object.
 
 
 ## 11. Trade-off order
@@ -455,6 +500,38 @@ put one is stronger than a rule saying do not.
 used to show everything. `timeoutMs` unset means the transport's own 30 seconds
 (`src/protocol/connection.ts:57`); `color` unset means "decide from the terminal".
 
+### Paging, identical on every listing
+
+| flag | means | default |
+|---|---|---|
+| `--limit <n>` | page size | `limit` from the settings, else 20 |
+| `--page <n>` | which page, 1-based | 1 |
+| `--all` | every row, no paging | off |
+
+`--page` and `--all` together are a `validation_error`, not a silent winner. Both are resolved in
+`resolveSettings` beside `limit` so no command re-derives the offset, and **neither gets a
+configuration field**: a page number in a file is a setting nobody wants twice.
+
+The paging happens in SQL — `LIMIT ? OFFSET ?` over the store — rather than by building the whole
+list and slicing it, which is what stops being acceptable once the store is the authoritative copy.
+
+⚠ **A page number over a live list can repeat or skip a row.** The order is most-recent-first, so a
+message arriving between page one and page two pushes somebody across the boundary. Every CLI that
+pages this way has this; it is in `--help` rather than engineered away.
+
+**`messages list` is the exception and takes `--before`**, because MAX's history is already
+anchored in time (`chats.history` takes `from`), so paging backwards through a conversation is
+exact rather than approximate. It accepts a message id, and an ISO 8601 time when the id cannot be
+resolved — a deleted message is exactly that case, being gone from the history MAX returns too.
+
+⚠ A bare integer is **always** an id. A message id runs to eighteen digits and a millisecond
+timestamp to thirteen, and telling them apart by size is a trap that fires the first time either
+changes; requiring ISO 8601 for a time means the two can never be confused.
+
+`contacts list` additionally takes `--order recent|name`, defaulting to `recent`. A flag and no
+configuration field, deliberately: `--order` and a `contactOrder` setting would be two spellings of
+one thing, which is what `--profile` was deleted for.
+
 ### Two things that jump the queue
 
 **`MAX_TOKEN` outranks the keyring** — `cli-core`'s `Credentials.read`. Deliberate: it is how a
@@ -476,3 +553,73 @@ That works because there is exactly one place a `MaxClient` is built
 used to go straight to stderr from inside the client, past the renderer, so `--quiet` did not
 silence it and `--json` did not shape it (`BUG-7`). Six commands each remembering to pass a `warn`
 is a rule that gets broken once and is then invisible; one construction site is not.
+
+## 15. The store: people, and the chats they are in
+
+The cache database (`<cache dir>/<profile>.db`, mode `0600`, `SCHEMA_VERSION` 2) is **a record and
+an offline source, never a way to skip a request**. Every read still asks MAX, because the login
+already returns the chats, the contacts and recent messages; `--offline` is the one mode that
+answers from the record without connecting. There is no freshness window, and nothing here brings
+one back — a stored person is valid until something says otherwise.
+
+### A group member is a person, not a contact
+
+The table is `people` — everyone MAX can name for us, whatever the reason — and `chat_members`
+holds who is in what. **Being a contact is what the query asks for, not a column anybody
+maintains** (`NEED-105`):
+
+```sql
+SELECT p.* FROM people p
+  JOIN chat_members m ON m.person_id = p.id
+  JOIN chats c        ON c.id = m.chat_id AND c.kind = 'dialog'
+```
+
+So a group member is present, joinable and never in `contacts list` — because they are outside the
+set that query asks for, not because a flag hides them. That is what buys **"which groups do I
+share with this person"** as one indexed lookup (`chatsWith`): every chat in the database is one
+the owner is in, so the chats of a person *are* the shared set, with no self-join and no row for
+ourselves.
+
+The reading commands for that do not exist yet, on purpose. The data is stored so they can be
+written the day somebody wants them; inventing the surface first is how a command nobody uses gets
+maintained forever.
+
+| column | why it is there |
+|---|---|
+| `last_messaged_at` | the default order. Stored rather than derived: recomputing a maximum per person on every listing is the work a store exists to avoid. Written on the same transaction as the rows it orders |
+| `source` | how we met them — `login`, `info`, `participant`, `sync`. **Diagnostic**, never the filter |
+
+Names merge with `coalesce`, not assignment. The same person arrives from the login, from
+`CONTACT_INFO` and from a participant list, and not all of those carry a username or a description;
+overwriting with what the latest one omitted would blank a name the store already had.
+
+⚠ **`chat_members` is the one place that deletes**, and it is replaced per chat rather than
+globally. MAX restates a chat's whole membership whenever it sends that chat, so a member missing
+from it has left — while a *person* missing from a delta is merely unchanged, which after the first
+login is every person we know. Clearing the table instead of the chat's rows would empty it on one
+quiet login.
+
+### A version bump is a rebuild, and that is a re-sync
+
+`migrate` drops every table and creates them again, taking the names from `sqlite_master` rather
+than from a list of what a previous version is thought to have written. Everything in here comes
+back from MAX, so a column-by-column migration would be code that runs once, is tested never, and
+is how the second schema change corrupts somebody's file. A file from a **newer** `max` is still
+refused rather than written to.
+
+The `fetched` row goes with the rest deliberately. Kept, it would claim a collection was complete
+whose rows had just been thrown away — a lie the offline path believes.
+
+⚠ **This stops being the right answer the day the store holds something MAX cannot re-send.**
+Contacts that are in no chat at all would be exactly that (`RES-7`); the day they arrive, v2→v3
+becomes `ALTER TABLE … ADD COLUMN` and this paragraph gets rewritten.
+
+### It never fails the command
+
+Nobody asked for the store, so a locked database or a full disk must not lose an answer MAX has
+already given: `contacts list` falls back to what the login carried, and the reason goes to stderr
+as a note. Failing quietly is right; failing *invisibly* is not — the cache was off on every
+machine for a day because it swallowed its reason along with its failure (`NEED-97`).
+
+What the fallback costs is the ordering and the paging, which the store does in SQL and an
+in-memory slice does worse. What it does not cost is the answer.
