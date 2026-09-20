@@ -18,102 +18,6 @@ decision.
 
 ---
 
-## 2026-09-20
-
-**NEED-102 · Does `contacts` mean the people you have dialogs with, or everyone in your chats?**
-**Everyone in your chats.** «but we also need a way to get contacts of all chat/group
-participants». Measured the same day: the login's chats hold **23 distinct people** and its
-`contacts` names **6**, because `#partnerOf` (`src/client.ts:406`) gives up on any chat with more
-than one other person. Groups and dialogs list their whole membership, so this costs no request
-per chat — **channels are skipped**, their `participantsCount` being a subscriber count (178 011
-on one here) rather than a membership. `ARCHITECTURE.md` §7; plan §3.4a.
-
-**NEED-103 · Do `presenceSync` and `draftsSync` get a delta marker too?**
-**Try all four.** «2 B». Measured 2026-09-20: a week-old marker in all four fields returned the
-same as a marker in two, and the profile still arrived — so they are harmless. Nothing reads
-presence or drafts, so they stay at `0` until something does; the measurement exists so the next
-agent does not have to make the change to find out.
-
-**NEED-100 · Three shapes of the contacts work, settled together.**
-
-- **The envelope is built by a helper each command calls**, not inside `renderer.result`. «where
-  the envelope is built: a helper». `account show` and `session start|end` are not lists and keep
-  answering a bare object, which a renderer-level envelope could not distinguish.
-- **The sync merges before the command renders.** «refresh runs before». The names it brings are
-  what the listing prints, so rendering first would show the previous run's names and be one
-  command stale for no reason.
-- **`--before` on `messages list` takes a message id, and a timestamp when the id cannot be
-  resolved.** «and timestamp if no id under the hood (eg message deleted, use timestamp)». A
-  deleted message is exactly that case: it is gone from the history MAX returns, so its id means
-  nothing to anybody, and refusing would strand the caller at a boundary they cannot get past. A
-  bare integer is always an id; a time must be ISO 8601, because a message id and epoch
-  milliseconds are both bare integers and telling them apart by length is a trap.
-
-**NEED-99 · May opcode 36 be sent once, to find out what it is?**
-**Yes.** «2 A». Done 2026-09-20 and it did not settle `PROTO-1`: the opcode **exists and validates
-its payload** — `{}` and `{marker: 0}` come back `proto.payload`, and `{marker: 0, count: 100}`
-closed the connection, which is where the guessing stopped. Three guesses on a real account is a
-measurement; a dozen is fishing. What is left is a traffic capture (`RES-7`).
-
-The same run answered a bigger question nobody had asked — see `ARCHITECTURE.md` §7 and `MAX-10`:
-`contactsSync` and `chatsSync` are delta markers, and sending `0` in them is why every command
-re-fetches everything.
-
-**NEED-86 · For a paged list, does `--json` print an array or an object carrying the page?**
-**An object, and only in the machine modes.** «1 B». `{items, page, limit, hasMore}` on stdout for
-`--json` and for a pipe; a person still gets the table. An array cannot say whether another page
-exists, so an agent either guesses or asks again and compares counts — and this contract is cheap
-to change exactly once, before anything is published. `hasMore` is a boolean rather than a total:
-counting rows MAX has not sent is a second question with a second cost.
-
-**NEED-87 · The 2026-09-19 token paste still sitting in two old session logs.**
-**Closed. Not to be raised again** — not in replies, not in documents. «2 don't care about token,
-forget». One log was deleted on 2026-09-20 before the ruling; the rest were left alone and the
-cleanup list no longer carries them. This line exists only so that the next agent, finding a token
-in an old log, does not rediscover the subject and write it back in. Same treatment as `NEED-2`.
-
-**NEED-90 · Who takes the contacts work?**
-**A fresh agent — thread D — and the plan is written out in full first.** «3 prepare the full
-plan». So `docs_ai/plans/2026-09-20-contacts-and-paging.md` carries the schema, the store
-interface, the command surface, the settings, the budget semantics and the checks rather than
-leaving them to be decided while building, and a handoff sits beside it.
-
-**NEED-84 · Must the profile be the very first word, or are leading global flags skipped?**
-**The very first word, strictly.** «2 A». `max personal chats list` works and
-`max --json personal chats list` does not — `personal` is read as a command there and the command
-fails. The rule is one sentence to explain and one line to implement; skipping leading flags is
-argument parsing before argument parsing, and it breaks as soon as a global flag takes a value.
-
-**NEED-81 · Does `contacts list` show everyone by default, or 20 like the other commands?**
-**Twenty — but the question was answered wider than it was asked.** The contacts a person sees
-first are **the twenty they last exchanged messages with**, not the first twenty by name; contacts
-live in SQLite with a **sync** of their own; a profile that has been synced is **refreshed at the
-start of a command, inside a request budget** («a limit of say 5 requests»); and **paging
-parameters are standard across every command** — per-page and a way to ask for the next page —
-with defaults in the configuration file.
-
-«store contacts in sqlite … I'd for sure add smth like contacts sync to get all contacts and if
-they were synced I'd update them on start (with a limit of say 5 requests etc). So yes we can show
-maybe 20 last contacts user messaged by default, but I'd add more settings like per-page and allow
-pagination etc (these params shoudl be standard for all commands)».
-
-⚠ **Correction 2026-09-20, after measuring: two parts of this ruling were wrong, and the owner's
-instinct was right.**
-
-**"With a limit of say 5 requests" describes work that turns out not to exist.** `contactsSync`
-and `chatsSync` in the LOGIN request are delta markers — MAX returns only what changed since the
-time given — and we send `0` in them (`ARCHITECTURE.md` §7). The sync is therefore a field we stop
-zeroing, carried by a login every command already performs. There is no budget to cap, no interval
-to tune and no refresh to schedule, and the two configuration settings drafted for them are gone.
-
-**"All contacts needs an operation we do not have" was half right.** Opcode 36 was sent once with
-permission (`NEED-99`) and still cannot be used. But most of the gap did not need it: the login's
-chats already carry **23 distinct people** where its `contacts` names **6**, and the tool was
-discarding the difference (`NEED-102`). What opcode 36 would add is only people who are in no chat
-at all.
-
-The plan is `docs_ai/plans/2026-09-20-contacts-and-paging.md`, rewritten around both.
-
 ## 2026-09-18
 
 **NEED-1 · What are the command, the npm package and the repository called?**
@@ -410,3 +314,128 @@ I had proposed splitting by audience — Russian for the user, English for the b
 ruling is narrower and simpler: language follows the calendar, not the reader. It also avoids the
 cost that killed the alternative, which was translating documents that code cites by section
 number.
+
+**NEED-105 · A group member is not a contact. A flag, or somewhere else to put them?**
+**Somewhere else: a table of people and a table of memberships.** «I'd add a flag for them to not
+list them in contacts since they arent contacts or mb even put them in a separate table and join
+these records to groups/chats, this way we won't loose this data and also we can find stuff like
+which groups you share with a person etc.»
+
+The `contacts` table becomes **`people`** — everyone MAX has named for us, whatever the reason —
+and **`chat_members (chat_id, person_id)`** holds who is in what. `contacts list` then asks for
+people a *dialog* exists with, so group members are outside the answer because they are outside
+the query, not because a flag hides them. `dialog_with` on `chats` goes: the join replaces it.
+
+The rename is the point. A table called `contacts` holding people who are not contacts is the
+kind of lie that costs an afternoon six weeks later, and during a rebuild migration it is free.
+
+What it buys beyond tidiness: **"which groups do I share with this person"** is one indexed
+lookup, because every chat in the store is one the owner is in. The commands that would read it —
+`max contacts show`, `max chats members` — are deliberately not invented yet; the data is kept so
+they can exist the day somebody wants them.
+
+⚠ **One exception to "the store never deletes".** `chat_members` is replaced per chat, because
+MAX restates a chat's whole membership whenever it sends that chat — so a member who is absent has
+left. A *person* absent from a delta is merely unchanged, which after the first login is the
+normal case. Replace the rows of the chats in the delta, never all of them.
+
+**NEED-106 · The login returns a rotated `token` we ignore. Start persisting it?**
+**Yes, and as its own piece of work.** «2 A». The login response carries a `token` field and we
+drop it, keeping forever the one that was pasted in. `NEED-8` said on 2026-09-18 that clients
+rotate it and that we should persist it, and nothing ever did. It changes what is in the owner's
+keyring, so it gets its own commit and its own live check rather than riding along with the
+contacts work: `MAX-11`.
+
+**NEED-102 · Does `contacts` mean the people you have dialogs with, or everyone in your chats?**
+**Everyone in your chats.** «but we also need a way to get contacts of all chat/group
+participants». Measured the same day: the login's chats hold **23 distinct people** and its
+`contacts` names **6**, because `#partnerOf` (`src/client.ts:406`) gives up on any chat with more
+than one other person. Groups and dialogs list their whole membership, so this costs no request
+per chat — **channels are skipped**, their `participantsCount` being a subscriber count (178 011
+on one here) rather than a membership. `ARCHITECTURE.md` §7; plan §3.4a.
+
+**NEED-103 · Do `presenceSync` and `draftsSync` get a delta marker too?**
+**Try all four.** «2 B». Measured 2026-09-20: a week-old marker in all four fields returned the
+same as a marker in two, and the profile still arrived — so they are harmless. Nothing reads
+presence or drafts, so they stay at `0` until something does; the measurement exists so the next
+agent does not have to make the change to find out.
+
+**NEED-100 · Three shapes of the contacts work, settled together.**
+
+- **The envelope is built by a helper each command calls**, not inside `renderer.result`. «where
+  the envelope is built: a helper». `account show` and `session start|end` are not lists and keep
+  answering a bare object, which a renderer-level envelope could not distinguish.
+- **The sync merges before the command renders.** «refresh runs before». The names it brings are
+  what the listing prints, so rendering first would show the previous run's names and be one
+  command stale for no reason.
+- **`--before` on `messages list` takes a message id, and a timestamp when the id cannot be
+  resolved.** «and timestamp if no id under the hood (eg message deleted, use timestamp)». A
+  deleted message is exactly that case: it is gone from the history MAX returns, so its id means
+  nothing to anybody, and refusing would strand the caller at a boundary they cannot get past. A
+  bare integer is always an id; a time must be ISO 8601, because a message id and epoch
+  milliseconds are both bare integers and telling them apart by length is a trap.
+
+**NEED-99 · May opcode 36 be sent once, to find out what it is?**
+**Yes.** «2 A». Done 2026-09-20 and it did not settle `PROTO-1`: the opcode **exists and validates
+its payload** — `{}` and `{marker: 0}` come back `proto.payload`, and `{marker: 0, count: 100}`
+closed the connection, which is where the guessing stopped. Three guesses on a real account is a
+measurement; a dozen is fishing. What is left is a traffic capture (`RES-7`).
+
+The same run answered a bigger question nobody had asked — see `ARCHITECTURE.md` §7 and `MAX-10`:
+`contactsSync` and `chatsSync` are delta markers, and sending `0` in them is why every command
+re-fetches everything.
+
+**NEED-86 · For a paged list, does `--json` print an array or an object carrying the page?**
+**An object, and only in the machine modes.** «1 B». `{items, page, limit, hasMore}` on stdout for
+`--json` and for a pipe; a person still gets the table. An array cannot say whether another page
+exists, so an agent either guesses or asks again and compares counts — and this contract is cheap
+to change exactly once, before anything is published. `hasMore` is a boolean rather than a total:
+counting rows MAX has not sent is a second question with a second cost.
+
+**NEED-87 · The 2026-09-19 token paste still sitting in two old session logs.**
+**Closed. Not to be raised again** — not in replies, not in documents. «2 don't care about token,
+forget». One log was deleted on 2026-09-20 before the ruling; the rest were left alone and the
+cleanup list no longer carries them. This line exists only so that the next agent, finding a token
+in an old log, does not rediscover the subject and write it back in. Same treatment as `NEED-2`.
+
+**NEED-90 · Who takes the contacts work?**
+**A fresh agent — thread D — and the plan is written out in full first.** «3 prepare the full
+plan». So `docs_ai/plans/2026-09-20-contacts-and-paging.md` carries the schema, the store
+interface, the command surface, the settings, the budget semantics and the checks rather than
+leaving them to be decided while building, and a handoff sits beside it.
+
+**NEED-84 · Must the profile be the very first word, or are leading global flags skipped?**
+**The very first word, strictly.** «2 A». `max personal chats list` works and
+`max --json personal chats list` does not — `personal` is read as a command there and the command
+fails. The rule is one sentence to explain and one line to implement; skipping leading flags is
+argument parsing before argument parsing, and it breaks as soon as a global flag takes a value.
+
+**NEED-81 · Does `contacts list` show everyone by default, or 20 like the other commands?**
+**Twenty — but the question was answered wider than it was asked.** The contacts a person sees
+first are **the twenty they last exchanged messages with**, not the first twenty by name; contacts
+live in SQLite with a **sync** of their own; a profile that has been synced is **refreshed at the
+start of a command, inside a request budget** («a limit of say 5 requests»); and **paging
+parameters are standard across every command** — per-page and a way to ask for the next page —
+with defaults in the configuration file.
+
+«store contacts in sqlite … I'd for sure add smth like contacts sync to get all contacts and if
+they were synced I'd update them on start (with a limit of say 5 requests etc). So yes we can show
+maybe 20 last contacts user messaged by default, but I'd add more settings like per-page and allow
+pagination etc (these params shoudl be standard for all commands)».
+
+⚠ **Correction 2026-09-20, after measuring: two parts of this ruling were wrong, and the owner's
+instinct was right.**
+
+**"With a limit of say 5 requests" describes work that turns out not to exist.** `contactsSync`
+and `chatsSync` in the LOGIN request are delta markers — MAX returns only what changed since the
+time given — and we send `0` in them (`ARCHITECTURE.md` §7). The sync is therefore a field we stop
+zeroing, carried by a login every command already performs. There is no budget to cap, no interval
+to tune and no refresh to schedule, and the two configuration settings drafted for them are gone.
+
+**"All contacts needs an operation we do not have" was half right.** Opcode 36 was sent once with
+permission (`NEED-99`) and still cannot be used. But most of the gap did not need it: the login's
+chats already carry **23 distinct people** where its `contacts` names **6**, and the tool was
+discarding the difference (`NEED-102`). What opcode 36 would add is only people who are in no chat
+at all.
+
+The plan is `docs_ai/plans/2026-09-20-contacts-and-paging.md`, rewritten around both.
