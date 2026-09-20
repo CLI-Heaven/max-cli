@@ -39,17 +39,29 @@ const { deviceId } = store.readState()
 const record = (value: unknown): Record<string, unknown> | undefined =>
   typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined
 
-/** Field names are in our documents already; the values behind them are somebody's life. */
+/**
+ * Field names are in our documents already; the values behind them are somebody's life.
+ *
+ * ⚠ **A key is not always a field name.** MAX returns `presence` and `participants` as objects
+ * *keyed by contact id*, so printing "the field names" of one prints a list of people. Caught by
+ * running this script, not by reading it: the first version put seven of the owner's contact ids
+ * on screen. Anything that looks like an id is counted instead of named.
+ */
+const KEYED_BY_ID = /^\d{6,}$/
+
 const shape = (value: unknown): string => {
   if (Array.isArray(value)) {
     const first = record(value[0])
-    return `${value.length} item(s)${first ? `, fields: ${Object.keys(first).join(", ")}` : ""}`
+    return `${value.length} item(s)${first ? `, fields: ${describe(Object.keys(first))}` : ""}`
   }
   const object = record(value)
-  return object ? `object, fields: ${Object.keys(object).join(", ")}` : typeof value
+  return object ? `object, ${describe(Object.keys(object))}` : typeof value
 }
 
-const login = async (connection: Connection, contactsSync: number, chatsSync: number) => {
+const describe = (keys: string[]): string =>
+  keys.some((key) => KEYED_BY_ID.test(key)) ? `${keys.length} key(s), keyed by id` : `fields: ${keys.join(", ")}`
+
+const login = async (connection: Connection, contactsSync: number, chatsSync: number, others = 0) => {
   await connection.open()
   await connection.invoke(sessionInit.opcode, buildRequest(sessionInit, { userAgent: WEB_USER_AGENT, deviceId }))
   return await connection.invoke(
@@ -60,8 +72,8 @@ const login = async (connection: Connection, contactsSync: number, chatsSync: nu
       chatsCount: 40,
       chatsSync,
       contactsSync,
-      presenceSync: 0,
-      draftsSync: 0,
+      presenceSync: others,
+      draftsSync: others,
     }),
   )
 }
@@ -142,7 +154,86 @@ try {
   await old.close()
 }
 
-console.log("\n2. what does opcode 36 answer? (PROTO-1)\n")
+/**
+ * All four markers, not two. Presence and drafts were left at `0` in the first run because nothing
+ * reads them; the owner asked what happens when they are fed the same marker («2 B»).
+ */
+console.log("\n2. what do `presenceSync` and `draftsSync` do?\n")
+
+const allFour = new Connection()
+
+try {
+  const payload = await login(allFour, serverTime - WEEK, serverTime - WEEK, serverTime - WEEK)
+  console.log(`   all four <a week ago> → contacts ${counted(payload, "contacts")}, chats ${counted(payload, "chats")}`)
+  console.log(`     presence: ${shape(payload.presence)}`)
+  console.log(`     the profile still came back: ${record(payload.profile) ? "yes" : "no"}`)
+  console.log(`     fields in the answer: ${Object.keys(payload).join(", ")}`)
+} catch (error) {
+  console.log(`   all four <a week ago> → refused: ${error instanceof Error ? error.message : String(error)}`)
+} finally {
+  await allFour.close()
+}
+
+/**
+ * **Can we name everyone in a group?** `#partnerOf` (`src/client.ts:406`) reads `chat.participants`
+ * and gives up unless there is exactly one other person, so group members are ignored today.
+ *
+ * What decides whether that is a one-pass fix: whether `participants` holds *everyone*, or whether
+ * MAX truncates it and `participantsCount` is the real size. Counts only below — no ids, no titles.
+ */
+console.log("\n3. does a chat carry all its participants? (the owner's ask, 2026-09-20)\n")
+
+const groups = new Connection()
+
+try {
+  const payload = await login(groups, 0, 0)
+  const chats = Array.isArray(payload.chats) ? payload.chats : []
+  const everyone = new Set<string>()
+  let truncated = 0
+  const byKind = new Map<string, { chats: number; listed: number; claimed: number }>()
+
+  for (const raw of chats) {
+    const chat = record(raw)
+    if (!chat) continue
+
+    const kind = typeof chat.type === "string" ? chat.type : "unknown"
+    const listed = Object.keys(record(chat.participants) ?? {})
+    const claimed = typeof chat.participantsCount === "number" ? chat.participantsCount : listed.length
+
+    for (const id of listed) everyone.add(id)
+    // A channel's `participantsCount` is its subscribers, not a membership we could ever list, so
+    // it being larger says nothing about whether MAX truncates a group.
+    if (claimed > listed.length && kind !== "CHANNEL") truncated += 1
+
+    const seen = byKind.get(kind) ?? { chats: 0, listed: 0, claimed: 0 }
+    byKind.set(kind, { chats: seen.chats + 1, listed: seen.listed + listed.length, claimed: seen.claimed + claimed })
+  }
+
+  for (const [kind, seen] of byKind) {
+    console.log(
+      `   ${kind.padEnd(8)} ${seen.chats} chat(s), ${seen.listed} participant(s) listed, ${seen.claimed} claimed`,
+    )
+  }
+
+  console.log(`\n   distinct people across every chat: ${everyone.size}`)
+  console.log(`   contacts the login named:           ${counted(payload, "contacts")}`)
+  console.log(`   groups and dialogs listing fewer than they claim: ${truncated}`)
+
+  if (truncated === 0) {
+    console.log("\n   → every group and dialog lists everyone, so naming a whole group is one")
+    console.log("     CONTACT_INFO over ids the login already carries. No request per chat.")
+    console.log("     A channel is the exception and not a loss: its count is subscribers.")
+  } else {
+    console.log("\n   → some groups list fewer than they claim: the membership of a big group needs")
+    console.log("     its own request, and the login alone cannot name everybody.")
+  }
+} catch (error) {
+  console.log(`   refused: ${error instanceof Error ? error.message : String(error)}`)
+} finally {
+  await groups.close()
+}
+
+console.log("\n4. what does opcode 36 answer? (PROTO-1)\n")
 
 /**
  * A short ladder of read-shaped payloads, because an empty one is refused with `proto.payload` —

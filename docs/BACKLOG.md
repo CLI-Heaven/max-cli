@@ -145,8 +145,9 @@ there, which `NEED-59` leaves alone.
   re-fetches everything — measured 2026-09-20, [`ARCHITECTURE.md`](ARCHITECTURE.md) §7. Keep the
   marker per profile in the cache database, merge the delta and the marker in one transaction, and
   the contact store becomes the current answer rather than a copy: `last_messaged_at`, where a row
-  came from, the dialog partner persisted (`src/cache/schema.ts:32`). `max contacts sync` becomes
-  the repair tool that forgets the marker (`NEED-81`).
+  came from, the dialog partner persisted (`src/cache/schema.ts:32`), and **everybody in a group
+  named rather than only the other half of a dialog** — 6 of 23 people today (`NEED-102`).
+  `max contacts sync` becomes the repair tool that forgets the marker (`NEED-81`).
   Plan and handoff: `docs_ai/plans/2026-09-20-contacts-and-paging.md` and its `-handoff.md`
   (`NEED-90`). Needs `MAX-7` merged first — same files.
 - **MAX-8** · P3 · Telemetry as other clients send it — a later phase, and only once our own

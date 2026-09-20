@@ -20,6 +20,20 @@ decision.
 
 ## 2026-09-20
 
+**NEED-102 · Does `contacts` mean the people you have dialogs with, or everyone in your chats?**
+**Everyone in your chats.** «but we also need a way to get contacts of all chat/group
+participants». Measured the same day: the login's chats hold **23 distinct people** and its
+`contacts` names **6**, because `#partnerOf` (`src/client.ts:406`) gives up on any chat with more
+than one other person. Groups and dialogs list their whole membership, so this costs no request
+per chat — **channels are skipped**, their `participantsCount` being a subscriber count (178 011
+on one here) rather than a membership. `ARCHITECTURE.md` §7; plan §3.4a.
+
+**NEED-103 · Do `presenceSync` and `draftsSync` get a delta marker too?**
+**Try all four.** «2 B». Measured 2026-09-20: a week-old marker in all four fields returned the
+same as a marker in two, and the profile still arrived — so they are harmless. Nothing reads
+presence or drafts, so they stay at `0` until something does; the measurement exists so the next
+agent does not have to make the change to find out.
+
 **NEED-100 · Three shapes of the contacts work, settled together.**
 
 - **The envelope is built by a helper each command calls**, not inside `renderer.result`. «where
@@ -83,12 +97,22 @@ they were synced I'd update them on start (with a limit of say 5 requests etc). 
 maybe 20 last contacts user messaged by default, but I'd add more settings like per-page and allow
 pagination etc (these params shoudl be standard for all commands)».
 
-⚠ **One part of this cannot be built yet, and it is the first one.** "All contacts" needs an
-operation that enumerates them, and we do not have one: `contacts.info` answers only about ids we
-already hold, and opcode 36 is `CONTACT_LIST` in two clients and `GET_BLOCKED` in the protocol
-documentation, unused and unwatched (`PROTO-1`). Until somebody sees what it returns, a sync can
-only cover the people MAX already tells us about. The plan is
-`docs_ai/plans/2026-09-20-contacts-and-paging.md`.
+⚠ **Correction 2026-09-20, after measuring: two parts of this ruling were wrong, and the owner's
+instinct was right.**
+
+**"With a limit of say 5 requests" describes work that turns out not to exist.** `contactsSync`
+and `chatsSync` in the LOGIN request are delta markers — MAX returns only what changed since the
+time given — and we send `0` in them (`ARCHITECTURE.md` §7). The sync is therefore a field we stop
+zeroing, carried by a login every command already performs. There is no budget to cap, no interval
+to tune and no refresh to schedule, and the two configuration settings drafted for them are gone.
+
+**"All contacts needs an operation we do not have" was half right.** Opcode 36 was sent once with
+permission (`NEED-99`) and still cannot be used. But most of the gap did not need it: the login's
+chats already carry **23 distinct people** where its `contacts` names **6**, and the tool was
+discarding the difference (`NEED-102`). What opcode 36 would add is only people who are in no chat
+at all.
+
+The plan is `docs_ai/plans/2026-09-20-contacts-and-paging.md`, rewritten around both.
 
 ## 2026-09-18
 
