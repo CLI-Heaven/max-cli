@@ -72,10 +72,19 @@ export const sessionLogin = defineOperation({
     chats: v.optional(v.array(v.looseObject({}))),
     contacts: v.optional(v.array(v.looseObject({}))),
     /**
-     * ⚠ **An object, not an array.** Measured 2026-09-20, the day the handshake started going
-     * through the checked path: MAX answered `messages` as an object and every login printed a
-     * mismatch. Declared `unknown` rather than guessed at — nothing reads this field, and what it
-     * holds is `PROTO-6`.
+     * ⚠ **Shape unknown, and this field is why the response check exists.**
+     *
+     * It was declared as an array here and MAX sends an **object** — found 2026-09-20 by routing
+     * the handshake through the checked path. Nothing broke, because the reader is tolerant; what
+     * happened instead is that every message the login carries has been silently discarded since
+     * the specification was written, after we paid a request for them.
+     *
+     * The reference documents no top-level `messages` on this response at all — each chat carries
+     * its own `lastMessage` (`max-api-docs/protocol/chats.md:61`). So the array was **invented**,
+     * not misread, which is the failure `REQUIREMENTS.md` §10 exists to prevent: an unsourced
+     * shape stated with the same confidence as a measured one.
+     *
+     * Left as `unknown` until somebody looks (`PROTO-6`). `pnpm probe:ids` reports its type and key count.
      */
     messages: v.optional(v.unknown()),
     presence: v.optional(v.unknown()),

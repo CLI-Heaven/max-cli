@@ -59,6 +59,22 @@ a second copy.
 
 ## 2026-09-19 (later)
 
+**NEED-97 · When may a subsystem fail quietly, and when must it fail loudly?**
+**It depends on who asked for it, and the two rules are deliberately opposite.**
+
+- **Something the person asked for fails loudly.** `--record` was typed; a run log that cannot
+  start has failed to do the thing it was told to do, so the command fails. Thread B's rule.
+- **Something nobody asked for fails quietly — but never invisibly.** The cache is an optimisation
+  the person never requested, so it must not break a command it was only meant to help. It says
+  why on the diagnostic stream and the command continues.
+
+The second half of that sentence was learned the hard way. The cache swallowed its reason as well
+as its failure, and was **entirely off on every machine for a day** while its tests passed — the
+directory it needed was never created, and silence made that indistinguishable from working. Two
+sessions disagreed about what the tool did until one of them ran it with `--verbose`.
+
+Recorded so the two rules stay a decision rather than two habits that happen to differ.
+
 **NEED-51 · Does the run log go into the SQLite database the cache phase brings?**
 **No — files for the log, SQLite for the cache.** «1 A». Two reasons decide it. They have opposite
 lifecycles: the cache is disposable and rebuilds from MAX, the run log is the one thing that

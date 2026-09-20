@@ -53,6 +53,18 @@ hangs is a defect, not a rough edge — §18.
 the second line of defence, not the first. Message bodies are not credentials, but they are not
 diagnostics either: they belong in command output, never in a log — §14.
 
+**A test must not prepare what the user lacks.** Every cache test created its directory and then
+opened a database in it, so all of them passed while the feature was off on every real machine —
+SQLite will not create a file under a directory that does not exist, and no machine has one the
+first time. When a test sets up a path, an environment variable or a file, ask whether a first run
+would have it. Audited 2026-09-20: the session state file and the credential file both create
+their directories; the cache was the only one that did not.
+
+**Failing quietly is not failing invisibly.** A component nobody asked for may decline to work
+rather than break the command — and must still say why, on the diagnostic stream. A swallowed
+reason cost a day: the cache looked identical whether it was working or had never opened once
+(`NEED-97`).
+
 **Report honestly.** If a test failed, show the output. If something could not be verified, say
 which thing and why. "Probably works" is a sentence you are allowed to write; a green tick you did
 not earn is not.
