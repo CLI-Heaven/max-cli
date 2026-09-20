@@ -2,6 +2,32 @@ import type { Chat, Contact, Id, Message } from "../domain/models.js"
 import type { CacheDatabase } from "./driver.js"
 import { migrate } from "./schema.js"
 
+/** How we came to know a person. Diagnostic — what makes somebody a *contact* is the query. */
+export type PersonSource = "login" | "info" | "participant" | "sync"
+
+export type PersonOrder = "recent" | "name"
+
+export interface PageOptions {
+  order: PersonOrder
+  limit: number
+  offset: number
+}
+
+/**
+ * One login's worth of change: the chats that moved, the people that changed, who is in which
+ * chat, and the `time` MAX answered with.
+ *
+ * `members` is keyed by chat id and holds that chat's **whole** membership minus ourselves, so a
+ * chat named here has its rows replaced rather than added to. A chat absent from the map keeps
+ * the members it already had.
+ */
+export interface SyncDelta {
+  chats: Chat[]
+  people: Contact[]
+  members: Map<Id, Id[]>
+  marker: number
+}
+
 export interface CacheOptions {
   database: CacheDatabase
   /** Injected so a freshness test costs nothing and does not wait. */
@@ -18,6 +44,30 @@ export interface CacheStore {
     read(freshForMs: number): Contact[] | undefined
     write(contacts: Contact[]): void
   }
+  people: {
+    /**
+     * One page of **contacts** — the people a one-to-one chat exists with. `recent` is
+     * `last_messaged_at` newest first, the never-messaged last, then by name.
+     *
+     * A group member is not in this answer, and nothing marks them as excluded: they are simply
+     * not in the set the query asks for (`NEED-105`).
+     */
+    contacts(options: PageOptions): Contact[]
+    /** How many that query would return, so a page can say whether another one exists. */
+    countContacts(): number
+    /** Everyone we can put a name to, contact or not. */
+    page(options: PageOptions): Contact[]
+    /** Carries how we met them. Never deletes: absence from a delta means unchanged. */
+    upsert(people: Contact[], source: PersonSource): void
+    /** The chats this person is in — which, every chat here being one we are in, is the shared set. */
+    chatsWith(personId: Id): Id[]
+  }
+  /** The `time` the last login answered with, or `undefined` for a store that has never synced. */
+  syncMarker(): number | undefined
+  /** Rows, memberships, recency and the marker — **in one transaction**. */
+  mergeDelta(delta: SyncDelta): void
+  /** Makes the next login ask for everything again. */
+  forgetSyncMarker(): void
   messages: {
     /** The newest `limit` messages, but only if the window we hold is both fresh and contiguous. */
     read(chatId: Id, limit: number, freshForMs: number): Message[] | undefined
@@ -53,11 +103,66 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
       last_message_at = excluded.last_message_at, participants_count = excluded.participants_count,
       fetched_at = excluded.fetched_at, generation = chats.generation + 1`)
 
-  const putContact = database.prepare(`
-    INSERT INTO contacts (id, name, username, description, fetched_at) VALUES (?, ?, ?, ?, ?)
+  /**
+   * **`COALESCE`, not assignment, for the three names.** The same person arrives from several
+   * places — the login, `CONTACT_INFO`, a group's participant list — and not all of them carry a
+   * description or a username. Overwriting with what the latest one happened to omit would blank
+   * a name we already had, which is the one thing this table exists to prevent.
+   */
+  const putPerson = database.prepare(`
+    INSERT INTO people (id, name, username, description, last_messaged_at, source, fetched_at)
+    VALUES (?, ?, ?, ?, NULL, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
-      name = excluded.name, username = excluded.username,
-      description = excluded.description, fetched_at = excluded.fetched_at`)
+      name = coalesce(excluded.name, people.name),
+      username = coalesce(excluded.username, people.username),
+      description = coalesce(excluded.description, people.description),
+      source = excluded.source, fetched_at = excluded.fetched_at`)
+
+  const toContact = (row: Record<string, unknown>): Contact => ({
+    id: String(row.id),
+    name: row.name === null ? null : String(row.name),
+    username: row.username === null ? null : String(row.username),
+    description: row.description === null ? null : String(row.description),
+  })
+
+  /**
+   * `NULLS LAST` spelled out as a sort key rather than as syntax: it arrived in SQLite 3.30 and
+   * this runs on whatever `node:sqlite` and `bun:sqlite` were built against.
+   */
+  const ORDER: Record<PersonOrder, string> = {
+    recent: "p.last_messaged_at IS NULL, p.last_messaged_at DESC, p.name IS NULL, p.name",
+    name: "p.name IS NULL, p.name",
+  }
+
+  /** People a *dialog* exists with. The join is the definition of "contact" (`NEED-105`). */
+  const CONTACTS_FROM = `
+    FROM people p
+      JOIN chat_members m ON m.person_id = p.id
+      JOIN chats c        ON c.id = m.chat_id AND c.kind = 'dialog'`
+
+  const upsertPeople = (people: Contact[], source: PersonSource, at: number): void => {
+    for (const person of people) {
+      if (!person.id) continue
+      putPerson.run(person.id, person.name, person.username, person.description, source, at)
+    }
+  }
+
+  /**
+   * SQLite has no nested transactions and this is the only writer that needs one, so a plain
+   * `BEGIN` is enough. The rollback is what item 4 of the plan turns on: a marker saved over rows
+   * that were never written makes the next login ask for changes since data we do not have, and
+   * nothing downstream ever notices.
+   */
+  const inTransaction = (body: () => void): void => {
+    database.exec("BEGIN")
+    try {
+      body()
+      database.exec("COMMIT")
+    } catch (error) {
+      database.exec("ROLLBACK")
+      throw error
+    }
+  }
 
   /**
    * **Compares MAX's clock, never ours.** `update_time` is what MAX sets on an edit and is `NULL`
@@ -129,23 +234,97 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
     contacts: {
       read: (freshForMs) => {
         if (!isFresh("contacts", freshForMs)) return undefined
-        return database
-          .prepare("SELECT * FROM contacts ORDER BY name")
-          .all()
-          .map((row) => ({
-            id: String(row.id),
-            name: row.name === null ? null : String(row.name),
-            username: row.username === null ? null : String(row.username),
-            description: row.description === null ? null : String(row.description),
-          }))
+        return database.prepare(`SELECT * FROM people p ORDER BY ${ORDER.name}`).all().map(toContact)
       },
       write: (contacts) => {
         const at = now()
-        for (const contact of contacts) {
-          putContact.run(contact.id, contact.name, contact.username, contact.description, at)
-        }
+        upsertPeople(contacts, "login", at)
         markFetched.run("contacts", at)
       },
+    },
+
+    people: {
+      contacts: ({ order, limit, offset }) =>
+        database
+          .prepare(`SELECT DISTINCT p.* ${CONTACTS_FROM} ORDER BY ${ORDER[order]} LIMIT ? OFFSET ?`)
+          .all(limit, offset)
+          .map(toContact),
+
+      countContacts: () =>
+        Number((database.prepare(`SELECT COUNT(DISTINCT p.id) AS n ${CONTACTS_FROM}`).get() as { n?: number })?.n ?? 0),
+
+      page: ({ order, limit, offset }) =>
+        database
+          .prepare(`SELECT p.* FROM people p ORDER BY ${ORDER[order]} LIMIT ? OFFSET ?`)
+          .all(limit, offset)
+          .map(toContact),
+
+      upsert: (people, source) => upsertPeople(people, source, now()),
+
+      chatsWith: (personId) =>
+        database
+          .prepare("SELECT chat_id FROM chat_members WHERE person_id = ?")
+          .all(personId)
+          .map((row) => String(row.chat_id)),
+    },
+
+    syncMarker: () =>
+      (database.prepare("SELECT marker FROM sync_marker WHERE id = 1").get() as { marker?: number } | undefined)
+        ?.marker,
+
+    mergeDelta: ({ chats, people, members, marker }) => {
+      const at = now()
+      inTransaction(() => {
+        for (const chat of chats) {
+          putChat.run(
+            chat.id,
+            chat.title,
+            chat.kind,
+            chat.unreadCount,
+            epoch(chat.lastMessageAt),
+            chat.participantsCount,
+            at,
+          )
+        }
+
+        upsertPeople(people, "login", at)
+
+        // Replaced per chat, never globally: MAX restates a chat's whole membership whenever it
+        // sends that chat, so a member missing from it has left — while a *person* missing from a
+        // delta is merely unchanged, which after the first login is every person we know.
+        for (const [chatId, personIds] of members) {
+          database.prepare("DELETE FROM chat_members WHERE chat_id = ?").run(chatId)
+          for (const personId of personIds) {
+            database
+              .prepare("INSERT OR IGNORE INTO chat_members (chat_id, person_id) VALUES (?, ?)")
+              .run(chatId, personId)
+          }
+        }
+
+        // The default order, written on the same transaction as the rows it orders, so the two can
+        // never disagree. It reads the memberships just written rather than the delta, so a dialog
+        // that arrived without its participants still moves the person it is with.
+        for (const chat of chats) {
+          const messagedAt = epoch(chat.lastMessageAt)
+          if (chat.kind !== "dialog" || messagedAt === null) continue
+          database
+            .prepare(
+              `UPDATE people SET last_messaged_at = max(coalesce(last_messaged_at, 0), ?)
+               WHERE id IN (SELECT person_id FROM chat_members WHERE chat_id = ?)`,
+            )
+            .run(messagedAt, chat.id)
+        }
+
+        database
+          .prepare(
+            "INSERT INTO sync_marker (id, marker) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET marker = excluded.marker",
+          )
+          .run(marker)
+      })
+    },
+
+    forgetSyncMarker: () => {
+      database.exec("DELETE FROM sync_marker")
     },
 
     messages: {
@@ -215,7 +394,16 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
     },
 
     clear: () => {
-      for (const table of ["messages", "chats", "contacts", "ranges", "fetched", "fetch_lease"]) {
+      for (const table of [
+        "messages",
+        "chats",
+        "people",
+        "chat_members",
+        "sync_marker",
+        "ranges",
+        "fetched",
+        "fetch_lease",
+      ]) {
         database.exec(`DELETE FROM ${table}`)
       }
     },
