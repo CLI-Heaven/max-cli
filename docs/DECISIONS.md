@@ -293,3 +293,24 @@ knowing which command produced it.
 `#10` first, because it repairs a cache that has never once worked on `main`; a fair argument, and
 the owner chose otherwise. The overlap is four lines in `src/program.ts`, which the next branch
 resolves on its rebase.
+
+**NEED-107 · What number does the first shareable release carry?**
+**`0.1.0`.** «1 A». Zero-major says plainly that the commands may still change, which is true —
+the protocol underneath is reverse-engineered and half of `CLI-4` is not merged yet — and nothing
+about sharing it waits for a `1.0.0`. Set in `package.json`, copied into `src/version.ts` by
+`pnpm version:sync`, and kept in step by `pnpm version:check` in CI.
+
+**NEED-108 · Is "docs should be in Russian" the whole of `docs/`, or only the pages a user opens?**
+**Every document written from now on is Russian; the English ones that already exist are left
+alone.** «lets have all docs in russian since the public ones are in russian. don't change existing
+non-public».
+
+So: the user-facing set of `DOC-2` is Russian, and so is any new engineering document. What is
+**not** touched is `ARCHITECTURE.md`, `CONVENTIONS.md`, `DECISIONS.md`, `REQUIREMENTS.md`,
+`TESTING.md` and `BACKLOG.md` — they stay English, are not translated, and a new section added to
+one of them follows the language of the document it lands in rather than starting a bilingual file.
+
+I had proposed splitting by audience — Russian for the user, English for the builder — and the
+ruling is narrower and simpler: language follows the calendar, not the reader. It also avoids the
+cost that killed the alternative, which was translating documents that code cites by section
+number.
