@@ -20,6 +20,25 @@ decision.
 
 ## 2026-09-20
 
+**NEED-86 · For a paged list, does `--json` print an array or an object carrying the page?**
+**An object, and only in the machine modes.** «1 B». `{items, page, limit, hasMore}` on stdout for
+`--json` and for a pipe; a person still gets the table. An array cannot say whether another page
+exists, so an agent either guesses or asks again and compares counts — and this contract is cheap
+to change exactly once, before anything is published. `hasMore` is a boolean rather than a total:
+counting rows MAX has not sent is a second question with a second cost.
+
+**NEED-87 · The 2026-09-19 token paste still sitting in two old session logs.**
+**Closed. Not to be raised again** — not in replies, not in documents. «2 don't care about token,
+forget». One log was deleted on 2026-09-20 before the ruling; the rest were left alone and the
+cleanup list no longer carries them. This line exists only so that the next agent, finding a token
+in an old log, does not rediscover the subject and write it back in. Same treatment as `NEED-2`.
+
+**NEED-90 · Who takes the contacts work?**
+**A fresh agent — thread D — and the plan is written out in full first.** «3 prepare the full
+plan». So `docs_ai/plans/2026-09-20-contacts-and-paging.md` carries the schema, the store
+interface, the command surface, the settings, the budget semantics and the checks rather than
+leaving them to be decided while building, and a handoff sits beside it.
+
 **NEED-84 · Must the profile be the very first word, or are leading global flags skipped?**
 **The very first word, strictly.** «2 A». `max personal chats list` works and
 `max --json personal chats list` does not — `personal` is read as a command there and the command
