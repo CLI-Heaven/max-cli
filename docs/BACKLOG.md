@@ -124,7 +124,7 @@ there, which `NEED-59` leaves alone.
   2026-09-20 (`pnpm probe:contacts`): the opcode exists and validates its arguments — `{}` and
   `{marker}` are refused `proto.payload`, `{marker, count}` closes the connection — so the shape
   cannot be guessed, only watched. It is the only route to contacts who are in no chat; `MAX-10`
-  no longer waits on it. Supersedes the probe half of `RES-6`, which is closed.
+  no longer waits on it. Replaces `RES-6`, which is closed: the probe it asked for ran on 2026-09-20.
 - **SPEC-3** · P2 · Sanitized protocol fixtures under `fixtures/protocol/`, synthetic values only
   — never a real phone number, token, chat id or message (§24). The seed exists: response shapes
   are already exercised against made-up payloads in `src/spec/`.
