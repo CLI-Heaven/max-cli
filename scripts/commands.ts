@@ -38,7 +38,9 @@ const optionRows = (command: Command): string =>
         option.defaultValue === undefined || option.defaultValue === false
           ? ""
           : ` По умолчанию: \`${String(option.defaultValue)}\`.`
-      return `| \`${option.flags}\` | ${cell(option.description)}${fallback} |`
+      // The flags go through `cell` too: `--order <recent|name>` would otherwise split the row
+      // into three, which is the first option here with a pipe in it and will not be the last.
+      return `| \`${cell(option.flags)}\` | ${cell(option.description)}${fallback} |`
     })
     .join("\n")
 
@@ -46,7 +48,7 @@ const argumentRows = (command: Command): string =>
   command.registeredArguments
     .map(
       (argument) =>
-        `| \`${argument.name()}\` | ${argument.required ? "обязательный" : "необязательный"} | ${cell(argument.description)} |`,
+        `| \`${cell(argument.name())}\` | ${argument.required ? "обязательный" : "необязательный"} | ${cell(argument.description)} |`,
     )
     .join("\n")
 
