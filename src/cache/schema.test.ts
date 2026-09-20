@@ -33,16 +33,17 @@ describe("the schema", () => {
     store.close()
   })
 
-  it("says so when the sweep is gone, rather than leaving a short list looking like an answer", async () => {
+  it("takes the old sweep record with it, rather than claiming rows it has just dropped", async () => {
     const path = file()
     ;(await asVersion1(path)).close()
 
     const database = await openCache(path)
     const store = openStore({ database })
 
-    // The old `fetched` row claimed the contacts were complete. Surviving the rebuild, it would
-    // have made `--offline` answer emptily instead of admitting it holds nothing.
-    expect(store.contacts.read(Number.POSITIVE_INFINITY)).toBeUndefined()
+    // The v1 `fetched` row said the contacts were complete. Surviving the rebuild, it would claim
+    // a sweep whose rows are gone — which is a lie the offline path would believe.
+    expect(store.chats.read(Number.POSITIVE_INFINITY)).toBeUndefined()
+    expect(store.people.count()).toBe(0)
     store.close()
   })
 

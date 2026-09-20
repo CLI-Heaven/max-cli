@@ -782,6 +782,101 @@ describe("with a cache", () => {
       expect(max.sent.find((call) => call.opcode === Opcode.CHAT_HISTORY)?.payload.from).toBe(1_700_000_000_000)
     })
 
+    it("**keeps a chat's members when a later delta re-sends that chat without them**", async () => {
+      const cache = await cacheStore()
+      const withMembers = { id: 222, type: "DIALOG", lastEventTime: 100, participants: { 10000001: 1, 10000002: 1 } }
+
+      const first = mockMax({
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.CONTACT_INFO]: { contacts: [] },
+          [Opcode.LOGIN]: syncing({ chats: [withMembers] }),
+        },
+      })
+      const client = clientSharing(cache, first)
+      expect((await client.contacts.list()).items).toHaveLength(1)
+      await client.close()
+
+      // MAX re-sends the chat because a message arrived, and says nothing about who is in it.
+      // "Did not say" is not "nobody": clearing the edge here loses the contact entirely.
+      const quiet = mockMax({
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.CONTACT_INFO]: { contacts: [] },
+          [Opcode.LOGIN]: syncing({
+            chats: [{ id: 222, type: "DIALOG", lastEventTime: 200, newMessages: 1 }],
+            time: 1_789_776_000_001,
+          }),
+        },
+      })
+      const second = clientSharing(cache, quiet)
+      const again = await second.contacts.list()
+      await second.close()
+
+      expect(again.items.map((person) => person.id)).toEqual(["10000002"])
+      expect(cache.people.chatsWith("10000002")).toEqual(["222"])
+    })
+
+    it("**`--offline` answers the contacts it recorded**, not everyone it can name", async () => {
+      const cache = await cacheStore()
+      const max = mockMax({
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.CONTACT_INFO]: { contacts: [{ id: 10000003, names: [{ name: "Group Only", type: "FULL_NAME" }] }] },
+          [Opcode.LOGIN]: syncing({
+            chats: [
+              { id: 222, type: "DIALOG", lastEventTime: 100, participants: { 10000001: 1, 10000002: 1 } },
+              { id: 111, type: "CHAT", participants: { 10000001: 1, 10000003: 1, 10000002: 1 } },
+            ],
+          }),
+        },
+      })
+      const client = clientSharing(cache, max)
+      await client.contacts.list()
+      await client.close()
+
+      const dir = mkdtempSync(join(tmpdir(), "max-cli-"))
+      const store = new SessionStore({
+        keyring: memoryKeyring(),
+        configDir: dir,
+        stateDir: join(dir, "state"),
+        env: {},
+      })
+      store.writeToken("a-token")
+      const offline = new MaxClient({
+        store,
+        cache,
+        offline: true,
+        connection: new Connection({
+          createSocket: () => {
+            throw new Error("`--offline` must answer without a connection")
+          },
+        }),
+      })
+
+      const recorded = await offline.contacts.list()
+      await offline.close()
+
+      // The group-only person is in the store and is not a contact, offline exactly as online.
+      expect(recorded.items.map((person) => person.id)).toEqual(["10000002"])
+    })
+
+    it("says what to do when `--offline` has no contacts recorded", async () => {
+      const cache = await cacheStore()
+      const dir = mkdtempSync(join(tmpdir(), "max-cli-"))
+      const store = new SessionStore({
+        keyring: memoryKeyring(),
+        configDir: dir,
+        stateDir: join(dir, "state"),
+        env: {},
+      })
+      store.writeToken("a-token")
+      const offline = new MaxClient({ store, cache, offline: true })
+
+      const failure = await offline.contacts.list().catch((error: Error) => error)
+      expect(String(failure)).toContain("--offline")
+    })
+
     it("**does not advance the marker when the merge fails, and does not fail the command**", async () => {
       const cache = await cacheStore()
       const notes: string[] = []

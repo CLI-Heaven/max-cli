@@ -162,8 +162,12 @@ export class MaxClient {
     list: async (options: PageRequest = {}): Promise<Page<Contact>> => {
       const { order = "recent", limit, offset = 0 } = options
 
+      // The same query as the online path, so `--offline` cannot answer with people the other
+      // one deliberately leaves out — a group member is not a contact in either mode.
       if (this.#offline) {
-        return paged(this.#recorded(this.#cache?.contacts.read(ANY_AGE), "contacts"), limit, offset)
+        const recorded = this.#cache
+        if (!recorded || recorded.people.countContacts() === 0) this.#recorded(undefined, "contacts")
+        return this.#pageOfContacts(recorded as CacheStore, order, limit, offset)
       }
 
       await this.#connectOnce()
@@ -179,8 +183,7 @@ export class MaxClient {
           offset,
         )
 
-      const items = cache.people.contacts({ order, limit: limit ?? Number.MAX_SAFE_INTEGER, offset })
-      return { items, hasMore: offset + items.length < cache.people.countContacts() }
+      return this.#pageOfContacts(cache, order, limit, offset)
     },
 
     /**
@@ -415,7 +418,8 @@ export class MaxClient {
       // A channel lists four of its hundred and seventy-eight thousand subscribers, so its
       // `participants` is not a membership — storing it would be storing a wrong answer.
       if (!chat.id || chat.kind === "channel") continue
-      members.set(chat.id, this.#participantsOf(raw, viewerId))
+      const participants = this.#participantsOf(raw, viewerId)
+      if (participants !== undefined) members.set(chat.id, participants)
     }
 
     try {
@@ -432,10 +436,23 @@ export class MaxClient {
     }
   }
 
-  /** Everyone in the chat except us. Ids only — a name for each of them is `#peopleFor`'s job. */
-  #participantsOf(chat: Payload, viewerId: string | undefined): Id[] {
+  /** One page of contacts out of the store — the same query online and offline. */
+  #pageOfContacts(cache: CacheStore, order: PersonOrder, limit: number | undefined, offset: number): Page<Contact> {
+    const items = cache.people.contacts({ order, limit: limit ?? Number.MAX_SAFE_INTEGER, offset })
+    return { items, hasMore: offset + items.length < cache.people.countContacts() }
+  }
+
+  /**
+   * Everyone in the chat except us, or **`undefined` when MAX did not say who is in it**.
+   *
+   * ⚠ The difference is the whole of it. A delta re-sends a chat because a message arrived and
+   * carries no `participants`; read as "nobody is in this chat", that empties the membership and
+   * the person on the other side stops being a contact. "Did not say" is not "nobody", and only
+   * the first of the two may replace anything.
+   */
+  #participantsOf(chat: Payload, viewerId: string | undefined): Id[] | undefined {
     const participants = record(chat.participants)
-    return participants === undefined ? [] : Object.keys(participants).filter((id) => id !== viewerId)
+    return participants === undefined ? undefined : Object.keys(participants).filter((id) => id !== viewerId)
   }
 
   async close(): Promise<void> {
@@ -563,7 +580,7 @@ export class MaxClient {
     const missing = new Set<Id>()
     for (const chat of chats) {
       if (toChat(chat).kind === "channel") continue
-      for (const id of this.#participantsOf(chat, viewerId)) if (!people.has(id)) missing.add(id)
+      for (const id of this.#participantsOf(chat, viewerId) ?? []) if (!people.has(id)) missing.add(id)
     }
 
     const named: Contact[] = []

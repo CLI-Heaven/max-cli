@@ -58,10 +58,6 @@ export interface CacheStore {
     page(options: { limit: number; offset: number }): Chat[]
     count(): number
   }
-  contacts: {
-    read(freshForMs: number): Contact[] | undefined
-    write(contacts: Contact[]): void
-  }
   people: {
     /**
      * One page of **contacts** — the people a one-to-one chat exists with. `recent` is
@@ -264,18 +260,6 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
           )
         }
         markFetched.run("chats", at)
-      },
-    },
-
-    contacts: {
-      read: (freshForMs) => {
-        if (!isFresh("contacts", freshForMs)) return undefined
-        return database.prepare(`SELECT * FROM people p ORDER BY ${ORDER.name}`).all().map(toContact)
-      },
-      write: (contacts) => {
-        const at = now()
-        upsertPeople(contacts, "login", at)
-        markFetched.run("contacts", at)
       },
     },
 
