@@ -143,7 +143,8 @@ there, which `NEED-59` leaves alone.
   where a row came from, and the dialog partner persisted so "who did I last message" is a query
   (`src/cache/schema.ts:32`). Then `max contacts sync` with a request budget, and a bounded
   refresh at the start of a command that needs names (`NEED-81`).
-  Plan: `docs_ai/plans/2026-09-20-contacts-and-paging.md`. Needs `MAX-7` merged first — same files.
+  Plan and handoff: `docs_ai/plans/2026-09-20-contacts-and-paging.md` and its `-handoff.md`, both
+  written out in full (`NEED-90`). Needs `MAX-7` merged first — same files.
 - **MAX-8** · P3 · Telemetry as other clients send it — a later phase, and only once our own
   traffic is understood (`NEED-16`).
 - **MAX-9** · P3 · The rest of the messenger surface, in the order of §35: attachments and
@@ -166,10 +167,12 @@ are all built; `"record": true` and `keepRunsForDays` now reach `src/runs/record
   §3.6–§3.7.
 - **CLI-5** · P3 · The debug escape hatch — `max raw` / `max protocol invoke` — spec-validated,
   explicitly advanced, never arbitrary packet injection (§22).
-- **CLI-6** · 🚩 P2 · The same paging parameters on every listing command — `--limit`, `--page`,
+- **CLI-6** · P2 · The same paging parameters on every listing command — `--limit`, `--page`,
   `--all`, pushed into SQL rather than slicing — and `contacts list` ordered by who was last
-  messaged (`NEED-81`). 🚩 on `NEED-86`: whether `--json` answers a paged list with an array or
-  with an object carrying the page. Plan: `docs_ai/plans/2026-09-20-contacts-and-paging.md` §3.6.
+  messaged (`NEED-81`). In machine mode a paged list answers `{items, page, limit, hasMore}`
+  instead of an array (`NEED-86`), which moves `README.md`, `ARCHITECTURE.md` §10 and
+  `scripts/verify-commands.ts` with it. Plan: `docs_ai/plans/2026-09-20-contacts-and-paging.md`
+  §3.6–§3.7. Waits for `CLI-4` C to merge — same files.
 
 ## Risks carried
 
