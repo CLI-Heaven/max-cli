@@ -76,6 +76,8 @@ max chats list [options]
 | Опция | Что делает |
 |---|---|
 | `--limit <n>` | how many to show |
+| `--page <n>` | which page, starting at 1 |
+| `--all` | every row, no paging |
 
 ## `max contacts`
 
@@ -91,6 +93,17 @@ max contacts list [options]
 | Опция | Что делает |
 |---|---|
 | `--limit <n>` | how many to show |
+| `--page <n>` | which page, starting at 1 |
+| `--all` | every row, no paging |
+| `--order <recent\|name>` | newest conversation first, or alphabetical |
+
+### `max contacts sync`
+
+forget where the last sync left off and take the whole list again
+
+```sh
+max contacts sync [options]
+```
 
 ## `max messages`
 
@@ -110,6 +123,7 @@ max messages list [options] <chat>
 | Опция | Что делает |
 |---|---|
 | `--limit <n>` | how many to read |
+| `--before <id-or-time>` | read what came before this message id, or this ISO 8601 time |
 
 ### `max messages send`
 
