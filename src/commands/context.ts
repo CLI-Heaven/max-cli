@@ -1,4 +1,4 @@
-import type { RenderFormat, Renderer } from "@cli-heaven/cli-core"
+import type { Renderer, RenderFormat } from "@cli-heaven/cli-core"
 import { MaxClient, type MaxClientOptions } from "../client.js"
 import { type GlobalFlags, resolveSettings, type Settings } from "../config.js"
 import { resolveOutput } from "../output.js"
