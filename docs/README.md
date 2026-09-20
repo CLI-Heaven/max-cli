@@ -1,7 +1,12 @@
 # Documentation
 
-`max` is a command line interface for a personal MAX Messenger account. Six commands work against
-the real service; the protocol underneath is unofficial and reverse-engineered.
+`max` is a command line interface for a personal MAX Messenger account. Seven commands work
+against the real service — `session start|end`, `account show`, `chats list`, `contacts list`,
+`messages list|send` — and two more answer from this machine: `max cache` and `max runs`. The
+protocol underneath is unofficial and reverse-engineered.
+
+⚠ **Correction 2026-09-20: this page said "six commands" and named none of them.** It was written
+before the rename (`NEED-48`), the cache (`MAX-7`) and the run log (`CLI-4`).
 
 ## Building it
 
@@ -14,11 +19,16 @@ the real service; the protocol underneath is unofficial and reverse-engineered.
 | [TESTING.md](TESTING.md) | how to check it yourself, and what each check is for |
 | [BACKLOG.md](BACKLOG.md) | what is left |
 
-## Not written yet, on purpose
+## Not written yet, and now scheduled
 
-`installation.md`, `usage.md` and `commands.md` wait until there is a release to install: `max
---help` is currently the whole of the command reference, and a page repeating it would be one more
-thing to keep true.
+`installation.md`, `usage.md`, `commands.md` and the rest of the pages a person installing this
+would open do not exist. They waited on purpose — `max --help` was the whole reference, and a page
+repeating it would be one more thing to keep true — and they are now the work of `DOC-2`, in
+**Russian**, alongside the first shareable release (`OPS-4`).
+
+The command reference among them will be **generated** from the program and checked in CI, the way
+[`protocol.md`](protocol.md) already is (`OPS-10`): a reference that can drift from the command is
+worth less than no reference at all.
 
 `ARCHITECTURE.md` describes the code as it behaves today. **When a document disagrees with the
 code, the code is right and the document gets corrected in place.**

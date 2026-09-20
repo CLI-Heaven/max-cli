@@ -75,10 +75,28 @@ now, in their own pass. How to add an operation is
   (we never send `CHAT_MARK`, and a test asserts it), but the login flag `interactive` is
   unexplained by every source. Needs a second device watching.
 - **DOC-1** · ✅ Closed — [`ARCHITECTURE.md`](ARCHITECTURE.md) exists and describes working code.
+- **DOC-2** · **P1** · **The documentation a person installing this would open, in Russian.**
+  Owner's instruction 2026-09-20. The shape is the sibling's — `../braze-cli/docs/README.md` lists
+  eleven pages, each answering one question — and three things are meant to be better than it:
+  (a) the command reference is **generated** and CI-checked, never hand-written (`OPS-10`);
+  (b) a page for the diagnostics, `--verbose`, `--record` and `max runs`, which the sibling has no
+  equivalent of and which is what an agent-driver needs; (c) the user-facing pages are Russian.
+  ⚠ The split between Russian and English is the plan's open question — `docs/` today holds the
+  engineering documents, and those are cited by section from the code.
+  Ships with `OPS-4`; plan: `docs_ai/plans/2026-09-20-first-release.md`.
 
 ## Repository and tooling
 
-- **OPS-4** · P3 · Publishing and releasing, once there is something worth installing.
+- **OPS-4** · **P1** · **The first release worth sharing.** Owner's instruction 2026-09-20: a
+  version he can hand to somebody. Not "publish what exists" — the pieces are the plan
+  `docs_ai/plans/2026-09-20-first-release.md`: a version number (`NEED-107`), a `CHANGELOG.md`,
+  `docs/releasing.md` taken from the sibling, the npm publish itself, and `DOC-2` beside it,
+  because a release nobody can read the instructions for is not shareable. `pnpm version:check`
+  exists and runs in CI as of 2026-09-20.
+- **OPS-10** · P2 · A generated command reference — `docs:generate` writes `docs/commands.md`
+  from the `commander` tree, `docs:check` fails CI when it drifts, exactly as `pnpm generate` and
+  `git diff --exit-code` already do for [`protocol.md`](protocol.md) (`OPS-3`). Feeds `DOC-2`: the
+  one page nobody should be writing by hand is the list of options.
 - **OPS-9** · P3 · `scripts/probe.ts` does not run — the command in its own header fails on the
   first import, because Node's type stripping will not resolve a `.js` specifier to a `.ts` file.
   `scripts/id-shape.ts` shows the working shape: import from `dist/` and build first. It also
@@ -91,9 +109,11 @@ write-then-read round trip returns what it stored. It prints an experimental war
 there, which `NEED-59` leaves alone.
 
 
-- **CORE-5** · P2 · Move `braze-cli` onto the extracted `cli-core` rather than leaving it on its
+- **CORE-5** · ⏸️ P2 · Move `braze-cli` onto the extracted `cli-core` rather than leaving it on its
   own copy — the whole point of extracting rather than copying. Another repository, so it is its
-  own change, and it does not block anything here.
+  own change, and it does not block anything here. **Deferred by the owner 2026-09-20 until after
+  the first release** (`OPS-4`): it improves a repository that is already working, while nothing of
+  this one is installable yet.
 
 ## The protocol
 

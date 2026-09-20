@@ -1,2 +1,2 @@
-/** Kept in step with package.json by `pnpm version:check` once there is a release to check. */
+/** The one the running command reports. `pnpm version:check` fails when it and package.json disagree. */
 export const VERSION = "0.0.0"
