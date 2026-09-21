@@ -76,10 +76,11 @@ now, in their own pass. How to add an operation is
   (we never send `CHAT_MARK`, and a test asserts it), but the login flag `interactive` is
   unexplained by every source. Needs a second device watching.
 - **DOC-1** · ✅ Closed — [`ARCHITECTURE.md`](ARCHITECTURE.md) exists and describes working code.
-- **DOC-2** · 🟡 **P1** · **The documentation a person installing this would open, in Russian.**
-  `installation.md` and `usage.md` are written, and `commands.md` is generated beside them
-  (2026-09-20, `NEED-109`). What is left: `sessions.md`, `configuration.md`, `diagnostics.md`,
-  `security.md`, `troubleshooting.md`, `releasing.md` and a `CHANGELOG.md`.
+- **DOC-2** · ✅ Closed 2026-09-21 — nine pages in Russian plus a `CHANGELOG.md`, indexed by
+  [`README.md`](README.md). The three things it was meant to do better than the sibling's all
+  landed: the command reference is generated (`OPS-10`), [`diagnostics.md`](diagnostics.md) is a
+  page the sibling has no equivalent of, and [`security.md`](security.md) says plainly what the
+  tool does **not** do. What remains of the release is `OPS-4`: publish.
   Owner's instruction 2026-09-20. The shape is the sibling's — `../braze-cli/docs/README.md` lists
   eleven pages, each answering one question — and three things are meant to be better than it:
   (a) the command reference is **generated** and CI-checked, never hand-written (`OPS-10`);

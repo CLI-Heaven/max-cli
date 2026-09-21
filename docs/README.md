@@ -31,15 +31,19 @@ so a reference that quotes a command the program no longer has cannot reach `mai
 
 ## Using it — Russian, per `NEED-108`
 
+Каждая страница отвечает на один вопрос и открывается под задачу, а не читается подряд.
+
 | | |
 |---|---|
 | [installation.md](installation.md) | установка, требования, куда ложатся файлы, обновление |
-| [usage.md](usage.md) | вход, профили, чтение, отправка, диагностика, настройки |
-
-Still to come, and tracked as `DOC-2`: `sessions.md`, `configuration.md`, `diagnostics.md`,
-`security.md`, `troubleshooting.md`, `releasing.md` and a `CHANGELOG.md`. The two pages above are
-the ones the release needs — a person can install the tool and read their chats from them alone,
-which is the readiness test the plan sets.
+| [usage.md](usage.md) | вход, профили, чтение, отправка, машинный режим — по порядку |
+| [sessions.md](sessions.md) | откуда берётся токен, ключница, профили, `MAX_TOKEN` |
+| [configuration.md](configuration.md) | каждая настройка, каждая переменная, порядок разрешения |
+| [diagnostics.md](diagnostics.md) | `--verbose`, `--record`, `max runs` — и чего в записи нет |
+| [security.md](security.md) | что попадает на диск, а что не попадает никогда |
+| [troubleshooting.md](troubleshooting.md) | по симптому: что видно на экране и что делать |
+| [releasing.md](releasing.md) | как выпускается версия, и кем |
+| [../CHANGELOG.md](../CHANGELOG.md) | что изменилось между версиями |
 
 `ARCHITECTURE.md` describes the code as it behaves today. **When a document disagrees with the
 code, the code is right and the document gets corrected in place.**
