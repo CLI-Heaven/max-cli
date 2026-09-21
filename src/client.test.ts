@@ -877,6 +877,28 @@ describe("with a cache", () => {
       expect(String(failure)).toContain("--offline")
     })
 
+    it("**orders by recency the people the login never named**", async () => {
+      const cache = await cacheStore()
+      const max = mockMax({
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          // Nobody in `contacts`, everybody in the chat: the real proportion is 6 named out of 22.
+          [Opcode.CONTACT_INFO]: { contacts: [{ id: 40, names: [{ name: "Named Later", type: "FULL_NAME" }] }] },
+          [Opcode.LOGIN]: syncing({
+            contacts: [],
+            chats: [{ id: 1, type: "DIALOG", lastEventTime: 500, participants: { 10000001: 1, 40: 1 } }],
+          }),
+        },
+      })
+
+      const client = clientSharing(cache, max)
+      const page = await client.contacts.list()
+      await client.close()
+
+      expect(page.items).toHaveLength(1)
+      expect(page.items[0]?.lastMessagedAt).toBe(new Date(500).toISOString())
+    })
+
     it("**does not advance the marker when the merge fails, and does not fail the command**", async () => {
       const cache = await cacheStore()
       const notes: string[] = []

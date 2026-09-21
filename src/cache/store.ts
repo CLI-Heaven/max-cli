@@ -77,6 +77,16 @@ export interface CacheStore {
     upsert(people: Contact[], source: PersonSource): void
     /** The chats this person is in — which, every chat here being one we are in, is the shared set. */
     chatsWith(personId: Id): Id[]
+    /**
+     * Recomputes `last_messaged_at` from the dialogs we hold.
+     *
+     * ⚠ **Call it after any write that adds people.** A person's recency cannot be set while
+     * writing the chats, because most people are not known yet at that moment: the login names a
+     * handful and the rest arrive from a `CONTACT_INFO` that has not been sent. Measured on the
+     * real account 2026-09-21: 6 of 22 people had a recency and the other 16 sorted as
+     * never-messaged, which is every dialog partner the login did not name.
+     */
+    refreshRecency(): void
   }
   /** The `time` the last login answered with, or `undefined` for a store that has never synced. */
   syncMarker(): number | undefined
@@ -163,6 +173,29 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
     FROM people p
       JOIN chat_members m ON m.person_id = p.id
       JOIN chats c        ON c.id = m.chat_id AND c.kind = 'dialog'`
+
+  /**
+   * The default order, derived from the dialogs rather than accumulated as they arrive.
+   *
+   * It has to be a recompute rather than "raise it as each chat lands": a person's row often does
+   * not exist yet when their chat does, because the login names six people and the other sixteen
+   * come back from a request sent afterwards. An `UPDATE` at that moment reaches nobody.
+   *
+   * Derived from what we hold, so it is correct however the writes interleave, and cheap — one
+   * indexed join over the people who are in a dialog, once per write rather than per listing.
+   */
+  const refreshRecency = (): void => {
+    database.exec(`
+      UPDATE people SET last_messaged_at = (
+        SELECT MAX(c.last_message_at) FROM chat_members m
+          JOIN chats c ON c.id = m.chat_id AND c.kind = 'dialog'
+         WHERE m.person_id = people.id
+      )
+      WHERE id IN (
+        SELECT m.person_id FROM chat_members m
+          JOIN chats c ON c.id = m.chat_id AND c.kind = 'dialog'
+      )`)
+  }
 
   const upsertPeople = (people: Contact[], source: PersonSource, at: number): void => {
     for (const person of people) {
@@ -281,6 +314,8 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
 
       upsert: (people, source) => upsertPeople(people, source, now()),
 
+      refreshRecency,
+
       count: () => Number((database.prepare("SELECT COUNT(*) AS n FROM people").get() as { n?: number })?.n ?? 0),
 
       chatsWith: (personId) =>
@@ -332,19 +367,7 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
           }
         }
 
-        // The default order, written on the same transaction as the rows it orders, so the two can
-        // never disagree. It reads the memberships just written rather than the delta, so a dialog
-        // that arrived without its participants still moves the person it is with.
-        for (const chat of chats) {
-          const messagedAt = epoch(chat.lastMessageAt)
-          if (chat.kind !== "dialog" || messagedAt === null) continue
-          database
-            .prepare(
-              `UPDATE people SET last_messaged_at = max(coalesce(last_messaged_at, 0), ?)
-               WHERE id IN (SELECT person_id FROM chat_members WHERE chat_id = ?)`,
-            )
-            .run(messagedAt, chat.id)
-        }
+        refreshRecency()
 
         database
           .prepare(

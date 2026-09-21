@@ -222,6 +222,32 @@ describe("the cache store", () => {
       expect(store.people.chatsWith("alice").sort()).toEqual(["1", "2"])
     })
 
+    it("**orders somebody whose name arrived after their chat did**", async () => {
+      const store = await open()
+
+      // The login carries the chat and who is in it, but not who that person is: it names six
+      // people out of twenty-two on the real account.
+      store.mergeDelta(delta({ chats: [chat("1", 300)], members: new Map([["1", ["late"]]]) }))
+      expect(store.people.page(recent)).toEqual([])
+
+      // The name comes back from a request sent afterwards. Nothing set a recency at merge time,
+      // because there was no row to set it on.
+      store.people.upsert([person("late")], "info")
+      store.people.refreshRecency()
+
+      expect(store.people.contacts(recent)[0]?.lastMessagedAt).toBe(new Date(300).toISOString())
+    })
+
+    it("leaves somebody met only in a group with no recency at all", async () => {
+      const store = await open()
+      store.mergeDelta(delta({ chats: [group("1", 300)], members: new Map([["1", ["member"]]]) }))
+      store.people.upsert([person("member")], "participant")
+      store.people.refreshRecency()
+
+      expect(store.people.page(recent)[0]?.lastMessagedAt).toBeNull()
+      expect(store.people.contacts(recent)).toEqual([])
+    })
+
     it("**never blanks a name it already had** when a later source omits it", async () => {
       const store = await open()
       store.people.upsert([person("alice", "Alice")], "info")
