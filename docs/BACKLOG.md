@@ -55,6 +55,12 @@ happens and `--record` keeps it under `max runs`. What each part does and why is
 
 ---
 
+**Ten items below came from the `tgcli` comparison** (`NEED-112`) — `CLI-8`…`CLI-13`, `MAX-12`,
+`MAX-13`, `DOC-3`, `RES-8`. The comparison itself is `docs_ai/tgcli-comparison.md` (local only):
+every command of another personal-account messenger CLI sorted into what we have, what is queued,
+what the brief rules out, and what was in neither. Only `CLI-8`, `CLI-9` and `CLI-10` are in the
+release; `MAX-12` is `P1` on its own account (`NEED-113`).
+
 ## Done, and where the trail went
 
 The architecture proposal, the `cli-core` extraction, the vertical slice and contacts are all
@@ -90,6 +96,13 @@ now, in their own pass. How to add an operation is
   documents that already exist are left alone** — a new section inside one of them follows the
   language of the file it lands in. Ships with `OPS-4`; plan:
   `docs_ai/plans/2026-09-20-first-release.md`.
+- **DOC-3** · P2 · **The file an agent is pointed at, rather than a person.** `tgcli` ships a skill
+  its users install in one line, and it is not a list of flags — it is a list of traps, with the
+  boundary of what the tool is not for. `DOC-2` is documentation for a person and `OPS-10` is a
+  generated option table; neither is this, and `README.md` claims the tool is built for agents
+  first. Half the content is already written: `docs_ai/HANDOFF.md` §4 — ids past 2⁵³ are strings,
+  a retry reuses the same `cid`, reading never marks anything read, the first word is the profile,
+  and `MAX_CONFIG_DIR` moves the keyring entry. From the `tgcli` comparison (`NEED-112`).
 
 ## Repository and tooling
 
@@ -130,6 +143,12 @@ there, which `NEED-59` leaves alone.
 - **SPEC-3** · P2 · Sanitized protocol fixtures under `fixtures/protocol/`, synthetic values only
   — never a real phone number, token, chat id or message (§24). The seed exists: response shapes
   are already exercised against made-up payloads in `src/spec/`.
+- **RES-8** · P3 · **Does `MSG_SEND` carry a reply, and what is `elements`?** Two of the ordinary
+  send options cannot be specified without knowing: a reply to a message, and text markup. Our
+  request declares `elements` and we always send it empty (`src/spec/operations/messages.ts:22`);
+  that it encodes markup the way Telegram's entities do is a guess from its name, and no frame with
+  a non-empty one has been seen. Nothing here is estimable until a real client is watched sending
+  both. Blocks the rest of `CLI-11`'s siblings; from the `tgcli` comparison (`NEED-112`).
 - **SPEC-4** · P3 · A generated coverage document: which documented operations are implemented
   (§8, §30). Deferred on purpose — counting what MAX has that we do not means maintaining a list
   of MAX's whole surface, which is the research database §10 warns against.
@@ -150,6 +169,20 @@ a store needs re-taking. [`ARCHITECTURE.md`](ARCHITECTURE.md) §7 and §15.
   session keeps the credential that was pasted in months ago. Write it to the keyring **after** a
   successful login only, keep the old one if that write fails, and print neither. Its own commit
   and its own live check: it changes what is in the owner's keyring.
+- **MAX-12** · **P1** · **Two keyring defects, as one change, with a live check** (`NEED-113`).
+  **`session start` writes the token before it verifies it** (`src/commands/session.ts:40`), so a
+  typo or an expired token destroys the working one with no way back — `Credentials.write`
+  overwrites unconditionally and a keyring entry cannot be read out again, which is how two working
+  keys died in `brazecli` on 2026-09-14 (`../cli-core/src/credentials.ts:20-31`). **And nothing
+  checks whose account a profile's token belongs to**: `viewerId` is written on every login
+  (`src/client.ts:383`) and never compared, so a token belonging to someone else sends as them in
+  silence. Same files, same test run, same live check as `MAX-11`, and worth doing beside it.
+- **MAX-13** · P3 · **Search the cache by text.** The store already keeps message bodies indexed by
+  chat and time, with `ranges` recording which windows are held completely
+  (`src/cache/schema.ts:78-121`), and nothing reads any of it by text. Wants FTS5 — and a decision
+  about the tokenizer, because `unicode61` without a stemmer finds only the exact Russian word
+  form. Whether MAX has a server-side search of its own is unknown; this one is local either way.
+  From the `tgcli` comparison (`NEED-112`).
 - **MAX-8** · P3 · Telemetry as other clients send it — a later phase, and only once our own
   traffic is understood (`NEED-16`).
 - **MAX-9** · P3 · The rest of the messenger surface, in the order of §35: attachments and
@@ -176,6 +209,44 @@ pushed into SQL; `contacts list` ordered by who was last messaged and taking `--
 were written before that and name the number that was taken (`FIND-35`). A number keeps its
 meaning: `CLI-6` is the settings item.
 
+
+- **CLI-8** · P2 · **`--silent` on `messages send`.** The wire already carries it — `notify` is in
+  the request (`src/spec/operations/messages.ts:22`) and `MaxClient.messages.send` takes it
+  (`src/client.ts:310`); only the flag is missing. Ships with `OPS-4` (`NEED-112`).
+- **CLI-9** · P2 · **Filters on the listings, and a way to see which profiles exist.** `chats list`
+  and `contacts list` take only `--limit` (`src/commands/chats.ts:9`,
+  `src/commands/contacts.ts:18`), so "every chat matching *work*" cannot be asked for at all —
+  `chats.resolve` is not a substitute, it answers with one id and refuses ambiguity. Wants
+  `--query`, and a filter by kind, which MAX distinguishes and we already map
+  (`src/domain/map.ts:96-107`). The profile list can land in `CLI-12` instead; it must land
+  somewhere. Ships with `OPS-4` (`NEED-112`).
+- **CLI-10** · P2 · **`--timeout` bounds the command, not one request.** `timeoutMs` is how long to
+  wait for one opcode answer (`src/protocol/connection.ts:75`) and comes only from the
+  configuration file, while a read is connect + INIT + LOGIN + resolve + history — so an agent
+  given a thirty-second budget has no way to say so. Settle the environment layer with it: the
+  resolver's own comment promises flag-then-environment-then-file and only `MAX_PROFILE` has the
+  middle one (`src/config.ts:77`, `src/config.ts:90`). Ships with `OPS-4` (`NEED-112`).
+- **CLI-11** · P2 · **The message body from stdin.** It is a positional argument
+  (`src/commands/messages.ts:52`), so it is read by `ps` and kept by shell history — the thing
+  forbidden for the token two lines away — and a multiline message breaks. The other CLI carries
+  the same wound and patched it with a helper script instead of a flag. From the `tgcli`
+  comparison (`NEED-112`).
+- **CLI-12** · P2 · **`max doctor`, and reading the effective settings.** Nothing shows the state a
+  command depends on, and one trap has no other way of being seen: `MAX_CONFIG_DIR`,
+  `MAX_STATE_DIR` and `MAX_CACHE_DIR` change the keyring service name, so a login under them
+  answers "no session" without them (`docs_ai/HANDOFF.md` §6). It prints the profile and where it
+  came from, the profiles that exist, the config file and whether it parsed, whether a token exists
+  and from which source, the login count and the last login (`src/session/store.ts:14-21`, which is
+  what `RISK-2` wants counted), the cache file and its schema version, and the run directory.
+  `--connect` separately, because reaching MAX costs a login. Answering "is there a session at all"
+  is part of it — today that question costs a real command. From the `tgcli` comparison
+  (`NEED-112`).
+- **CLI-13** · P3 · **Reading past a window of one chat.** `messages show <id>`, and
+  `messages context <id> --before N --after N` — a window either side of one message rather than
+  only what came before it. `messages list --before <id-or-time>` already walks backwards
+  (`src/commands/messages.ts:21`), so what is missing is one message by id and the forward half.
+  Sits on `MAX-13` for anything older than the cache holds. From the `tgcli` comparison
+  (`NEED-112`).
 - **CLI-5** · P3 · The debug escape hatch — `max raw` / `max protocol invoke` — spec-validated,
   explicitly advanced, never arbitrary packet injection (§22).
 

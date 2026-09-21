@@ -490,3 +490,36 @@ published fails every install, including `pnpm install --frozen-lockfile` in CI.
 ⚠ What was published under the previous scope stays there; it cannot be unpublished usefully after
 72 hours and should be deprecated so that anyone who finds it is sent here. The exact commands are
 in the release handoff rather than in this repository.
+
+**NEED-112 · Which of the gaps found against `tgcli` get backlog numbers before the first release,
+and which wait for it?**
+**File all of them; let only the cheap three into the release.** «1 А». The three are `--silent`,
+the filters on the listings and `--timeout` — `CLI-8`, `CLI-9`, `CLI-10`.
+
+The comparison that produced them is `docs_ai/tgcli-comparison.md` (local only): every command of
+[`dapi/tgcli`](https://github.com/dapi/tgcli) sorted into what we have, what is queued, what the
+brief rules out, and what was in neither the code nor this file. Eight things were in neither, and
+they became ten numbered lines because two of them split along a seam that matters — what can be
+built now against `MSG_SEND` as we have measured it, and what needs a captured frame first
+(`RES-8`).
+
+The rejected alternative was to file them and build nothing until after `OPS-4`. It loses the three
+that cost hours, and the agent skill file with them, which would have shipped a release whose
+README claims to be built for agents first with nothing in it for one.
+
+**NEED-113 · Do the two keyring defects get built now, together, or recorded and deferred?**
+**Now, as one change, with a live check against the real account.** «2 А». They are `MAX-12`.
+
+The first is that `max session start` writes a token to the keyring **before** it tries to log in
+(`src/commands/session.ts:40`), so a typo or an expired token destroys the working one and cannot
+be undone — `Credentials.write` overwrites unconditionally and a keyring entry cannot be read back.
+The precedent is written into `cli-core` itself: the same shape destroyed two working keys in
+`brazecli` on 2026-09-14 (`../cli-core/src/credentials.ts:20-31`).
+
+The second is that nothing checks *whose* account a profile's token belongs to. `viewerId` is
+already written on every login (`src/client.ts:257`) and never compared, so a token belonging to
+someone else, in a profile set up for you, sends as them and nothing notices.
+
+They are one change because they are the same files, the same test run and the same live check —
+and because the second is the difference between a mistake that fails a command and a message that
+reaches a real person from the wrong account, which is the first constraint this project has.
