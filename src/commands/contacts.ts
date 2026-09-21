@@ -1,4 +1,4 @@
-import { CliError } from "@cli-heaven/cli-core"
+import { CliError } from "@leemour/cli-core"
 import { Command } from "commander"
 import { openProfileCache } from "../cache/index.js"
 import type { PersonOrder } from "../cache/store.js"

@@ -1,4 +1,4 @@
-import type { Renderer, RenderFormat } from "@cli-heaven/cli-core"
+import type { Renderer, RenderFormat } from "@leemour/cli-core"
 import type { Command } from "commander"
 import type { Settings } from "../config.js"
 import type { Page } from "../domain/models.js"
