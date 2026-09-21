@@ -36,7 +36,7 @@ so a reference that quotes a command the program no longer has cannot reach `mai
 | | |
 |---|---|
 | [installation.md](installation.md) | установка, требования, куда ложатся файлы, обновление |
-| [usage.md](usage.md) | вход, профили, чтение, отправка, машинный режим — по порядку |
+| [usage.md](usage.md) | вход, профили, чтение, страницы, отправка, машинный режим — по порядку |
 | [sessions.md](sessions.md) | откуда берётся токен, ключница, профили, `MAX_TOKEN` |
 | [configuration.md](configuration.md) | каждая настройка, каждая переменная, порядок разрешения |
 | [diagnostics.md](diagnostics.md) | `--verbose`, `--record`, `max runs` — и чего в записи нет |
