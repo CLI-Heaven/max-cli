@@ -1,4 +1,4 @@
-import { CliError } from "@cli-heaven/cli-core"
+import { CliError } from "@leemour/cli-core"
 import * as v from "valibot"
 import type { Payload } from "../protocol/frame.js"
 

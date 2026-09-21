@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { createFileLogger, type FileLogger, resolvePaths, writeSecurely } from "@cli-heaven/cli-core"
+import { createFileLogger, type FileLogger, resolvePaths, writeSecurely } from "@leemour/cli-core"
 
 export type RunStatus = "success" | "failed"
 

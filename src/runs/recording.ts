@@ -1,4 +1,4 @@
-import { CliError, processStreams, type RenderFormat, type Streams } from "@cli-heaven/cli-core"
+import { CliError, processStreams, type RenderFormat, type Streams } from "@leemour/cli-core"
 import { VERSION } from "../version.js"
 import { type DiagnosticEvent, renderEvent } from "./events.js"
 import { type Run, runsDirFor, startRun } from "./run.js"

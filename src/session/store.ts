@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { Credentials, type KeyringStore, pathsAreOverridden, resolvePaths, writeSecurely } from "@cli-heaven/cli-core"
+import { Credentials, type KeyringStore, pathsAreOverridden, resolvePaths, writeSecurely } from "@leemour/cli-core"
 
 /**
  * What a MAX session actually is: a token, and an identity for this installation.

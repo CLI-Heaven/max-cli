@@ -1,7 +1,7 @@
 import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { CliError, captureStreams } from "@cli-heaven/cli-core"
+import { CliError, captureStreams } from "@leemour/cli-core"
 import { describe, expect, it } from "vitest"
 import type { DiagnosticEvent } from "./events.js"
 import { recorded } from "./recording.js"

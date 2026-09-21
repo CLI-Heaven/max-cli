@@ -5,4 +5,4 @@ allowBuilds:
   esbuild: true
   lefthook: true
 minimumReleaseAgeExclude:
-  - '@cli-heaven/cli-core@0.1.0'
+  - '@leemour/cli-core@0.1.0'

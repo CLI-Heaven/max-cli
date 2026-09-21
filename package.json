@@ -41,7 +41,7 @@
     "probe:contacts": "pnpm build && node --experimental-strip-types scripts/probe-contacts.ts"
   },
   "dependencies": {
-    "@cli-heaven/cli-core": "^0.1.0",
+    "@leemour/cli-core": "^0.1.0",
     "commander": "^15.0.0",
     "lossless-json": "^4.3.1",
     "valibot": "^1.5.0",

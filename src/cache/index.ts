@@ -1,6 +1,6 @@
 import { chmodSync, mkdirSync } from "node:fs"
 import { join } from "node:path"
-import { resolvePaths } from "@cli-heaven/cli-core"
+import { resolvePaths } from "@leemour/cli-core"
 import { openCache } from "./open.js"
 import { type CacheStore, openStore } from "./store.js"
 
