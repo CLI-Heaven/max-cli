@@ -184,6 +184,13 @@ neither counts towards the login total (`RISK-2`) nor moves `lastLoginAt`. Nothi
 there is nothing to compare with: a profile created before this existed, or a login that returns no
 profile, is accepted and never loses the id it already had.
 
+Measured on the real account 2026-09-21, all three halves: **MAX returns the same account id on
+every login** — three in a row against an id stored by the previous code, no refusal; a refused
+login left an existing keyring entry byte-for-byte unchanged, against the OS keyring rather than
+the in-memory one tests use; and a deliberately crossed id was refused with `stdout` empty and the
+login count still at zero. The last two ran on a throwaway profile, so the owner's session was
+never at risk.
+
 ### The login asks for a delta
 
 `LOGIN` carries `chatsSync`, `contactsSync`, `presenceSync` and `draftsSync`. They are **moments in
