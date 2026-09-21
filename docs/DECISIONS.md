@@ -21,7 +21,12 @@ decision.
 ## 2026-09-18
 
 **NEED-1 · What are the command, the npm package and the repository called?**
-**Command `max`, repository `CLI-Heaven/max-cli`, package ~~`max-cli`~~ `@cli-heaven/max-cli`.**
+**Command `max`, repository ~~`CLI-Heaven/max-cli`~~, package ~~`max-cli`~~ ~~`@cli-heaven/max-cli`~~.**
+
+⚠ **Both names superseded 2026-09-21 by `NEED-111`: `leemour/max-cli` and `@leemour/max-cli`.**
+Everything below is left exactly as it was written, old names included — a ruling records what was
+decided on a day, and rewriting it would erase the only trace that the move happened at all. The
+typed command is unaffected and is still `max`.
 
 ⚠ **Correction 2026-09-19: the unscoped `max-cli` is not ours to take.** `npm view max-cli`
 reports version 1.0.3, published 2018-07-04 by `ruanjiayou`, an unrelated scaffolding tool. A
@@ -464,3 +469,22 @@ test the release plan sets; the remaining five are written without holding the r
 Recorded because it also sets the shape of what "done" means for `OPS-4`: a release ships when
 somebody can follow the instructions on a clean machine, not when the documentation set is
 complete.
+
+## 2026-09-21
+
+**NEED-111 · Where do the repository and the package live?**
+**`leemour/max-cli` and `@leemour/max-cli`; `cli-core` moves the same way.** Owner's instruction:
+«I actually changed the repos to leemour/cli-core and leemour/max-cli … let's publish as
+@leemour/max-cli». Supersedes the naming half of `NEED-1`.
+
+Done here: both `git remote`s repointed, `package.json` renamed, and every mention rewritten in the
+documents — the repository links, and the npm name of **this** package.
+
+⚠ **The dependency keeps its old name on purpose.** `@cli-heaven/cli-core@0.1.0` is what is
+actually published, and `@leemour/cli-core` does not exist on npm; pointing a dependency at a name
+nobody published breaks every install. Renaming it is a publish in the other repository, and until
+that happens the two scopes sitting side by side is the honest state rather than an oversight.
+
+⚠ **`@cli-heaven/max-cli@0.0.0` stays on npm.** It is the 2026-09-19 scaffold, it cannot be
+unpublished usefully after 72 hours, and it should be deprecated pointing at the new name — the
+command is in [`releasing.md`](releasing.md).

@@ -107,14 +107,17 @@ max chats list --verbose     # видны ли запросы к MAX
 max cache clear              # забыть локальную копию и спросить заново
 ```
 
-## `npx @cli-heaven/max-cli` ведёт себя не так, как здесь написано
+## `npx @leemour/max-cli` ничего не находит
 
-На npm пока лежит версия `0.0.0` — заготовка от 19.09.2026, в которой ничего описанного нет.
-Ставьте из исходников, пока не опубликован `0.1.0`: [installation.md](installation.md).
+Правильно: под этим именем пока ничего не опубликовано. Ставьте из исходников, пока не вышел
+`0.1.0`: [installation.md](installation.md).
+
+Если вы ставили **`@cli-heaven/max-cli`** — это прежнее имя, и там лежит заготовка `0.0.0` от
+19.09.2026, в которой ничего описанного здесь нет. Удалите её: `npm uninstall -g @cli-heaven/max-cli`.
 
 ## Как сообщить о проблеме
 
-[github.com/CLI-Heaven/max-cli/issues](https://github.com/CLI-Heaven/max-cli/issues). Полезно
+[github.com/leemour/max-cli/issues](https://github.com/leemour/max-cli/issues). Полезно
 приложить:
 
 - `max --version` и версию Node или Bun;
