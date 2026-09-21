@@ -141,7 +141,12 @@ stdout остаётся пустым, поэтому отказ невозмож
 | | |
 |---|---|
 | [docs/installation.md](docs/installation.md) | установка, обновление, куда что ложится |
-| [docs/usage.md](docs/usage.md) | вход, чтение, отправка, диагностика, настройки |
+| [docs/usage.md](docs/usage.md) | вход, чтение, отправка, машинный режим |
+| [docs/sessions.md](docs/sessions.md) | токен, ключница, профили |
+| [docs/configuration.md](docs/configuration.md) | настройки, переменные, порядок разрешения |
+| [docs/diagnostics.md](docs/diagnostics.md) | `--verbose`, `--record`, `max runs` |
+| [docs/security.md](docs/security.md) | что пишется на диск, а что никогда |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | по симптому: что делать, когда не работает |
 | [docs/commands.md](docs/commands.md) | каждая команда и опция — **генерируется** из программы |
 | [docs/protocol.md](docs/protocol.md) | каждый опкод и откуда известна его форма — **генерируется** |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | как это устроено и какие швы нельзя пересекать |
