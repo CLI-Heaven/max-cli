@@ -66,6 +66,54 @@ describe("MaxClient", () => {
     expect(max.sent.map((call) => call.opcode)).toEqual([Opcode.SESSION_INIT, Opcode.LOGIN])
   })
 
+  it("**refuses a token belonging to another account**, and says how to switch on purpose", async () => {
+    const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
+    const { client, store } = clientWith(max)
+    const before = { ...store.readState(), viewerId: "10009999", logins: 4 }
+    store.writeState(before)
+
+    const failure = await client.connect().catch((error: Error) => error)
+    await client.close()
+
+    expect(failure).toMatchObject({ code: "authentication_error" })
+    expect(String(failure)).toContain("session end")
+
+    // A refused login is not a login: counting it would make `RISK-2`'s number a lie, and moving
+    // `lastLoginAt` would date the profile by an attempt that never became a session.
+    expect(store.readState()).toEqual(before)
+  })
+
+  it("remembers the account a profile is for, and lets the same one back in", async () => {
+    const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
+    const { client, store } = clientWith(max)
+
+    await client.connect()
+    await client.close()
+
+    expect(store.readState().viewerId).toBe("10000001")
+
+    const again = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
+    const second = new MaxClient({
+      store,
+      connection: new Connection({ createSocket: again.createSocket, timeoutMs: 50 }),
+      warn: () => {},
+    })
+
+    await expect(second.connect()).resolves.toBeUndefined()
+    await second.close()
+  })
+
+  it("does not refuse a login that names no account, and does not forget the one it knows", async () => {
+    const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: {} } })
+    const { client, store } = clientWith(max)
+    store.writeState({ ...store.readState(), viewerId: "10000001" })
+
+    await expect(client.connect()).resolves.toBeUndefined()
+    await client.close()
+
+    expect(store.readState().viewerId).toBe("10000001")
+  })
+
   it("tells MAX no human is watching", async () => {
     const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
     const { client } = clientWith(max)

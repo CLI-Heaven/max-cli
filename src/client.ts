@@ -349,13 +349,16 @@ export class MaxClient {
   }
 
   /**
-   * Opens the connection and logs in with the stored token.
+   * Opens the connection and logs in with the stored token, or with one offered for trial.
    *
    * The login response carries the profile, the chats, the contacts and recent messages, so most
    * commands need no further request — measured against MAX on 2026-09-19.
+   *
+   * **A candidate token is tried and not stored**, which is what lets `adoptToken` write to the
+   * keyring only after MAX has accepted it. Nothing here writes a token; see `session/adopt.ts`.
    */
-  async connect(): Promise<void> {
-    const token = this.#store.readToken()
+  async connect({ token: candidate }: { token?: string } = {}): Promise<void> {
+    const token = candidate ?? this.#store.readToken()
     if (!token) {
       // The fix has to carry the profile, or it logs the wrong one in: a name nobody has logged
       // in under is the ordinary shape of this failure now that the first word is the profile.
@@ -381,6 +384,19 @@ export class MaxClient {
     }
 
     const viewerId = toProfile(record(this.#login.profile) ?? {}).id
+
+    // **Before `writeState`**, so a login we are about to refuse does not count itself or move
+    // `lastLoginAt`. A profile is a person, not a directory name: if this token belongs to someone
+    // else, every later command in this process would send as them and nothing would say so.
+    // Switching accounts has a door already — `session end` clears the id along with the token.
+    if (viewerId && state.viewerId && viewerId !== state.viewerId) {
+      throw new CliError(
+        "authentication_error",
+        `this token is for a different account than profile "${this.#store.profile}" was set up with — ` +
+          `run \`max ${asFirstWord(this.#store.profile)}session end\` first if you meant to switch`,
+      )
+    }
+
     this.#store.writeState({
       ...state,
       ...(viewerId ? { viewerId } : {}),
