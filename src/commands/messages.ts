@@ -54,6 +54,10 @@ export const messagesCommand = (): Command => {
     .option("--cid <n>", "reuse a client id from an earlier ambiguous send; MAX collapses the duplicate", (value) =>
       Number.parseInt(value, 10),
     )
+    // `notify` is part of MSG_SEND and has always been sent as `true`. It is the one send option
+    // whose absence is felt at the other end rather than here: a script posting at 3am wakes
+    // somebody up, and there was no way to say otherwise.
+    .option("--silent", "deliver without a notification")
     .action(async function (this: Command, chat: string, text: string) {
       const options = this.optsWithGlobals()
       const { renderer, settings, createClient, run } = forCommand(options)
@@ -64,7 +68,10 @@ export const messagesCommand = (): Command => {
 
         try {
           const chatId = await client.chats.resolve(chat)
-          const sent = await client.messages.send(chatId, text, options.cid === undefined ? {} : { cid: options.cid })
+          const sent = await client.messages.send(chatId, text, {
+            ...(options.cid === undefined ? {} : { cid: options.cid }),
+            ...(options.silent === true ? { notify: false } : {}),
+          })
           renderer.result(sent)
         } finally {
           await client.close()
