@@ -141,6 +141,12 @@ fails, the answer is `outcome_unknown` — never failed, never sent — and it n
 millisecond the same number, which — given the deduplication above — would have made the second
 message vanish silently. A test caught that; a lost message was the alternative.
 
+`--silent` sends `notify: false`, the field `MSG_SEND` has always carried as `true`. ⚠ **Only the
+`true` side is measured.** The field's shape comes from a real request; what MAX does with `false`
+has never been observed, because observing it means sending a message to somebody. So the flag is
+offered and its effect is a claim about MAX, not a measurement — the first person to use it against
+a real chat closes that, and until then it may be ignored at the other end.
+
 ## 7. The session is a token and a stable identity
 
 | What | Where | Why |

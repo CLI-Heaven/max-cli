@@ -141,6 +141,7 @@ max messages send [options] <chat> <text>
 | Опция | Что делает |
 |---|---|
 | `--cid <n>` | reuse a client id from an earlier ambiguous send; MAX collapses the duplicate |
+| `--silent` | deliver without a notification |
 
 ## `max cache`
 
