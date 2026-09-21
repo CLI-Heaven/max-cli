@@ -1,4 +1,4 @@
-import { CliError } from "@cli-heaven/cli-core"
+import { CliError } from "@leemour/cli-core"
 import type { Command } from "commander"
 
 export const DEFAULT_PROFILE = "default"

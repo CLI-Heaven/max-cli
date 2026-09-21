@@ -1,4 +1,4 @@
-import { CliError, configFilePath, loadConfigFile, resolvePaths } from "@cli-heaven/cli-core"
+import { CliError, configFilePath, loadConfigFile, resolvePaths } from "@leemour/cli-core"
 import * as v from "valibot"
 import { DEFAULT_PROFILE, usableProfileName } from "./profile.js"
 

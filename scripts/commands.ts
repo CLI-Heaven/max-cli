@@ -19,7 +19,7 @@ import { execFileSync } from "node:child_process"
 import { writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { EXIT_CODES } from "@cli-heaven/cli-core"
+import { EXIT_CODES } from "@leemour/cli-core"
 import type { Command } from "commander"
 import { createProgram } from "../dist/program.js"
 

@@ -1,4 +1,4 @@
-import { CliError, exitCodeFor, GENERIC_FAILURE, processStreams, type Streams } from "@cli-heaven/cli-core"
+import { CliError, exitCodeFor, GENERIC_FAILURE, processStreams, type Streams } from "@leemour/cli-core"
 import { Command, CommanderError } from "commander"
 import { accountCommand } from "./commands/account.js"
 import { cacheCommand } from "./commands/cache.js"

@@ -1,4 +1,4 @@
-import { CliError } from "@cli-heaven/cli-core"
+import { CliError } from "@leemour/cli-core"
 import type { CacheStore } from "./cache/store.js"
 import { namesFrom, toChat, toContact, toMessage, toProfile } from "./domain/map.js"
 import type { Chat, Contact, Id, Message, Profile } from "./domain/models.js"

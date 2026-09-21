@@ -21,34 +21,32 @@ decision.
 ## 2026-09-18
 
 **NEED-1 · What are the command, the npm package and the repository called?**
-**Command `max`, repository ~~`CLI-Heaven/max-cli`~~, package ~~`max-cli`~~ ~~`@cli-heaven/max-cli`~~.**
+**Command `max`, repository `leemour/max-cli`, package ~~`max-cli`~~ `@leemour/max-cli`.**
 
-⚠ **Both names superseded 2026-09-21 by `NEED-111`: `leemour/max-cli` and `@leemour/max-cli`.**
-Everything below is left exactly as it was written, old names included — a ruling records what was
-decided on a day, and rewriting it would erase the only trace that the move happened at all. The
-typed command is unaffected and is still `max`.
+⚠ **Both moved on 2026-09-21 (`NEED-111`)**: they were created under a shared organisation and
+now live under the owner's own account. The reasoning below is the reasoning of the day it was
+written; only the names have moved, and the typed command was never affected — it is still `max`.
 
 ⚠ **Correction 2026-09-19: the unscoped `max-cli` is not ours to take.** `npm view max-cli`
 reports version 1.0.3, published 2018-07-04 by `ruanjiayou`, an unrelated scaffolding tool. A
 publish attempt failed on it. This is the second time in this family of projects that an unscoped
 name was already occupied — `braze-cli` became `@leemour/brazecli` for the same reason — so the
-scope is now the default rather than the fallback: «but we need to publish it under cli-heaven».
+scope is now the default rather than the fallback — the unscoped name is gone either way.
 The typed command is unaffected and stays `max` (`NEED-4`).
 
 The original ruling, which the scope narrows rather than overturns:
 
-**`max-cli`.** «1 max-cli». The repository half is measured rather than decided: `origin` is
-already `git@github.com:CLI-Heaven/max-cli.git`, and the organisation holds exactly two
-repositories — [`CLI-Heaven/max-cli`](https://github.com/CLI-Heaven/max-cli) and
-[`CLI-Heaven/cli-core`](https://github.com/CLI-Heaven/cli-core) (`gh repo list CLI-Heaven`,
-2026-09-18). So the project, the repository and the package are `max-cli`.
+**`max-cli`.** «1 max-cli». The repository half was measured rather than decided: `origin` already
+existed, beside exactly one sibling — [`max-cli`](https://github.com/leemour/max-cli) and
+[`cli-core`](https://github.com/leemour/cli-core), measured 2026-09-18 under the organisation they
+were created in. So the project, the repository and the package are `max-cli`.
 
 **NEED-4 · Is the typed command `max` or `max-cli`?**
 **`max`.** «1 A». The package is `max-cli` and the command is `max`, the same split `braze-cli`
 uses — it publishes as `@leemour/brazecli` and types `braze`. A command gets typed by hand and by
 agents dozens of times a day; the package name is read once, in an install line. The npm scope is
-the one piece still open and is decided with the first publish (`OPS-1`); the organisation
-suggests `@cli-heaven/max-cli`.
+the one piece still open and is decided with the first publish (`OPS-1`); a scope is suggested
+rather than a bare name.
 
 **NEED-2 · The account-safety question raised while writing the brief.**
 **Settled, closed, and not to be raised again** — not in replies, not in documents. «принимаем
@@ -233,7 +231,7 @@ have different built-in SQLite modules (`NEED-11`).
 
 **NEED-15 · Does `cli-core` carry HTTP?**
 **Not in its root export.** «cli-core's root export carries nothing HTTP - ok, agreed only import
-if needed by consumers». HTTP lives under `@cli-heaven/cli-core/http`; `braze-cli` imports it and
+if needed by consumers». HTTP lives under `@leemour/cli-core/http`; `braze-cli` imports it and
 `max-cli` never does, which is what keeps a WebSocket CLI from depending on an HTTP stack it does
 not call.
 
@@ -259,7 +257,7 @@ written and the specification itself does not change.
 
 **NEED-3 · Where does `cli-core` live, and when is it extracted?**
 **Its own repository, and now.** «выноси сейчас в отдельную папку и repo
-https://github.com/CLI-Heaven/cli-core есть уже». Verified: the repository exists, is public and
+https://github.com/leemour/cli-core есть уже». Verified: the repository exists, is public and
 is empty, created 2026-09-18 20:03 UTC, described as "Core CLI package to develop cli to any HTTP
 API".
 
@@ -480,11 +478,15 @@ complete.
 Done here: both `git remote`s repointed, `package.json` renamed, and every mention rewritten in the
 documents — the repository links, and the npm name of **this** package.
 
-⚠ **The dependency keeps its old name on purpose.** `@cli-heaven/cli-core@0.1.0` is what is
-actually published, and `@leemour/cli-core` does not exist on npm; pointing a dependency at a name
-nobody published breaks every install. Renaming it is a publish in the other repository, and until
-that happens the two scopes sitting side by side is the honest state rather than an oversight.
+**The dependency moved too**, on the owner's instruction of 2026-09-21 that no trace of the old
+scope remain: every import, the `package.json` entry and the workspace pin now name
+`@leemour/cli-core`.
 
-⚠ **`@cli-heaven/max-cli@0.0.0` stays on npm.** It is the 2026-09-19 scaffold, it cannot be
-unpublished usefully after 72 hours, and it should be deprecated pointing at the new name — the
-command is in [`releasing.md`](releasing.md).
+⚠ **That sets the publish order and cannot be reordered.** `@leemour/cli-core@0.1.0` has to reach
+npm **before** this package is installable at all — a dependency pointing at a name nobody
+published fails every install, including `pnpm install --frozen-lockfile` in CI. So: publish
+`cli-core`, then `max-cli`.
+
+⚠ What was published under the previous scope stays there; it cannot be unpublished usefully after
+72 hours and should be deprecated so that anyone who finds it is sent here. The exact commands are
+in the release handoff rather than in this repository.

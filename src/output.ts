@@ -1,4 +1,4 @@
-import { createRenderer, type Renderer, type RenderFormat, type Streams } from "@cli-heaven/cli-core"
+import { createRenderer, type Renderer, type RenderFormat, type Streams } from "@leemour/cli-core"
 
 export interface OutputOptions {
   json?: boolean

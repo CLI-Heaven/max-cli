@@ -1,7 +1,7 @@
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { memoryKeyring } from "@cli-heaven/cli-core"
+import { memoryKeyring } from "@leemour/cli-core"
 import { afterEach, describe, expect, it } from "vitest"
 import { openCache } from "./cache/open.js"
 import { type CacheStore, openStore } from "./cache/store.js"

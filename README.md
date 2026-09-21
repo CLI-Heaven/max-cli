@@ -169,7 +169,7 @@ pnpm generate                         # переписать сгенериро�
 [docs/protocol.md](docs/protocol.md) из них генерируются — и CI падает, если дерево устарело.
 
 Половина, не имеющая отношения к MAX — потоки вывода, рендерер, коды ошибок, ключница, часы, —
-вынесена в [`@cli-heaven/cli-core`](https://github.com/leemour/cli-core) и общая с `braze-cli`.
+вынесена в [`@leemour/cli-core`](https://github.com/leemour/cli-core) и общая с `braze-cli`.
 
 ## Лицензия
 

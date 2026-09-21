@@ -1,4 +1,4 @@
-import { CliError } from "@cli-heaven/cli-core"
+import { CliError } from "@leemour/cli-core"
 import { Command } from "commander"
 import { resolveOutput } from "../output.js"
 import { findRun, listRuns, readEvents, runsDirFor } from "../runs/run.js"

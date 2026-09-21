@@ -41,7 +41,7 @@ action now, and the diagram says what `max --help` says.
 
 **Adding an operation, and what is generated from what: §12.**
 
-Underneath all of it, [`@cli-heaven/cli-core`](https://github.com/leemour/cli-core) supplies the
+Underneath all of it, [`@leemour/cli-core`](https://github.com/leemour/cli-core) supplies the
 output streams, the renderer, the error model and exit codes, the keyring, config and clocks —
 the half that has nothing to do with MAX and is shared with `braze-cli`.
 

@@ -1,7 +1,7 @@
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { captureStreams, memoryKeyring } from "@cli-heaven/cli-core"
+import { captureStreams, memoryKeyring } from "@leemour/cli-core"
 import { describe, expect, it } from "vitest"
 import { MaxClient } from "./client.js"
 import { Opcode } from "./generated/opcodes.generated.js"

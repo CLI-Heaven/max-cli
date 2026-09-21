@@ -112,9 +112,6 @@ max cache clear              # забыть локальную копию и с�
 Правильно: под этим именем пока ничего не опубликовано. Ставьте из исходников, пока не вышел
 `0.1.0`: [installation.md](installation.md).
 
-Если вы ставили **`@cli-heaven/max-cli`** — это прежнее имя, и там лежит заготовка `0.0.0` от
-19.09.2026, в которой ничего описанного здесь нет. Удалите её: `npm uninstall -g @cli-heaven/max-cli`.
-
 ## Как сообщить о проблеме
 
 [github.com/leemour/max-cli/issues](https://github.com/leemour/max-cli/issues). Полезно

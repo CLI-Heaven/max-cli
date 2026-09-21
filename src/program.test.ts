@@ -1,4 +1,4 @@
-import { captureStreams } from "@cli-heaven/cli-core"
+import { captureStreams } from "@leemour/cli-core"
 import { describe, expect, it } from "vitest"
 import { commandWords, liftProfile } from "./profile.js"
 import { createProgram, run } from "./program.js"
