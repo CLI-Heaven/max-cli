@@ -1,5 +1,6 @@
 import { Command } from "commander"
 import { commandWords, refuseCommandName, rootOf } from "../profile.js"
+import { adoptToken } from "../session/adopt.js"
 import { readSecret } from "../session/prompt.js"
 import { forCommand } from "./context.js"
 
@@ -16,7 +17,7 @@ export const sessionCommand = (): Command => {
    * **The token is asked for, not passed.** A token in argv is read by `ps` and kept by shell
    * history, and a file leaves a copy nobody deletes, so with `MAX_TOKEN` unset it is read from the
    * terminal without being echoed — or from a pipe, for `pass show max | max session start`. From
-   * there it goes to the OS keyring.
+   * there it goes to the OS keyring — **but only once MAX has accepted it**, which is `adoptToken`.
    */
   command
     .command("start")
@@ -37,13 +38,11 @@ export const sessionCommand = (): Command => {
         return
       }
 
-      store.writeToken(token)
-
       await run("session start", async (events) => {
         const client = createClient({ events })
 
         try {
-          await client.connect()
+          await adoptToken(client, store, token)
           const profile = client.account.me()
           renderer.result({ profile, stored: true })
           renderer.success(`logged in as ${profile.name ?? profile.id}`)

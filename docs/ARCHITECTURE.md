@@ -158,6 +158,32 @@ keychain. `max session start` imports a session obtained elsewhere, asking for t
 it; the interactive phone-and-code
 flow is not built yet.
 
+### The login happens first, and the profile is bound to an account
+
+⚠ **A token reaches the keyring only after MAX has accepted it** (`src/session/adopt.ts`). The
+command used to write first, which meant a typo, an expired token or a browser tab that had been
+closed replaced a *working* credential with a dead one — unrecoverably, because `Credentials.write`
+overwrites unconditionally and a keyring entry cannot be read out again. The same shape destroyed
+two working keys in `brazecli` on 2026-09-14, and `cli-core`'s `credentials.ts` says so in place.
+
+Restoring the old token after a failed login was the alternative and is worse: a process killed
+between the write and the restore leaves the profile broken. So `MaxClient.connect` takes a
+candidate token, tries it, and stores nothing; `adoptToken` writes once there is something worth
+writing. It sits beside `handshake.ts` rather than inside the command because `forCommand` builds
+its own store and its own socket — anything left in a command action cannot be driven by a test.
+
+⚠ **A profile remembers which account it is for, and refuses another one.** `viewerId` is written
+from the first login onwards, and every later `connect` compares it with what LOGIN returns. A
+mismatch is an `authentication_error` naming `max <profile> session end` — which is the deliberate
+way to switch, since `forget()` clears the id along with the token. Silently accepting the other
+account would mean `max <profile> messages send` speaking as somebody else, which is the first
+constraint this project has.
+
+The refusal is raised **before** the state is written, so an attempt that never became a session
+neither counts towards the login total (`RISK-2`) nor moves `lastLoginAt`. Nothing is compared when
+there is nothing to compare with: a profile created before this existed, or a login that returns no
+profile, is accepted and never loses the id it already had.
+
 ### The login asks for a delta
 
 `LOGIN` carries `chatsSync`, `contactsSync`, `presenceSync` and `draftsSync`. They are **moments in
