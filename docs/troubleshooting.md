@@ -131,10 +131,13 @@ max chats list --verbose     # видны ли запросы к MAX
 max cache clear              # забыть локальную копию и спросить заново
 ```
 
-## `npx @leemour/max-cli` ничего не находит
+## `npx @leemour/max-cli` ставит не ту версию
 
-Правильно: под этим именем пока ничего не опубликовано. Ставьте из исходников, пока не вышел
-`0.1.0`: [installation.md](installation.md).
+`npx` кэширует. Явная версия обходит кэш:
+
+```sh
+npx @leemour/max-cli@latest --version
+```
 
 ## Как сообщить о проблеме
 

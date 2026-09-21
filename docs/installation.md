@@ -15,14 +15,36 @@
 Если ключницы на машине нет, токен ложится в файл рядом с настройками, и команда скажет об этом
 одной строкой.
 
-## ⚠ Состояние на 21.09.2026
+## Обычный способ
 
-Под именем **`@leemour/max-cli`** на npm пока нет ничего: версия `0.1.0`, описанная в этой
-документации, ещё не опубликована (`OPS-4` в [BACKLOG.md](BACKLOG.md)).
+Запустить, ничего не устанавливая:
 
-Пока публикации нет — ставьте из исходников, это три команды.
+```sh
+npx @leemour/max-cli --help
+pnpm dlx @leemour/max-cli --help
+bunx @leemour/max-cli --help
+```
+
+Поставить насовсем:
+
+```sh
+npm install -g @leemour/max-cli
+pnpm add -g @leemour/max-cli
+bun add -g @leemour/max-cli
+```
+
+Пакет называется **`@leemour/max-cli`**, а команда, которую он ставит, — **`max`**.
+
+Проверка, что всё встало:
+
+```sh
+max --version           # 0.1.0
+max --help              # список команд
+```
 
 ## Из исходников
+
+Нужно, если правите код или хотите версию раньше выпуска.
 
 ```sh
 git clone git@github.com:leemour/max-cli.git
@@ -50,26 +72,7 @@ max --version           # 0.1.0
 max --help              # список команд
 ```
 
-## После публикации
-
-Когда `0.1.0` окажется на npm, появятся обычные способы. Запустить, ничего не устанавливая:
-
-```sh
-npx @leemour/max-cli --help
-pnpm dlx @leemour/max-cli --help
-bunx @leemour/max-cli --help
-```
-
-Поставить насовсем:
-
-```sh
-npm install -g @leemour/max-cli
-pnpm add -g @leemour/max-cli
-bun add -g @leemour/max-cli
-```
-
-Пакет называется **`@leemour/max-cli`**, а команда, которую он ставит, — **`max`**. Имя без
-области (`max-cli`) занято чужим пакетом с 2018 года, поэтому область обязательна
+Имя без области (`max-cli`) занято чужим пакетом с 2018 года, поэтому область обязательна
 ([DECISIONS.md](DECISIONS.md), `NEED-1`).
 
 ## Куда всё ложится
@@ -97,7 +100,7 @@ bun add -g @leemour/max-cli
 ## Обновление и удаление
 
 ```sh
-npm update -g @leemour/max-cli      # после публикации
+npm update -g @leemour/max-cli
 ```
 
 Из исходников — `git pull && pnpm install && pnpm build`.

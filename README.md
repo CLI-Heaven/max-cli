@@ -14,9 +14,6 @@ max chats list --limit 5
 max messages list "Иван Петров"
 ```
 
-> ⚠ **Версия `0.1.0` ещё не опубликована.** Под именем `@leemour/max-cli` на npm пока нет ничего.
-> Пока — [установка из исходников](docs/installation.md).
-
 ## Что это даёт
 
 - **Один запуск — одна операция.** Соединиться, сделать, напечатать, отключиться. Ничего не висит
@@ -62,11 +59,16 @@ max messages list "Иван Петров"
 Пакет — **`@leemour/max-cli`**, команда, которую он ставит, — **`max`**. Имя без области занято
 чужим пакетом с 2018 года.
 
-Пока `0.1.0` не опубликован, ставится из исходников:
+Запустить, ничего не устанавливая:
 
 ```sh
-git clone git@github.com:leemour/max-cli.git
-cd max-cli && pnpm install && pnpm build && pnpm link --global
+npx @leemour/max-cli --help
+```
+
+Поставить насовсем:
+
+```sh
+npm install -g @leemour/max-cli
 max --version      # 0.1.0
 ```
 

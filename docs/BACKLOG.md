@@ -93,14 +93,11 @@ now, in their own pass. How to add an operation is
 
 ## Repository and tooling
 
-- **OPS-4** · **P1** · **The first release worth sharing.** Owner's instruction 2026-09-20: a
-  version he can hand to somebody. Not "publish what exists" — the pieces are the plan
-  `docs_ai/plans/2026-09-20-first-release.md`: the version — `0.1.0`, set 2026-09-20 (`NEED-107`) —
-  a `CHANGELOG.md`,
-  `docs/releasing.md` taken from the sibling, the npm publish itself, and `DOC-2` beside it
-  (`OPS-10`, its command reference, is done),
-  because a release nobody can read the instructions for is not shareable. `pnpm version:check`
-  exists and runs in CI as of 2026-09-20.
+- **OPS-4** · ✅ Closed 2026-09-21 — `@leemour/max-cli@0.1.0` is on npm and installs: `npm i
+  @leemour/max-cli` then `max --version` answers `0.1.0`, verified from a directory outside the
+  repository. `@leemour/cli-core@0.1.0` went first, because the dependency had to exist before
+  anything could install. Both packages published under the previous scope were deleted the same
+  day (`NEED-111`). How a release is made: [`releasing.md`](releasing.md).
 - **OPS-10** · ✅ Closed 2026-09-20 — [`commands.md`](commands.md) is written by
   `scripts/commands.ts` from the command tree, on every `pnpm generate`. It needed no new CI step:
   the staleness check that already guarded [`protocol.md`](protocol.md) guards it too, and the
