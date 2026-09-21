@@ -596,7 +596,15 @@ export class MaxClient {
 
     // Written here rather than left in memory: the process ends in a moment, and the next one
     // should not pay for these names again.
-    if (named.length > 0) this.#cache?.people.upsert(named, "info")
+    //
+    // ⚠ **And the order is recomputed after**, not before. These people did not exist when the
+    // login's chats were written, so the recency that was set then reached only the handful the
+    // login itself named — 6 of 22 on the real account, with every other dialog partner sorting
+    // as never-messaged.
+    if (named.length > 0) {
+      this.#cache?.people.upsert(named, "info")
+      this.#cache?.people.refreshRecency()
+    }
 
     this.#people = people
     return people
