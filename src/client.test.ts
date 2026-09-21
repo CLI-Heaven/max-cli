@@ -302,6 +302,25 @@ describe("MaxClient", () => {
     expect(sent.outgoing).toBe(true)
   })
 
+  it("**notifies by default and stays silent only when asked**", async () => {
+    const max = mockMax({
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: loginAnswer,
+        [Opcode.MSG_SEND]: { message: { id: 1, time: 1 } },
+      },
+    })
+    const { client } = clientWith(max)
+
+    await client.connect()
+    await client.messages.send("111", "loud")
+    await client.messages.send("111", "quiet", { notify: false })
+    await client.close()
+
+    const sends = max.sent.filter((call) => call.opcode === Opcode.MSG_SEND)
+    expect(sends.map((call) => call.payload.notify)).toEqual([true, false])
+  })
+
   it("gives each send its own client id, so two sends are two messages", async () => {
     const max = mockMax({
       answers: {

@@ -107,6 +107,16 @@ describe("the program", () => {
     expect(stdout).toContain("MAX_PROFILE")
   })
 
+  it("offers `--silent` on a send and nowhere else", async () => {
+    const send = await runWith(["messages", "send", "--help"])
+    expect(send.stdout).toContain("--silent")
+
+    // Reading is observational; there is nothing to notify anybody about, and a flag that does
+    // nothing on half the commands is a flag people learn to distrust.
+    const list = await runWith(["messages", "list", "--help"])
+    expect(list.stdout).not.toContain("--silent")
+  })
+
   it("does not mistake a command for a profile", () => {
     const program = createProgram()
     expect(liftProfile(["chats", "list"], commandWords(program)).profile).toBeUndefined()
