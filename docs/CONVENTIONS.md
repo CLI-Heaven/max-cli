@@ -120,5 +120,8 @@ Either the real value goes in, or the value is asked for as a plain question fir
 **Never paste a real chat id, phone number, token or message into a committed document.** The same
 rule as the fixtures — §24. Redact, or use an obviously synthetic value and say that it is one.
 
-**English in committed documents.** The session journal is Russian, because it is the owner's own
-trail. Do not mix languages inside one file.
+**Russian in every document written from now on** — corrected 2026-09-21; this rule used to say
+"English in committed documents", which `NEED-108` overturned on 2026-09-20. The documents that
+already exist in English stay English and are not translated: `ARCHITECTURE.md`, this file,
+`DECISIONS.md`, `REQUIREMENTS.md`, `TESTING.md`, `BACKLOG.md`. A new section added to one of them
+follows the language of the file it lands in. Do not mix languages inside one file.
