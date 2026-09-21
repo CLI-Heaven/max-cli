@@ -305,7 +305,7 @@ export class MaxClient {
      * So one retry, same `cid`, and nothing beyond that. What is still unmeasured is how long the
      * server remembers a `cid`; the two probes were seconds apart. If the retry also fails the
      * answer is `outcome_unknown` — never failed, never sent — and it names the `cid`, because
-     * `max send --cid <n>` can then repeat the attempt without risking a second message.
+     * `max messages send … --cid <n>` can then repeat the attempt without risking a second message.
      */
     send: async (chatId: Id, text: string, options: { cid?: number; notify?: boolean } = {}): Promise<Message> => {
       if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot send")
@@ -334,7 +334,7 @@ export class MaxClient {
           throw new CliError(
             "outcome_unknown",
             `the message may or may not have been sent (${failure.message}) — ` +
-              `\`max send --cid ${cid}\` repeats the attempt without risking a second copy`,
+              `\`max messages send <chat> <text> --cid ${cid}\` repeats the attempt without risking a second copy`,
             { cid },
           )
         }
