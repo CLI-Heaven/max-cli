@@ -8,7 +8,7 @@ importers:
 
   .:
     dependencies:
-      '@cli-heaven/cli-core':
+      '@leemour/cli-core':
         specifier: ^0.1.0
         version: 0.1.0(typescript@5.9.3)
       commander:
@@ -101,10 +101,6 @@ packages:
     engines: {node: '>=14.21.3'}
     cpu: [x64]
     os: [win32]
-
-  '@cli-heaven/cli-core@0.1.0':
-    resolution: {integrity: sha512-liLXBh0jLTbcWJZaEwZ0PYgh4R9gYoa9lswrLH/ERw800bqLWlj5MwTaIDWcFmqnx7jwaC2oOka7i0t4mhtb1g==}
-    engines: {node: '>=22'}
 
   '@colors/colors@1.5.0':
     resolution: {integrity: sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==}
@@ -268,6 +264,10 @@ packages:
 
   '@jridgewell/sourcemap-codec@1.6.0':
     resolution: {integrity: sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw==}
+
+  '@leemour/cli-core@0.1.0':
+    resolution: {integrity: sha512-6+LZIUF9wTAFy33EE3QQ5khYAmbDLswIBgn2SmsmG8TIUnuZEBDfn0lFgL/D/SrKyu/YD6ELdO+zxh2K1hzbnA==}
+    engines: {node: '>=22'}
 
   '@napi-rs/keyring-darwin-arm64@2.1.0':
     resolution: {integrity: sha512-j6ATTOhmPW+N5EKwi8Yzn6P4Bz/uqnxzyYvqOL73/dgzDSYG5pS5eprqpVmOLse68WUTf79ZMqz97HnfvirJ9g==}
@@ -959,18 +959,6 @@ snapshots:
   '@biomejs/cli-win32-x64@2.5.14':
     optional: true
 
-  '@cli-heaven/cli-core@0.1.0(typescript@5.9.3)':
-    dependencies:
-      cli-table3: 0.6.5
-      env-paths: 4.0.0
-      picocolors: 1.1.1
-      pino: 10.3.1
-      valibot: 1.5.0(typescript@5.9.3)
-    optionalDependencies:
-      '@napi-rs/keyring': 2.1.0
-    transitivePeerDependencies:
-      - typescript
-
   '@colors/colors@1.5.0':
     optional: true
 
@@ -1053,6 +1041,18 @@ snapshots:
     optional: true
 
   '@jridgewell/sourcemap-codec@1.6.0': {}
+
+  '@leemour/cli-core@0.1.0(typescript@5.9.3)':
+    dependencies:
+      cli-table3: 0.6.5
+      env-paths: 4.0.0
+      picocolors: 1.1.1
+      pino: 10.3.1
+      valibot: 1.5.0(typescript@5.9.3)
+    optionalDependencies:
+      '@napi-rs/keyring': 2.1.0
+    transitivePeerDependencies:
+      - typescript
 
   '@napi-rs/keyring-darwin-arm64@2.1.0':
     optional: true
