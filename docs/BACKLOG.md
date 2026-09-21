@@ -260,6 +260,8 @@ meaning: `CLI-6` is the settings item.
   interval nor a symptom beyond "the connection closes right after INIT"; no other source mentions
   it. Proposal §11.1: persist the rotated token the login response returns, name the symptom in an
   error message, count logins — and do not refuse on a ceiling nobody has measured (`NEED-8`).
+  **First number of our own, 2026-09-21: 65 logins accumulated on the real account with nothing
+  broken** — `max doctor` (`CLI-12`) is what would make that readable without opening a file.
 
 ## Known unknowns
 
