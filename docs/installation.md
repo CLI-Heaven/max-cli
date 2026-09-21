@@ -15,18 +15,20 @@
 Если ключницы на машине нет, токен ложится в файл рядом с настройками, и команда скажет об этом
 одной строкой.
 
-## ⚠ Состояние на 20.09.2026
+## ⚠ Состояние на 21.09.2026
 
-На npm лежит **`@cli-heaven/max-cli@0.0.0`** — сборка от 19.09.2026, то есть заготовка, в которой
-нет ни чтения чатов, ни отправки, ни всего остального. **Ставить её не нужно.** Версия `0.1.0`,
-описанная в этой документации, ещё не опубликована (`OPS-4` в [BACKLOG.md](BACKLOG.md)).
+Под именем **`@leemour/max-cli`** на npm пока нет ничего: версия `0.1.0`, описанная в этой
+документации, ещё не опубликована (`OPS-4` в [BACKLOG.md](BACKLOG.md)).
+
+Заготовка `0.0.0`, опубликованная 19.09.2026, лежит под **прежним** именем `@cli-heaven/max-cli`
+— репозиторий и пакет переехали к `leemour` 21.09.2026. Ставить её не нужно ни под каким именем.
 
 Пока публикации нет — ставьте из исходников, это три команды.
 
 ## Из исходников
 
 ```sh
-git clone git@github.com:CLI-Heaven/max-cli.git
+git clone git@github.com:leemour/max-cli.git
 cd max-cli
 pnpm install
 pnpm build
@@ -56,20 +58,20 @@ max --help              # список команд
 Когда `0.1.0` окажется на npm, появятся обычные способы. Запустить, ничего не устанавливая:
 
 ```sh
-npx @cli-heaven/max-cli --help
-pnpm dlx @cli-heaven/max-cli --help
-bunx @cli-heaven/max-cli --help
+npx @leemour/max-cli --help
+pnpm dlx @leemour/max-cli --help
+bunx @leemour/max-cli --help
 ```
 
 Поставить насовсем:
 
 ```sh
-npm install -g @cli-heaven/max-cli
-pnpm add -g @cli-heaven/max-cli
-bun add -g @cli-heaven/max-cli
+npm install -g @leemour/max-cli
+pnpm add -g @leemour/max-cli
+bun add -g @leemour/max-cli
 ```
 
-Пакет называется **`@cli-heaven/max-cli`**, а команда, которую он ставит, — **`max`**. Имя без
+Пакет называется **`@leemour/max-cli`**, а команда, которую он ставит, — **`max`**. Имя без
 области (`max-cli`) занято чужим пакетом с 2018 года, поэтому область обязательна
 ([DECISIONS.md](DECISIONS.md), `NEED-1`).
 
@@ -98,7 +100,7 @@ bun add -g @cli-heaven/max-cli
 ## Обновление и удаление
 
 ```sh
-npm update -g @cli-heaven/max-cli      # после публикации
+npm update -g @leemour/max-cli      # после публикации
 ```
 
 Из исходников — `git pull && pnpm install && pnpm build`.
@@ -106,7 +108,7 @@ npm update -g @cli-heaven/max-cli      # после публикации
 Удаление уносит команду, но не данные:
 
 ```sh
-npm uninstall -g @cli-heaven/max-cli
+npm uninstall -g @leemour/max-cli
 max session end                        # забыть токен ДО удаления команды
 rm -rf ~/.config/max-cli ~/.local/share/max-cli ~/.cache/max-cli
 ```

@@ -14,8 +14,8 @@ max chats list --limit 5
 max messages list "Иван Петров"
 ```
 
-> ⚠ **Версия `0.1.0` ещё не опубликована.** На npm лежит `0.0.0` — заготовка от 19.09.2026, в
-> которой ничего из описанного ниже нет. Пока — [установка из исходников](docs/installation.md).
+> ⚠ **Версия `0.1.0` ещё не опубликована.** Под именем `@leemour/max-cli` на npm пока нет ничего.
+> Пока — [установка из исходников](docs/installation.md).
 
 ## Что это даёт
 
@@ -56,13 +56,13 @@ max messages list "Иван Петров"
 
 ## Установка
 
-Пакет — **`@cli-heaven/max-cli`**, команда, которую он ставит, — **`max`**. Имя без области занято
+Пакет — **`@leemour/max-cli`**, команда, которую он ставит, — **`max`**. Имя без области занято
 чужим пакетом с 2018 года.
 
 Пока `0.1.0` не опубликован, ставится из исходников:
 
 ```sh
-git clone git@github.com:CLI-Heaven/max-cli.git
+git clone git@github.com:leemour/max-cli.git
 cd max-cli && pnpm install && pnpm build && pnpm link --global
 max --version      # 0.1.0
 ```
@@ -169,7 +169,7 @@ pnpm generate                         # переписать сгенериро�
 [docs/protocol.md](docs/protocol.md) из них генерируются — и CI падает, если дерево устарело.
 
 Половина, не имеющая отношения к MAX — потоки вывода, рендерер, коды ошибок, ключница, часы, —
-вынесена в [`@cli-heaven/cli-core`](https://github.com/CLI-Heaven/cli-core) и общая с `braze-cli`.
+вынесена в [`@cli-heaven/cli-core`](https://github.com/leemour/cli-core) и общая с `braze-cli`.
 
 ## Лицензия
 
