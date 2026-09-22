@@ -1,7 +1,7 @@
 import { CliError } from "@leemour/cli-core"
 import type { CacheStore, PersonOrder, SyncSummary } from "./cache/store.js"
 import { namesFrom, toChat, toContact, toMessage, toProfile } from "./domain/map.js"
-import type { Chat, Contact, Id, Message, Page, Profile } from "./domain/models.js"
+import type { Chat, ChatKind, Contact, Id, Message, MessageHit, Page, Profile } from "./domain/models.js"
 import { type Invoke, wireClient } from "./generated/client.generated.js"
 import { asFirstWord } from "./profile.js"
 import { Connection, ProtocolError } from "./protocol/connection.js"
@@ -88,10 +88,16 @@ export class MaxClient {
      * exactly the chats a person recognises by name.
      */
     list: async (options: PageRequest = {}): Promise<Page<Chat>> => {
-      const { limit, offset = 0 } = options
+      const { limit, offset = 0, kind } = options
+      const query = checkedQuery(options.query)
 
       if (this.#offline) {
-        return paged(this.#recorded(this.#cache?.chats.read(ANY_AGE), "chats"), limit, offset)
+        const recorded = this.#cache
+        if (!recorded) this.#recorded(undefined, "chats")
+        const store = recorded as CacheStore
+        if (store.chats.count() === 0) this.#recorded(undefined, "chats")
+        const items = store.chats.page({ limit: limit ?? Number.MAX_SAFE_INTEGER, offset, query, kind })
+        return { items, hasMore: offset + items.length < store.chats.count({ query, kind }) }
       }
 
       await this.#connectOnce()
@@ -111,14 +117,14 @@ export class MaxClient {
       })
 
       const cache = this.#cache
-      if (!cache) return paged(chats, limit, offset)
+      if (!cache) return paged(matching(chats, query, kind), limit, offset)
 
       // Written first, then read back: the titles just resolved have to be in the store before it
       // is asked to order and page over them, and the delta this login carried is only a slice of
       // what it now holds.
       cache.chats.write(chats)
-      const items = cache.chats.page({ limit: limit ?? Number.MAX_SAFE_INTEGER, offset })
-      return { items, hasMore: offset + items.length < cache.chats.count() }
+      const items = cache.chats.page({ limit: limit ?? Number.MAX_SAFE_INTEGER, offset, query, kind })
+      return { items, hasMore: offset + items.length < cache.chats.count({ query, kind }) }
     },
 
     /**
@@ -161,13 +167,14 @@ export class MaxClient {
      */
     list: async (options: PageRequest = {}): Promise<Page<Contact>> => {
       const { order = "recent", limit, offset = 0 } = options
+      const query = checkedQuery(options.query)
 
       // The same query as the online path, so `--offline` cannot answer with people the other
       // one deliberately leaves out — a group member is not a contact in either mode.
       if (this.#offline) {
         const recorded = this.#cache
         if (!recorded || recorded.people.countContacts() === 0) this.#recorded(undefined, "contacts")
-        return this.#pageOfContacts(recorded as CacheStore, order, limit, offset)
+        return this.#pageOfContacts(recorded as CacheStore, order, limit, offset, query)
       }
 
       await this.#connectOnce()
@@ -178,12 +185,15 @@ export class MaxClient {
       // What is lost is only the ordering and the paging the store does better.
       if (!cache)
         return paged(
-          [...people.values()].filter((contact) => contact.id !== ""),
+          matchingPeople(
+            [...people.values()].filter((contact) => contact.id !== ""),
+            query,
+          ),
           limit,
           offset,
         )
 
-      return this.#pageOfContacts(cache, order, limit, offset)
+      return this.#pageOfContacts(cache, order, limit, offset, query)
     },
 
     /**
@@ -222,6 +232,42 @@ export class MaxClient {
   }
 
   readonly messages = {
+    /**
+     * **Searches what this machine has read, and never asks MAX.**
+     *
+     * MAX has no search operation in our registry — nine opcodes, none of them a query — so there
+     * is nothing to ask. That makes this the one read that is local by nature rather than by
+     * choice, and it is the opposite of the rule every other read follows (`df6792a`: the record
+     * does not answer a read).
+     *
+     * ⚠ **So it finds what has been read, not what exists.** A chat nobody has opened contributes
+     * nothing, and there is no way for the answer to know that. The command says so on stderr
+     * rather than leaving the reader to infer it from a short list, and `max messages list <chat>`
+     * is what fills the gap.
+     *
+     * It opens no connection at all, which also means it costs no login (`RISK-2`).
+     */
+    search: async (
+      query: string,
+      options: { chatId?: Id; limit?: number; offset?: number } = {},
+    ): Promise<Page<MessageHit>> => {
+      const checked = checkedQuery(query)
+      if (checked === undefined) throw new CliError("validation_error", "a search needs something to search for")
+
+      const cache = this.#cache
+      if (!cache) {
+        throw new CliError(
+          "not_found",
+          "searching reads the local copy, and this profile has none — run `max messages list <chat>` first",
+        )
+      }
+
+      const { chatId, limit = 20, offset = 0 } = options
+      const items = cache.messages.search({ query: checked, ...(chatId ? { chatId } : {}), limit, offset })
+      const total = cache.messages.countSearch({ query: checked, ...(chatId ? { chatId } : {}) })
+      return { items, hasMore: offset + items.length < total }
+    },
+
     /**
      * **Paged backwards through time, not by page number.** MAX's history is already anchored —
      * it takes a moment and answers with what came before it — so `--before` is exact where a page
@@ -486,9 +532,15 @@ export class MaxClient {
   }
 
   /** One page of contacts out of the store — the same query online and offline. */
-  #pageOfContacts(cache: CacheStore, order: PersonOrder, limit: number | undefined, offset: number): Page<Contact> {
-    const items = cache.people.contacts({ order, limit: limit ?? Number.MAX_SAFE_INTEGER, offset })
-    return { items, hasMore: offset + items.length < cache.people.countContacts() }
+  #pageOfContacts(
+    cache: CacheStore,
+    order: PersonOrder,
+    limit: number | undefined,
+    offset: number,
+    query?: string,
+  ): Page<Contact> {
+    const items = cache.people.contacts({ order, limit: limit ?? Number.MAX_SAFE_INTEGER, offset, query })
+    return { items, hasMore: offset + items.length < cache.people.countContacts({ query }) }
   }
 
   /**
@@ -680,6 +732,32 @@ export interface PageRequest {
   order?: PersonOrder
   limit?: number
   offset?: number
+  /** Part of a name. Refused below three characters — see `checkedQuery`. */
+  query?: string
+  kind?: ChatKind
+}
+
+/**
+ * **The shortest search the index can answer is three characters**, and below that it returns
+ * nothing rather than complaining (measured 2026-09-22). An empty list reads as "no matches",
+ * so this refuses instead — the one answer that is never mistaken for a result.
+ *
+ * It is checked here rather than in each command, and on every path rather than only where a
+ * store exists: a filter that works with a cache and not without it would make the answer depend
+ * on something the person never asked about.
+ */
+const MIN_QUERY = 3
+
+const checkedQuery = (query: string | undefined): string | undefined => {
+  if (query === undefined) return undefined
+  const trimmed = query.trim()
+  if (trimmed.length < MIN_QUERY) {
+    throw new CliError(
+      "validation_error",
+      `a search needs at least ${MIN_QUERY} characters — "${trimmed}" is ${trimmed.length}`,
+    )
+  }
+  return trimmed
 }
 
 /**
@@ -697,6 +775,35 @@ const batched = <T>(items: T[], size: number): T[][] => {
 }
 
 /** Paging over a list already in hand — the fallback for when there is no store to page in SQL. */
+/**
+ * The same filter as the store's, for the path where no store opened.
+ *
+ * ⚠ **This is a second implementation of one promise, and that is a cost paid knowingly.** The
+ * store asks a trigram index; here there is nothing to ask, so it is `includes` over a lowered
+ * string. For a needle of three characters or more the two agree — a trigram match *is* a
+ * substring match — and where they could drift is an alphabet whose lowercase form differs
+ * between SQLite's folding and JavaScript's. Nobody has hit that; if somebody does, the fix is
+ * this function, not the index.
+ *
+ * The alternative was to let a filter only work when a cache happened to exist, which makes the
+ * answer depend on something the person never asked about.
+ */
+const matching = (chats: Chat[], query: string | undefined, kind: ChatKind | undefined): Chat[] => {
+  const needle = query?.toLocaleLowerCase()
+  return chats.filter(
+    (chat) =>
+      (kind === undefined || chat.kind === kind) &&
+      (needle === undefined || (chat.title ?? "").toLocaleLowerCase().includes(needle)),
+  )
+}
+
+/** As `matching`, over the two columns `people_fts` indexes. */
+const matchingPeople = (people: Contact[], query: string | undefined): Contact[] => {
+  if (query === undefined) return people
+  const needle = query.toLocaleLowerCase()
+  return people.filter((person) => `${person.name ?? ""} ${person.username ?? ""}`.toLocaleLowerCase().includes(needle))
+}
+
 const paged = <T>(items: T[], limit: number | undefined, offset: number): Page<T> => {
   const page = limit === undefined ? items.slice(offset) : items.slice(offset, offset + limit)
   return { items: page, hasMore: offset + page.length < items.length }

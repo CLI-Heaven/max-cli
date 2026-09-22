@@ -1,5 +1,7 @@
+import { CliError } from "@leemour/cli-core"
 import { Command } from "commander"
 import { openProfileCache } from "../cache/index.js"
+import type { Id } from "../domain/models.js"
 import { forCommand } from "./context.js"
 import { renderPage } from "./paging.js"
 
@@ -32,6 +34,55 @@ export const messagesCommand = (): Command => {
           const chatId = await client.chats.resolve(chat)
           const before = options.before === undefined ? {} : { before: client.messages.before(String(options.before)) }
           renderPage(context, await client.messages.list(chatId, { limit: settings.limit, ...before }))
+        } finally {
+          await client.close()
+          cache?.close()
+        }
+      })
+    })
+
+  /**
+   * **Search reads this machine's copy and never asks MAX.**
+   *
+   * There is no search operation in MAX's protocol as we know it, so there is nothing to send.
+   * That makes this command the opposite of every other read here — it opens no socket, spends no
+   * login, and can only find what `max messages list` has already brought down.
+   *
+   * ⚠ **A short result is therefore ambiguous**, and the note on stderr is what resolves it: not
+   * "there are no such messages", but "there are none in what has been read". Saying so costs one
+   * line and is the difference between an answer and a misleading one.
+   */
+  command
+    .command("search")
+    .argument("<text>", "what to look for; at least 3 characters")
+    .description("find messages in what this machine has already read")
+    .option("--chat <id>", "only this chat; an id, because searching never connects to resolve a name")
+    .option("--limit <n>", "how many to show", (value) => Number.parseInt(value, 10))
+    .action(async function (this: Command, text: string) {
+      const options = this.optsWithGlobals()
+      const context = forCommand(options)
+      const { renderer, settings, createClient, run } = context
+      const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
+
+      await run("messages search", async (events) => {
+        const client = createClient({ events, ...(cache ? { cache } : {}), offline: true })
+
+        try {
+          // Resolving a chat by name would need the chat list, which needs a login — and this
+          // command promises not to. An id works offline; a name is refused with the reason.
+          const chatId = options.chat === undefined ? undefined : offlineChat(String(options.chat))
+
+          const found = await client.messages.search(text, {
+            ...(chatId === undefined ? {} : { chatId }),
+            limit: settings.limit,
+          })
+
+          renderer.note(
+            found.items.length === 0
+              ? "nothing matched what this machine has read — `max messages list <chat>` reads more"
+              : "searched the local copy only; a chat nobody has opened is not in it",
+          )
+          renderPage(context, found)
         } finally {
           await client.close()
           cache?.close()
@@ -81,4 +132,19 @@ export const messagesCommand = (): Command => {
     })
 
   return command
+}
+
+/**
+ * `--chat` on a search takes an id, because resolving a name needs the chat list and the chat list
+ * needs a login — which this command promises not to spend. Refused by name rather than silently
+ * searching every chat, since "I asked for one chat and got all of them" is a wrong answer.
+ */
+const offlineChat = (reference: string): Id => {
+  const trimmed = reference.trim()
+  if (/^-?\d+$/.test(trimmed)) return trimmed
+  throw new CliError(
+    "validation_error",
+    `\`messages search --chat\` takes a chat id, not a name — searching never connects, and a name ` +
+      `can only be resolved by asking MAX. \`max chats list --query ${trimmed}\` gives you the id.`,
+  )
 }

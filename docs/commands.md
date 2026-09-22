@@ -78,6 +78,8 @@ max chats list [options]
 | `--limit <n>` | how many to show |
 | `--page <n>` | which page, starting at 1 |
 | `--all` | every row, no paging |
+| `--query <text>` | only chats whose name contains this; at least 3 characters |
+| `--kind <dialog\|group\|channel>` | only chats of this kind |
 
 ## `max contacts`
 
@@ -96,6 +98,7 @@ max contacts list [options]
 | `--page <n>` | which page, starting at 1 |
 | `--all` | every row, no paging |
 | `--order <recent\|name>` | newest conversation first, or alphabetical |
+| `--query <text>` | only people whose name or @username contains this; at least 3 characters |
 
 ### `max contacts sync`
 
@@ -124,6 +127,23 @@ max messages list [options] <chat>
 |---|---|
 | `--limit <n>` | how many to read |
 | `--before <id-or-time>` | read what came before this message id, or this ISO 8601 time |
+
+### `max messages search`
+
+find messages in what this machine has already read
+
+```sh
+max messages search [options] <text>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `text` | обязательный | what to look for; at least 3 characters |
+
+| Опция | Что делает |
+|---|---|
+| `--chat <id>` | only this chat; an id, because searching never connects to resolve a name |
+| `--limit <n>` | how many to show |
 
 ### `max messages send`
 

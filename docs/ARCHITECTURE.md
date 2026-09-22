@@ -701,3 +701,57 @@ machine for a day because it swallowed its reason along with its failure (`NEED-
 
 What the fallback costs is the ordering and the paging, which the store does in SQL and an
 in-memory slice does worse. What it does not cost is the answer.
+
+## 16. Searching, and why it is FTS5 rather than `LIKE`
+
+Three indexes — `chats_fts`, `people_fts`, `messages_fts` — over tables that already hold the
+text. `content=` means FTS5 keeps the index and **not a second copy of the words**, reading the
+columns back by rowid. The file does not double, and message bodies do not get a second home in
+it.
+
+⚠ **`LIKE`, `lower()` and `COLLATE NOCASE` fold case for ASCII only.** Measured 2026-09-22 on
+SQLite 3.53.3: `LIKE '%иван%'` does not match `Иван Петров`, and neither do the other two. A name
+search built on them silently misses half a Russian address book — silently being the whole
+problem, since a short list reads as a complete one. FTS5's tokenizers fold case for any alphabet,
+which is why this is FTS5 at all.
+
+⚠ **`trigram`, not `unicode61`.** Measured the same day: `unicode61` matches whole words and
+prefixes, so `етро` finds nothing; `trigram` matches inside a word and finds `Иван Петров`.
+`chats.resolve` has always matched with `includes()`, so substring is the behaviour that was
+already promised, and two name searches in one tool must not disagree.
+
+Measured on both runtimes and identical: `node:sqlite` 3.53.3 and `bun:sqlite` 3.53.0 both ship
+FTS5 with `trigram` and external content, with no flag and no rebuild.
+
+### Three things that bite
+
+**A trigram index cannot answer a query shorter than three characters**, and returns nothing
+rather than failing. So the client refuses one — `checkedQuery` in `src/client.ts` — because an
+empty list is indistinguishable from "no matches". It refuses on every path, including the one
+where no cache opened and a JavaScript filter could have coped, so the answer never depends on
+whether a cache happens to exist.
+
+**What the person typed is data, not a query.** FTS5 reads its argument as an expression:
+`O'Brien` is a syntax error, `a-b` is a column that does not exist, a lone `"` never terminates. A
+chat named `O'Brien & Co` would take the command down with it. `phrase()` in `src/cache/store.ts`
+wraps the input as one literal and doubles any quote inside; it is the only place a `MATCH`
+argument is built.
+
+**An external-content index does not follow its table.** Rename a chat with no trigger in place
+and a search for the *old* title still matches the row, handing back the new name — nothing
+errors, the index simply lies. SQLite also reuses a freed rowid, so a deleted chat can bequeath
+its words to the next one. Hence triggers, and triggers rather than writes in TypeScript because
+there are four write paths and forgetting one is invisible. They were verified against this
+project's real statements — `INSERT … ON CONFLICT DO UPDATE`, with `people` resolving its columns
+through `coalesce` — not against a plain `UPDATE` that the code never issues.
+
+### Searching messages is the one read that never connects
+
+MAX has no search operation in our registry, so there is nothing to send. `max messages search`
+opens no socket and spends no login, which makes it the exact opposite of the rule every other
+read follows (`df6792a`: the record does not answer a read).
+
+⚠ **It therefore finds what has been read, not what exists.** A chat nobody has opened contributes
+nothing and the answer has no way to know it. The command says so on stderr rather than leaving a
+short list to be misread, and `--chat` takes an id rather than a name, because resolving a name
+would need the chat list and the chat list would need the login this command promises not to spend.

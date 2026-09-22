@@ -117,6 +117,35 @@ describe("the program", () => {
     expect(list.stdout).not.toContain("--silent")
   })
 
+  it("**refuses a search shorter than the index can answer**, instead of printing an empty list", async () => {
+    // A trigram index returns nothing for one or two characters rather than complaining, and an
+    // empty list is indistinguishable from "no matches". Measured 2026-09-22.
+    const { code, stderr } = await runWith(["chats", "list", "--query", "ив"])
+    expect(code).not.toBe(0)
+    expect(stderr).toContain("3 characters")
+  })
+
+  it("refuses an unknown --kind by name, rather than answering with nothing", async () => {
+    const { code, stderr } = await runWith(["chats", "list", "--kind", "chanel"])
+    expect(code).not.toBe(0)
+    expect(stderr).toContain("dialog, group or channel")
+  })
+
+  it("offers searching as an action under `messages`, with the same shape as the rest", async () => {
+    const { stdout } = await runWith(["messages", "--help"])
+    expect(stdout).toContain("search")
+
+    const search = await runWith(["messages", "search", "--help"])
+    expect(search.stdout).toContain("--chat")
+    expect(search.stdout).toContain("already read")
+  })
+
+  it("**refuses a chat name on a search**, because resolving one would need a login", async () => {
+    const { code, stderr } = await runWith(["messages", "search", "hello", "--chat", "Иван"])
+    expect(code).not.toBe(0)
+    expect(stderr).toContain("chat id")
+  })
+
   it("does not mistake a command for a profile", () => {
     const program = createProgram()
     expect(liftProfile(["chats", "list"], commandWords(program)).profile).toBeUndefined()

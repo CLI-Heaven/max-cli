@@ -47,6 +47,17 @@ export interface Message {
   attachments: Attachment[]
 }
 
+/**
+ * A message found by searching, carrying the chat's name as well as its id.
+ *
+ * A search spans every chat, so an answer that named only the id would make the reader look each
+ * one up to understand their own results. The title is what the store already holds; it is `null`
+ * for a chat MAX never titled.
+ */
+export interface MessageHit extends Message {
+  chatTitle: string | null
+}
+
 export interface Contact {
   id: Id
   name: string | null
