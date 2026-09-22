@@ -131,7 +131,7 @@ describe("the program", () => {
   it("**refuses a search shorter than the index can answer**, instead of printing an empty list", async () => {
     // A trigram index returns nothing for one or two characters rather than complaining, and an
     // empty list is indistinguishable from "no matches". Measured 2026-09-22.
-    const { code, stderr } = await runWith(["chats", "list", "--query", "ив"])
+    const { code, stderr } = await runWith(["chats", "list", "--search", "ив"])
     expect(code).not.toBe(0)
     expect(stderr).toContain("3 characters")
   })

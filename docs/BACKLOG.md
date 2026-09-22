@@ -216,7 +216,7 @@ meaning: `CLI-6` is the settings item.
 - **CLI-8** · P2 · **`--silent` on `messages send`.** The wire already carries it — `notify` is in
   the request (`src/spec/operations/messages.ts:22`) and `MaxClient.messages.send` takes it
   (`src/client.ts:310`); only the flag is missing. Ships with `OPS-4` (`NEED-112`).
-- **CLI-9** · ✅ Closed 2026-09-22 — `--query` and `--kind` on `chats list`, `--query` on
+- **CLI-9** · ✅ Closed 2026-09-22 — `--search` and `--kind` on `chats list`, `--search` on
   `contacts list`, all three backed by FTS5 with the `trigram` tokenizer. Why it is an index and
   not a `WHERE`: [`ARCHITECTURE.md`](ARCHITECTURE.md) §16.
 

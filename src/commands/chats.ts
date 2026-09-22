@@ -9,7 +9,7 @@ export const chatsCommand = (): Command => {
   const command = new Command("chats").description("the chats this account is in")
 
   withPaging(command.command("list").description("the chats this account is in"))
-    .option("--query <text>", "only chats whose name contains this; at least 3 characters")
+    .option("--search <text>", "only chats whose name contains this; at least 3 characters")
     .option("--kind <dialog|group|channel>", "only chats of this kind")
     .action(async function (this: Command) {
       const options = this.optsWithGlobals()
@@ -25,7 +25,7 @@ export const chatsCommand = (): Command => {
             context,
             await client.chats.list({
               ...window(settings),
-              ...(options.query === undefined ? {} : { query: String(options.query) }),
+              ...(options.search === undefined ? {} : { query: String(options.search) }),
               ...(options.kind === undefined ? {} : { kind: chatKind(options.kind) }),
             }),
           )

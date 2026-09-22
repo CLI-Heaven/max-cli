@@ -80,7 +80,7 @@ max chats list [options]
 | `--limit <n>` | how many to show |
 | `--page <n>` | which page, starting at 1 |
 | `--all` | every row, no paging |
-| `--query <text>` | only chats whose name contains this; at least 3 characters |
+| `--search <text>` | only chats whose name contains this; at least 3 characters |
 | `--kind <dialog\|group\|channel>` | only chats of this kind |
 
 ## `max contacts`
@@ -100,7 +100,7 @@ max contacts list [options]
 | `--page <n>` | which page, starting at 1 |
 | `--all` | every row, no paging |
 | `--order <recent\|name>` | newest conversation first, or alphabetical |
-| `--query <text>` | only people whose name or @username contains this; at least 3 characters |
+| `--search <text>` | only people whose name or @username contains this; at least 3 characters |
 
 ### `max contacts sync`
 
