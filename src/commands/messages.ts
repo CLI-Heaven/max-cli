@@ -1,8 +1,9 @@
 import { CliError } from "@leemour/cli-core"
 import { Command } from "commander"
 import { openProfileCache } from "../cache/index.js"
-import type { Id } from "../domain/models.js"
-import { forCommand } from "./context.js"
+import type { Id, Message } from "../domain/models.js"
+import { type CommandContext, forCommand } from "./context.js"
+import { renderMessages } from "./message-view.js"
 import { renderPage } from "./paging.js"
 
 export const messagesCommand = (): Command => {
@@ -33,7 +34,12 @@ export const messagesCommand = (): Command => {
         try {
           const chatId = await client.chats.resolve(chat)
           const before = options.before === undefined ? {} : { before: client.messages.before(String(options.before)) }
-          renderPage(context, await client.messages.list(chatId, { limit: settings.limit, ...before }))
+          renderPage(
+            context,
+            await client.messages.list(chatId, { limit: settings.limit, ...before }),
+            feed(context, chatId),
+            ([oldest]) => `older ones: \`--before ${oldest?.id}\``,
+          )
         } finally {
           await client.close()
           cache?.close()
@@ -82,7 +88,7 @@ export const messagesCommand = (): Command => {
               ? "nothing matched what this machine has read — `max messages list <chat>` reads more"
               : "searched the local copy only; a chat nobody has opened is not in it",
           )
-          renderPage(context, found)
+          renderPage(context, found, feed(context, chatId), () => "more matched — raise `--limit`")
         } finally {
           await client.close()
           cache?.close()
@@ -133,6 +139,16 @@ export const messagesCommand = (): Command => {
 
   return command
 }
+
+const feed =
+  ({ color, settings }: CommandContext, chatId?: string) =>
+  (messages: Message[]) =>
+    renderMessages(messages, {
+      color,
+      senderColors: settings.senderColors,
+      width: process.stdout.columns,
+      ...(chatId === undefined ? {} : { chatId }),
+    })
 
 /**
  * `--chat` on a search takes an id, because resolving a name needs the chat list and the chat list

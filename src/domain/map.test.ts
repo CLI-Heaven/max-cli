@@ -75,7 +75,11 @@ const messageWire = {
   cid: 35,
   text: "hello",
   elements: [],
-  attaches: [{ _type: "PHOTO", photoId: 1 }, { _type: "FILE" }],
+  attaches: [
+    { _type: "PHOTO", photoId: 1, baseUrl: "https://i.example/p1", width: 800, height: 600, photoToken: "t" },
+    { _type: "SHARE", url: "https://example.com/a", title: "A page" },
+    { _type: "FILE" },
+  ],
   reactionInfo: {},
 }
 
@@ -101,8 +105,12 @@ describe("toMessage", () => {
     expect(toMessage(messageWire, "7268926").senderName).toBeNull()
   })
 
-  it("reports attachments by kind and keeps none of their content", () => {
-    expect(toMessage(messageWire, "7268926").attachments).toEqual([{ kind: "photo" }, { kind: "file" }])
+  it("reports attachments by kind with their link and size, and nothing else of the wire", () => {
+    expect(toMessage(messageWire, "7268926").attachments).toEqual([
+      { kind: "photo", url: "https://i.example/p1", width: 800, height: 600 },
+      { kind: "share", url: "https://example.com/a", title: "A page" },
+      { kind: "file" },
+    ])
   })
 
   it("does not lose a message because it has no text", () => {
