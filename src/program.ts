@@ -3,6 +3,7 @@ import { Command, CommanderError } from "commander"
 import { accountCommand } from "./commands/account.js"
 import { cacheCommand } from "./commands/cache.js"
 import { chatsCommand } from "./commands/chats.js"
+import { configCommand } from "./commands/config.js"
 import { contactsCommand } from "./commands/contacts.js"
 import { messagesCommand } from "./commands/messages.js"
 import { runsCommand } from "./commands/runs.js"
@@ -65,6 +66,7 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
   program.addCommand(chatsCommand())
   program.addCommand(contactsCommand())
   program.addCommand(messagesCommand())
+  program.addCommand(configCommand())
   program.addCommand(cacheCommand())
   program.addCommand(runsCommand())
 

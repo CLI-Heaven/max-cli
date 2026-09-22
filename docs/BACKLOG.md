@@ -220,22 +220,23 @@ meaning: `CLI-6` is the settings item.
   `contacts list`, all three backed by FTS5 with the `trigram` tokenizer. Why it is an index and
   not a `WHERE`: [`ARCHITECTURE.md`](ARCHITECTURE.md) §16.
 
-- **CLI-10** · P2 · **`--timeout` bounds the command, not one request.** `timeoutMs` is how long to
-  wait for one opcode answer (`src/protocol/connection.ts:75`) and comes only from the
-  configuration file, while a read is connect + INIT + LOGIN + resolve + history — so an agent
-  given a thirty-second budget has no way to say so. Settle the environment layer with it: the
-  resolver's own comment promises flag-then-environment-then-file and only `MAX_PROFILE` has the
-  middle one (`src/config.ts:77`, `src/config.ts:90`). Ships with `OPS-4` (`NEED-112`).
+- **CLI-10** · ✅ Closed 2026-09-22 — `--timeout <duration>` bounds the whole command and closes
+  the sockets when it fires; `MAX_TIMEOUT` joins `MAX_PROFILE` as the only settings with an
+  environment layer (`NEED-119`). It is not `timeoutMs`, which stays one request's wait
+  ([`configuration.md`](configuration.md)).
 - **CLI-11** · ✅ Closed 2026-09-23 — the body reads from stdin when the argument is left off, so a
   multiline message is writable at all and the text stays out of `ps` and shell history. Omission
   is the signal rather than a `--stdin` flag, because `session start` already reads a piped token
   that way. A terminal is refused, never waited at.
-- **CLI-14** · P2 · **Show the profiles that exist, and the settings in force.** `CLI-9` left this
-  behind deliberately: a filter on a listing is not the place for it, and `max profiles` would
-  collide with the first-word-is-the-profile rule. `max config show` is the cheap half of `CLI-12`
-  and does not wait for the rest of it. No field in the configuration can hold a secret by
-  construction (`src/config.ts:11-22`), so it can be printed whole. From the `tgcli` comparison
-  (`NEED-112`).
+- **CLI-14** · ✅ Closed 2026-09-22 — `max config show`: the settings in force, which layer chose
+  the profile, and the profiles the file lists. ⚠ It reads files only — no keyring, no cache, no
+  MAX — so "is my session alive" is still `CLI-12`.
+- **CLI-15** · P2 · **Make a command's output testable.** `forCommand` builds its own renderer
+  over the real streams and its own `SessionStore`, so `runWith` in `program.test.ts` sees help and
+  errors and **nothing a command prints** (`FIND-53`). It has cost twice now: the ordering in
+  `session start` had to move into `src/session/adopt.ts` to be provable at all, and two tests
+  written for `config show` would have passed against an empty string. Inject streams, store and
+  connection through `forCommand`; it touches all eight commands, which is why it is its own item.
 - **CLI-12** · P2 · **`max doctor`, and reading the effective settings.** Nothing shows the state a
   command depends on, and one trap has no other way of being seen: `MAX_CONFIG_DIR`,
   `MAX_STATE_DIR` and `MAX_CACHE_DIR` change the keyring service name, so a login under them

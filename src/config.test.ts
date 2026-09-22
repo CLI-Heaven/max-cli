@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { beforeEach, describe, expect, it } from "vitest"
-import { resolveSettings } from "./config.js"
+import { configuredProfiles, resolveSettings } from "./config.js"
 
 let configDir: string
 
@@ -14,6 +14,35 @@ const settings = (flags = {}, env: NodeJS.ProcessEnv = {}) => resolveSettings(fl
 
 beforeEach(() => {
   configDir = mkdtempSync(join(tmpdir(), "max-config-"))
+})
+
+describe("where the profile came from", () => {
+  it("names the layer that decided it, so nobody has to re-derive the order", () => {
+    expect(settings().profileFrom).toBe("the built-in default")
+    expect(settings({}, { MAX_PROFILE: "work" }).profileFrom).toBe("MAX_PROFILE")
+    expect(settings({ profile: "work" }, { MAX_PROFILE: "other" }).profileFrom).toBe("the first word")
+  })
+
+  it("credits the file when the file is what decided it", () => {
+    withConfig(JSON.stringify({ defaultProfile: "work" }))
+    expect(settings().profile).toBe("work")
+    expect(settings().profileFrom).toBe("defaultProfile in the file")
+  })
+})
+
+describe("the profiles a file lists", () => {
+  it("**is not every profile that works**, and the command that prints it has to say so", () => {
+    withConfig(JSON.stringify({ profiles: { default: { limit: 5 }, work: {} } }))
+    expect(configuredProfiles({ env: {}, configDir })).toEqual(["default", "work"])
+
+    // `max <name> session start` stores a token under any name and writes nothing to the file, so
+    // this list under-reports by design. `max config show` says as much on every run.
+    expect(configuredProfiles({ env: {}, configDir })).not.toContain("personal")
+  })
+
+  it("is empty, not an error, when there is no file", () => {
+    expect(configuredProfiles({ env: {}, configDir })).toEqual([])
+  })
 })
 
 describe("--timeout", () => {

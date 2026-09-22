@@ -166,6 +166,17 @@ max messages send [options] <chat> [text]
 | `--cid <n>` | reuse a client id from an earlier ambiguous send; MAX collapses the duplicate |
 | `--silent` | deliver without a notification |
 
+## `max config`
+
+the settings in force, and where they came from
+### `max config show`
+
+the settings in force, and where they came from
+
+```sh
+max config show [options]
+```
+
 ## `max cache`
 
 the local copy of chats, contacts and messages
