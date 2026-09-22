@@ -52,6 +52,27 @@ expect(sends.map((call) => call.payload.message.cid)).toEqual([4242, 4242])   //
 An opcode with no scripted answer is recorded in `max.unexpected`, so a client that asks for
 something the test did not expect cannot pass for the wrong reason.
 
+## No test touches the owner's own files
+
+⚠ **`pnpm test` runs with config, state and cache pointed at a temporary directory**, set by
+`src/testing/sandbox.ts` and wired in as a vitest `setupFiles`, so it applies to every test file
+rather than to the one that remembered.
+
+This is not precaution. On 2026-09-22 a new test drove a real command for the first time — until
+then the suite only checked argument parsing — and the command opened the **real** cache. Opening
+it migrates it, and that day's change was a schema bump, so the migration rebuilt it and threw the
+owner's cached history away. Nothing failed; it was noticed from a file timestamp.
+
+The three variables also scope the keyring entry, which is the trap documented in
+[`ARCHITECTURE.md`](ARCHITECTURE.md) §14 and here is exactly the isolation wanted.
+
+**Check it still holds** rather than trusting it — comment out `setupFiles` and watch the real
+cache file's timestamp move:
+
+```sh
+stat -c %Y ~/.cache/max-cli/default.db && pnpm vitest run src/program.test.ts && stat -c %Y ~/.cache/max-cli/default.db
+```
+
 ## No test touches a real keychain
 
 The keyring is one injected function from `cli-core`, replaced by `memoryKeyring()` in every test.
