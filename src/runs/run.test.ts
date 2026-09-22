@@ -1,19 +1,29 @@
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it } from "vitest"
 import { findRun, listRuns, pruneRuns, readEvents, startRun } from "./run.js"
 
 const runsDir = () => join(mkdtempSync(join(tmpdir(), "max-runs-")), "runs")
 
-const begin = (dir: string, command = "chats list", now?: () => Date) =>
-  startRun({
+// Every run a test starts is finished after it: the log opens its file asynchronously, and one
+// left open outlived the test's sandbox and failed the whole run with ENOENT.
+const started: ReturnType<typeof startRun>[] = []
+afterEach(async () => {
+  await Promise.all(started.splice(0).map((run) => run.finish("success")))
+})
+
+const begin = (dir: string, command = "chats list", now?: () => Date) => {
+  const run = startRun({
     runsDir: dir,
     command,
     profile: "default",
     cliVersion: "0.0.0",
     ...(now ? { now } : {}),
   })
+  started.push(run)
+  return run
+}
 
 describe("a run directory", () => {
   it("exists before the command does anything, and says it is running", () => {
