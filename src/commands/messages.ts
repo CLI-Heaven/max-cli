@@ -1,7 +1,7 @@
 import { CliError } from "@leemour/cli-core"
 import { Command } from "commander"
 import { openProfileCache } from "../cache/index.js"
-import type { Id, Message } from "../domain/models.js"
+import type { Id, Message, WindowedMessage } from "../domain/models.js"
 import { renderMessages } from "../rendering/messages.js"
 import { readBody } from "./body.js"
 import { type CommandContext, forCommand } from "./context.js"
@@ -97,6 +97,27 @@ export const messagesCommand = (): Command => {
       })
     })
 
+  command
+    .command("show")
+    .argument("<chat>", "chat id, or part of a chat name")
+    .argument("<message>", "message id")
+    .description("one message by its id")
+    .action(async function (this: Command, chat: string, messageId: string) {
+      await readWindow(this, chat, messageId, { before: 0, after: 0 }, "messages show")
+    })
+
+  command
+    .command("context")
+    .argument("<chat>", "chat id, or part of a chat name")
+    .argument("<message>", "message id")
+    .description("a message and what came either side of it, oldest first")
+    .option("--before <n>", "how many before it", count, 5)
+    .option("--after <n>", "how many after it", count, 5)
+    .action(async function (this: Command, chat: string, messageId: string) {
+      const { before, after } = this.opts<{ before: number; after: number }>()
+      await readWindow(this, chat, messageId, { before, after }, "messages context")
+    })
+
   /**
    * One message, one command, no retry.
    *
@@ -173,4 +194,44 @@ const offlineChat = (reference: string): Id => {
     `\`messages search --chat\` takes a chat id, not a name — searching never connects, and a name ` +
       `can only be resolved by asking MAX. \`max chats list --search ${trimmed}\` gives you the id.`,
   )
+}
+
+const count = (value: string): number => {
+  const parsed = Number.parseInt(value, 10)
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 100) {
+    throw new CliError("validation_error", `expected a number from 0 to 100, not "${value}"`)
+  }
+  return parsed
+}
+
+/**
+ * `show` is a window of none either side. **In JSON the one asked for carries `anchor: true`**
+ * (`NEED-131`); `show` answers the bare message, `context` an object holding the window.
+ */
+const readWindow = async (
+  command: Command,
+  chat: string,
+  messageId: string,
+  window: { before: number; after: number },
+  name: string,
+): Promise<void> => {
+  const context = forCommand(command.optsWithGlobals())
+  const { renderer, settings, createClient, run, format, streams } = context
+  const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
+
+  await run(name, async (events) => {
+    const client = createClient({ events, ...(cache ? { cache } : {}) })
+    try {
+      const chatId = await client.chats.resolve(chat)
+      const found: WindowedMessage[] = await client.messages.around(chatId, messageId.trim(), window)
+      const single = window.before === 0 && window.after === 0
+
+      if (format === "pretty") streams.data(feed(context)(found))
+      else if (format === "jsonl") renderer.stream(found)
+      else renderer.result(single ? found[0] : { items: found })
+    } finally {
+      await client.close()
+      cache?.close()
+    }
+  })
 }

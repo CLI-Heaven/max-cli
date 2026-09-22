@@ -96,13 +96,10 @@ now, in their own pass. How to add an operation is
   documents that already exist are left alone** — a new section inside one of them follows the
   language of the file it lands in. Ships with `OPS-4`; plan:
   `docs_ai/plans/2026-09-20-first-release.md`.
-- **DOC-3** · P2 · **The file an agent is pointed at, rather than a person.** `tgcli` ships a skill
-  its users install in one line, and it is not a list of flags — it is a list of traps, with the
-  boundary of what the tool is not for. `DOC-2` is documentation for a person and `OPS-10` is a
-  generated option table; neither is this, and `README.md` claims the tool is built for agents
-  first. Half the content is already written: `docs_ai/HANDOFF.md` §4 — ids past 2⁵³ are strings,
-  a retry reuses the same `cid`, reading never marks anything read, the first word is the profile,
-  and `MAX_CONFIG_DIR` moves the keyring entry. From the `tgcli` comparison (`NEED-112`).
+- **DOC-3** · ✅ Closed 2026-09-22 — [`skills/max-cli/SKILL.md`](../skills/max-cli/SKILL.md), in
+  Russian like every new document, shipped in the package and printed by `max skill show`
+  (`NEED-132`). Traps and boundaries, not flags; a test fails if it names a flag or a command
+  that does not exist.
 
 ## Repository and tooling
 
@@ -246,12 +243,10 @@ meaning: `CLI-6` is the settings item.
   `--connect` separately, because reaching MAX costs a login. Answering "is there a session at all"
   is part of it — today that question costs a real command. From the `tgcli` comparison
   (`NEED-112`).
-- **CLI-13** · P3 · **Reading past a window of one chat.** `messages show <id>`, and
-  `messages context <id> --before N --after N` — a window either side of one message rather than
-  only what came before it. `messages list --before <id-or-time>` already walks backwards
-  (`src/commands/messages.ts:21`), so what is missing is one message by id and the forward half.
-  The index `MAX-13` built is already there for it. From the `tgcli` comparison
-  (`NEED-112`).
+- **CLI-13** · ✅ Closed 2026-09-22 — `messages show <chat> <id>` and `messages context <chat> <id>
+  --before N --after N` (`NEED-130`, `NEED-131`). A message's time is its id shifted right by 16
+  bits, measured, so neither needs a stored copy, and `--before <id>` on `list` no longer does
+  either ([`ARCHITECTURE.md`](ARCHITECTURE.md) §10).
 - **CLI-5** · P3 · The debug escape hatch — `max raw` / `max protocol invoke` — spec-validated,
   explicitly advanced, never arbitrary packet injection (§22).
 

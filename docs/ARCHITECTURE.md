@@ -376,6 +376,17 @@ Widths are measured with `string-width`, never `length`, so `张伟` and `👨�
 through `util.styleText`, **but the decision is ours**: Node leaves a pipe unstyled, Bun 1.3.14
 styles it anyway (measured 2026-09-22). The JSON is untouched; `--jsonl` gives one object per line.
 
+### A message id carries its time
+
+Measured 2026-09-22 on three messages across two days: **`id >> 16` is the send time in
+milliseconds, exactly**; the low 16 bits are a counter (`timeOfMessageId`). So a message is
+located by its id alone, with no stored copy.
+
+`CHAT_HISTORY` from that time, measured the same day: `backward: n` answers n messages ending with
+it, `forward: n` the n after it, oldest first; `0/0` answers nothing. `messages context` asks for
+`before + 1` back and `after` forward, and **refuses when the id is not in the answer** — MAX
+answers with the nearest messages, and showing a neighbour as the one asked for would be a lie.
+
 ### Attachments carry their link
 
 Measured 2026-09-22 with `pnpm probe:attachments` on a group chat: a `PHOTO` carries `baseUrl`

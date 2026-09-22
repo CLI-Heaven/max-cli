@@ -161,6 +161,11 @@ describe("how much is shown", () => {
 })
 
 describe("a conversation", () => {
+  it("marks the message a window was taken around", () => {
+    const out = renderMessages([message(), { ...message({ id: "2" }), anchor: true as const }], plain)
+    expect(out.split("\n").filter((line) => line.endsWith("◀"))).toEqual(["10:05:12  Анна  ◀"])
+  })
+
   it("separates the days, and only where the date changes", () => {
     const out = renderMessages(
       [

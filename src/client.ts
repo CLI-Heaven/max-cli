@@ -1,7 +1,18 @@
 import { CliError } from "@leemour/cli-core"
 import type { CacheStore, PersonOrder, SyncSummary } from "./cache/store.js"
 import { namesFrom, toChat, toContact, toMessage, toProfile } from "./domain/map.js"
-import type { Chat, ChatKind, Contact, Id, Message, MessageHit, Page, Profile } from "./domain/models.js"
+import {
+  type Chat,
+  type ChatKind,
+  type Contact,
+  type Id,
+  type Message,
+  type MessageHit,
+  type Page,
+  type Profile,
+  timeOfMessageId,
+  type WindowedMessage,
+} from "./domain/models.js"
 import { type Invoke, wireClient } from "./generated/client.generated.js"
 import { asFirstWord } from "./profile.js"
 import { Connection, ProtocolError } from "./protocol/connection.js"
@@ -290,58 +301,50 @@ export class MaxClient {
         return { items: stored, hasMore: stored.length >= limit }
       }
 
-      await this.#connectOnce()
-      const session = this.#session()
-
-      // `interactive: false` and no CHAT_MARK: reading history must not mark anything read (§19).
-      const answer = await this.#wire.chats.history({
-        chatId,
-        from: options.before ?? Date.now(),
-        forward: 0,
-        backward: limit,
-        forwardTime: 0,
-        backwardTime: 0,
-        itemType: "REGULAR",
-        getChat: false,
-        getMessages: true,
-        interactive: false,
-      })
-
-      const lookup = { names: namesFrom(session.contacts), ...viewer(this.#store) }
-      const messages = asArray(answer.messages).map((raw) => toMessage(raw, chatId, lookup))
-      this.#cache?.messages.write(chatId, messages)
+      const messages = await this.#history(chatId, { from: options.before ?? Date.now(), backward: limit, forward: 0 })
       return { items: messages, hasMore: messages.length >= limit }
+    },
+
+    /**
+     * **One message and a window either side of it**, oldest first, the one asked for marked
+     * `anchor: true`.
+     *
+     * Measured 2026-09-22: from a message's own time, `backward: n` answers n messages ending with
+     * it and `forward: n` the n after it. Its time comes from its id, so no stored copy is needed.
+     *
+     * ⚠ **A message that is gone is refused, not replaced by its neighbour** — MAX answers with
+     * whatever is nearest, and showing that as the message asked for would be a quiet lie.
+     */
+    around: async (
+      chatId: Id,
+      messageId: Id,
+      { before = 0, after = 0 }: { before?: number; after?: number } = {},
+    ): Promise<WindowedMessage[]> => {
+      const time = timeOfMessageId(messageId)
+      if (time === undefined) throw new CliError("validation_error", `"${messageId}" is not a message id`)
+
+      const found = this.#offline
+        ? (this.#cache?.messages.window(chatId, time, before + 1, after) ?? [])
+        : await this.#history(chatId, { from: time, backward: before + 1, forward: after })
+
+      if (!found.some((message) => message.id === messageId)) {
+        throw new CliError("not_found", `no message ${messageId} in chat ${chatId} — deleted, or in another chat`)
+      }
+      return found.map((message) => (message.id === messageId ? { ...message, anchor: true } : message))
     },
 
     /**
      * Turns what `--before` was given into a moment.
      *
-     * **ISO 8601 is a time; a bare integer is a message id.** Both a millisecond timestamp and a
-     * message id are runs of digits — 13 and 18 of them on this account — and deciding between
-     * them by length is a trap that fires the first time either changes size. So the rule is what
-     * the string looks like, not how big it is.
-     *
-     * An id we have never stored is exactly what a deleted message looks like, because it is gone
-     * from the history MAX returns too. That is a refusal naming the way round it rather than a
-     * guess: read as milliseconds, an 18-digit id points six hundred million years from now.
+     * **ISO 8601 is a time; a bare integer is a message id**, and a message id carries its own time
+     * (`timeOfMessageId`). Deciding between the two by length would be a trap that fires the first
+     * time either changes size, so the rule is what the string looks like.
      */
     before: (reference: string): number => {
       const wanted = reference.trim()
-
-      if (!/^\d+$/.test(wanted)) {
-        const time = Date.parse(wanted)
-        if (Number.isNaN(time)) {
-          throw new CliError("validation_error", `--before takes a message id or an ISO 8601 time, not "${wanted}"`)
-        }
-        return time
-      }
-
-      const time = this.#cache?.messages.timeOf(wanted)
-      if (time === undefined) {
-        throw new CliError(
-          "not_found",
-          `no message ${wanted} in this profile's record — read the chat once first, or give --before an ISO 8601 time`,
-        )
+      const time = /^\d+$/.test(wanted) ? timeOfMessageId(wanted) : Date.parse(wanted)
+      if (time === undefined || Number.isNaN(time)) {
+        throw new CliError("validation_error", `--before takes a message id or an ISO 8601 time, not "${wanted}"`)
       }
       return time
     },
@@ -582,6 +585,27 @@ export class MaxClient {
    * no login, and is over before a socket would have finished its handshake. `connect()` stays
    * public for the one command that must reach MAX to mean anything — starting a session.
    */
+  /** `interactive: false` and never `CHAT_MARK`: reading history must not mark anything read (§19). */
+  async #history(chatId: Id, window: { from: number; backward: number; forward: number }): Promise<Message[]> {
+    await this.#connectOnce()
+    const session = this.#session()
+    const answer = await this.#wire.chats.history({
+      chatId,
+      ...window,
+      forwardTime: 0,
+      backwardTime: 0,
+      itemType: "REGULAR",
+      getChat: false,
+      getMessages: true,
+      interactive: false,
+    })
+
+    const lookup = { names: namesFrom(session.contacts), ...viewer(this.#store) }
+    const messages = asArray(answer.messages).map((raw) => toMessage(raw, chatId, lookup))
+    this.#cache?.messages.write(chatId, messages)
+    return messages
+  }
+
   async #connectOnce(): Promise<void> {
     if (!this.#login) await this.connect()
   }
