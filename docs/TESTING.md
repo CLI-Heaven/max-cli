@@ -101,6 +101,11 @@ that a missing file is not an error, and that a misspelled field is refused **by
 failure the schema exists to prevent. `src/output.test.ts` drives the protocol note from where it
 is raised to where it lands, which is what `--quiet` was silently failing to cover (`BUG-7`).
 
+**`pnpm probe:token`** answers whether the login returns a rotated token. It prints the login
+answer's **field names**, then three booleans about `token` — is it a string, is it empty, is it
+the one we sent — and never the value, not a prefix and not a length. It writes nothing: not the
+keyring, not the state file.
+
 **`pnpm probe:contacts`** re-measures the login's delta markers and prints no content
 ([`ARCHITECTURE.md`](ARCHITECTURE.md) §7). It is a probe, not a test: it needs a real session.
 

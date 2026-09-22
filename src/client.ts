@@ -404,7 +404,40 @@ export class MaxClient {
       lastLoginAt: new Date().toISOString(),
     })
 
+    this.#keepRotatedToken(token)
     this.#mergeLogin(viewerId)
+  }
+
+  /**
+   * **MAX offers a replacement for a credential that has aged, and until 2026-09-22 we threw it
+   * away** — measured, `pnpm probe:token`. Presenting a token pasted months earlier answers with a
+   * different one; presenting *that* one answers with the same one back, so this writes once and
+   * then stops rather than on every command.
+   *
+   * The old token keeps working — the last months are the proof — so this is hygiene, not repair.
+   *
+   * ⚠ **After the identity refusal above, never before it.** A token belonging to somebody else
+   * reaches this method only if that check has already let it through; persisting it earlier would
+   * overwrite the owner's working credential with a stranger's — a worse version of the defect
+   * `MAX-12` exists to fix.
+   *
+   * **A keyring that will not take it does not fail the command.** The write can fail for reasons
+   * that have nothing to do with the command being run — a locked keyring, no session bus — and
+   * the old token still works, which is what makes carrying on correct. The reason goes to the
+   * diagnostic stream, because failing quietly is not failing invisibly (`NEED-97`).
+   *
+   * Nothing here prints, returns or compares-aloud the value: the only comparison is against the
+   * token we sent, and the only thing that leaves is whether a write failed.
+   */
+  #keepRotatedToken(sent: string): void {
+    const rotated = this.#session().token
+    if (typeof rotated !== "string" || rotated === "" || rotated === sent) return
+
+    try {
+      this.#store.writeToken(rotated)
+    } catch (error) {
+      this.#warn(`the refreshed session could not be saved, so the previous one is still in use: ${reasonOf(error)}`)
+    }
   }
 
   /**

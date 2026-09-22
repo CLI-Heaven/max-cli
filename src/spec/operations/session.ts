@@ -87,6 +87,22 @@ export const sessionLogin = defineOperation({
      * Left as `unknown` until somebody looks (`PROTO-6`). `pnpm probe:ids` reports its type and key count.
      */
     messages: v.optional(v.unknown()),
+    /**
+     * **A replacement for a credential that has aged** — measured on the real account 2026-09-22
+     * (`pnpm probe:token`). Logging in with a token pasted months earlier answers with a different
+     * one; logging in with *that* one answers with the same one back. So it is an exchange that
+     * happens once, not a rotation on every login.
+     *
+     * It was undeclared until then, so the exchange happened on every login and the client threw
+     * the result away, leaving the profile on whatever was pasted in months ago (`MAX-11`,
+     * `NEED-106`). The old token goes on working, which is why this is hygiene rather than repair.
+     * `NEED-8` had asserted the rotation in 2026-09-18 on the strength of `tsmax/src/app.ts:99` —
+     * somebody else's client — which is a claim; this is the measurement.
+     *
+     * ⚠ **It is a credential.** Nothing may print it, log it or put it in a fixture. `MaxClient`
+     * writes it to the keyring and never returns it.
+     */
+    token: v.optional(v.string()),
     presence: v.optional(v.unknown()),
     time: v.optional(v.number()),
     chatMarker: v.optional(v.unknown()),
@@ -95,7 +111,11 @@ export const sessionLogin = defineOperation({
   }),
   provenance: {
     confidence: "measured",
-    sources: ["measured against MAX 2026-09-19", "measured against MAX 2026-09-20 (`messages` is an object)"],
+    sources: [
+      "measured against MAX 2026-09-19",
+      "measured against MAX 2026-09-20 (`messages` is an object)",
+      "measured against MAX 2026-09-22 (`token` replaces a stale credential once, then repeats)",
+    ],
     notes:
       "Unusually generous: the answer carries the profile, chats, contacts and recent messages, so `me` and `chats` need no further request.",
   },

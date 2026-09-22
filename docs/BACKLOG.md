@@ -167,11 +167,15 @@ a store needs re-taking. [`ARCHITECTURE.md`](ARCHITECTURE.md) §7 and §15.
 
 - **MAX-4** · 🟡 P2 · Chat addressing: names work now, and what is left is the parts nobody has
   needed yet — a `@username`, a phone number, a chat you are not in.
-- **MAX-11** · P2 · Persist the rotated token the login response returns (`NEED-106`, `NEED-8`).
-  Today `session.login` answers with a `token` field and `MaxClient.connect` drops it, so the
-  session keeps the credential that was pasted in months ago. Write it to the keyring **after** a
-  successful login only, keep the old one if that write fails, and print neither. Its own commit
-  and its own live check: it changes what is in the owner's keyring.
+**`MAX-11` is closed.** The login's `token` is now declared, measured and kept
+([`ARCHITECTURE.md`](ARCHITECTURE.md) §7). It is written after the account check, it never fails
+the command, and `session start` no longer writes the pasted token over the fresher one.
+
+The premise was worth measuring twice: the specification declared no such field, `NEED-8` had
+asserted the rotation from somebody else's client, and the first measurement supported "a new token
+every login" — which a second run disproved. MAX replaces a credential that has aged, once, and
+then repeats it. `pnpm probe:token` re-runs the first half and prints no value.
+
 - **MAX-12** · **P1** · **Two keyring defects, as one change, with a live check** (`NEED-113`).
   **`session start` writes the token before it verifies it** (`src/commands/session.ts:40`), so a
   typo or an expired token destroys the working one with no way back — `Credentials.write`

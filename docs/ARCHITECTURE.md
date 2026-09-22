@@ -153,6 +153,45 @@ Returning one without saving it looks harmless and is not: a failed login, or si
 would then present MAX a different device every time — which is exactly what §34 exists to
 prevent. Found by a test.
 
+### The token is replaced when it has gone stale, and kept
+
+**MAX answers a login with a `token`, and it is a *new* one when the credential presented has
+aged** — measured on the real account 2026-09-22 (`pnpm probe:token`, and a second run on a
+scratch profile):
+
+| logging in with | what came back |
+|---|---|
+| the token pasted in months earlier | a different one |
+| that new token, immediately after | **the same one** |
+
+So it is not a rotation on every login, and the keyring is not written on every command: the
+replacement happens once, when the old credential is exchanged, and thereafter MAX hands the same
+one back and nothing is written. The field was undeclared in the specification until then, so the
+exchange happened on every login and the client threw the result away — a profile ran forever on
+whatever was pasted in months earlier (`MAX-11`).
+
+⚠ **The old token keeps working.** That is what the last months demonstrate: the pasted one went
+on logging in while MAX offered a replacement each time. So this is a hygiene fix, not a repair of
+something broken — which is also why the write is allowed to fail quietly.
+
+`MaxClient.connect` writes it to the keyring, and three rules shape where:
+
+- **After the account check, never before.** Somebody else's token reaches that point only if the
+  check has already let it through. Persisting earlier would replace the owner's working
+  credential with a stranger's, which is a worse version of the defect §7 above exists to fix.
+- **A keyring that refuses does not fail the command.** The write can fail for reasons unrelated
+  to what was asked — a locked keyring, no session bus — and the previous token still works. The
+  reason goes to stderr; failing quietly is not failing invisibly (`NEED-97`).
+- **`session start` no longer writes unconditionally.** It writes the pasted token only when the
+  login left nothing better, because `connect` has usually just stored a fresher one.
+
+⚠ **It is a credential and nothing prints it.** Not a diagnostic, not a fixture, not a length and
+not a prefix. The only comparison made is against the token that was sent, and the only thing that
+ever leaves is whether a write failed.
+
+The write happens only when the value actually differs, so the cost is one keyring write the first
+time a stale token is exchanged and none afterwards.
+
 `MAX_TOKEN` is read before the keyring, which is how CI and the probes work without touching a real
 keychain. `max session start` imports a session obtained elsewhere, asking for the token without echoing
 it; the interactive phone-and-code
