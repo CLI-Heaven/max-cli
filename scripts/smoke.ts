@@ -7,7 +7,7 @@
  *   pnpm build && bun run scripts/smoke.ts
  */
 import { spawnSync } from "node:child_process"
-import { existsSync, mkdtempSync, readdirSync } from "node:fs"
+import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { openCache } from "../dist/cache/open.js"
@@ -94,7 +94,7 @@ check("`runs show` refuses an id it does not have", maxHere("runs", "show", "no-
 // The cache picks its SQLite by runtime, because node:sqlite and bun:sqlite are different modules
 // (NEED-11). A type check cannot see that and the Vitest suite only ever runs one of the two, so
 // the seam is only really proven here.
-const database = await openCache(join(mkdtempSync(join(tmpdir(), "max-smoke-")), "cache.db"))
+const database = await openCache(join(isolated, "smoke.db"))
 try {
   check("the cache opens under this runtime", true)
   check(
@@ -118,6 +118,8 @@ try {
 } finally {
   database.close()
 }
+
+rmSync(isolated, { recursive: true, force: true })
 
 if (failures.length > 0) {
   console.error(`max-cli smoke FAILED under ${runtime}:`)

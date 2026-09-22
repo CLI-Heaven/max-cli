@@ -1,6 +1,7 @@
-import { mkdtempSync } from "node:fs"
+import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { afterAll } from "vitest"
 
 /**
  * **Moves the whole installation into a temporary directory, for every test file.**
@@ -17,9 +18,16 @@ import { join } from "node:path"
  *
  * The three variables move config, state and cache together. They also scope the keyring entry
  * (`ARCHITECTURE.md` §14) — the documented trap, which here is precisely the isolation wanted.
+ *
+ * `TMPDIR` points into it too, and the whole of it goes when the file is done: every test makes
+ * its directories with `mkdtempSync(join(tmpdir(), …))`, and by 2026-09-23 that had left some
+ * fifteen thousand of them in `/tmp` (`DEBT-3`). `os.tmpdir()` reads `TMPDIR` on every call.
  */
 const sandbox = mkdtempSync(join(tmpdir(), "max-test-"))
 
 process.env.MAX_CONFIG_DIR = join(sandbox, "config")
 process.env.MAX_STATE_DIR = join(sandbox, "state")
 process.env.MAX_CACHE_DIR = join(sandbox, "cache")
+process.env.TMPDIR = sandbox
+
+afterAll(() => rmSync(sandbox, { recursive: true, force: true }))
