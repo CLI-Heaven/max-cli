@@ -152,13 +152,13 @@ max messages search [options] <text>
 send one text message
 
 ```sh
-max messages send [options] <chat> <text>
+max messages send [options] <chat> [text]
 ```
 
 | Аргумент | | Что это |
 |---|---|---|
 | `chat` | обязательный | chat id, or part of a chat name |
-| `text` | обязательный | what to say |
+| `text` | необязательный | what to say; leave it off to read the message from stdin |
 
 | Опция | Что делает |
 |---|---|

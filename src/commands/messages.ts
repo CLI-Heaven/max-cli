@@ -3,6 +3,7 @@ import { Command } from "commander"
 import { openProfileCache } from "../cache/index.js"
 import type { Id, Message } from "../domain/models.js"
 import { renderMessages } from "../rendering/messages.js"
+import { readBody } from "./body.js"
 import { type CommandContext, forCommand } from "./context.js"
 import { renderPage } from "./paging.js"
 
@@ -102,11 +103,14 @@ export const messagesCommand = (): Command => {
    * There is no `--dry-run` here: the target and the text are both in the line the person typed, so
    * a preview would restate the command back at them (REQUIREMENTS §21). What this command does owe
    * the caller is honesty about an outcome it does not know — see `MaxClient.messages.send`.
+   *
+   * **The body may come from a pipe instead**, by leaving the argument off — `readBody` says why
+   * argv is the wrong place for it and why omission is the signal rather than a flag.
    */
   command
     .command("send")
     .argument("<chat>", "chat id, or part of a chat name")
-    .argument("<text>", "what to say")
+    .argument("[text]", "what to say; leave it off to read the message from stdin")
     .description("send one text message")
     .option("--cid <n>", "reuse a client id from an earlier ambiguous send; MAX collapses the duplicate", (value) =>
       Number.parseInt(value, 10),
@@ -115,9 +119,14 @@ export const messagesCommand = (): Command => {
     // whose absence is felt at the other end rather than here: a script posting at 3am wakes
     // somebody up, and there was no way to say otherwise.
     .option("--silent", "deliver without a notification")
-    .action(async function (this: Command, chat: string, text: string) {
+    .action(async function (this: Command, chat: string, text: string | undefined) {
       const options = this.optsWithGlobals()
       const { renderer, settings, createClient, run } = forCommand(options)
+
+      // Before the run directory and before the socket: a body we cannot read is a command that
+      // never attempted anything, so there is nothing to record and nothing to close.
+      const body = text ?? (await readBody())
+
       const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
 
       await run("messages send", async (events) => {
@@ -125,7 +134,7 @@ export const messagesCommand = (): Command => {
 
         try {
           const chatId = await client.chats.resolve(chat)
-          const sent = await client.messages.send(chatId, text, {
+          const sent = await client.messages.send(chatId, body, {
             ...(options.cid === undefined ? {} : { cid: options.cid }),
             ...(options.silent === true ? { notify: false } : {}),
           })

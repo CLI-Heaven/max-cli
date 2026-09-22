@@ -226,11 +226,10 @@ meaning: `CLI-6` is the settings item.
   given a thirty-second budget has no way to say so. Settle the environment layer with it: the
   resolver's own comment promises flag-then-environment-then-file and only `MAX_PROFILE` has the
   middle one (`src/config.ts:77`, `src/config.ts:90`). Ships with `OPS-4` (`NEED-112`).
-- **CLI-11** · P2 · **The message body from stdin.** It is a positional argument
-  (`src/commands/messages.ts:52`), so it is read by `ps` and kept by shell history — the thing
-  forbidden for the token two lines away — and a multiline message breaks. The other CLI carries
-  the same wound and patched it with a helper script instead of a flag. From the `tgcli`
-  comparison (`NEED-112`).
+- **CLI-11** · ✅ Closed 2026-09-23 — the body reads from stdin when the argument is left off, so a
+  multiline message is writable at all and the text stays out of `ps` and shell history. Omission
+  is the signal rather than a `--stdin` flag, because `session start` already reads a piped token
+  that way. A terminal is refused, never waited at.
 - **CLI-14** · P2 · **Show the profiles that exist, and the settings in force.** `CLI-9` left this
   behind deliberately: a filter on a listing is not the place for it, and `max profiles` would
   collide with the first-word-is-the-profile rule. `max config show` is the cheap half of `CLI-12`
