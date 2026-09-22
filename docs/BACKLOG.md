@@ -182,12 +182,10 @@ then repeats it. `pnpm probe:token` re-runs the first half and prints no value.
   checks whose account a profile's token belongs to**: `viewerId` is written on every login
   (`src/client.ts:383`) and never compared, so a token belonging to someone else sends as them in
   silence. Same files, same test run, same live check as `MAX-11`, and worth doing beside it.
-- **MAX-13** · P3 · **Search the cache by text.** The store already keeps message bodies indexed by
-  chat and time, with `ranges` recording which windows are held completely
-  (`src/cache/schema.ts:78-121`), and nothing reads any of it by text. Wants FTS5 — and a decision
-  about the tokenizer, because `unicode61` without a stemmer finds only the exact Russian word
-  form. Whether MAX has a server-side search of its own is unknown; this one is local either way.
-  From the `tgcli` comparison (`NEED-112`).
+- **MAX-13** · ✅ Closed 2026-09-22 — `max messages search`, over the same index. It is the one
+  read that never connects, because MAX has no search operation we know of, so it finds what has
+  been read rather than what exists and says so ([`ARCHITECTURE.md`](ARCHITECTURE.md) §16).
+
 - **MAX-8** · P3 · Telemetry as other clients send it — a later phase, and only once our own
   traffic is understood (`NEED-16`).
 - **MAX-9** · P3 · The rest of the messenger surface, in the order of §35: attachments and
@@ -218,13 +216,10 @@ meaning: `CLI-6` is the settings item.
 - **CLI-8** · P2 · **`--silent` on `messages send`.** The wire already carries it — `notify` is in
   the request (`src/spec/operations/messages.ts:22`) and `MaxClient.messages.send` takes it
   (`src/client.ts:310`); only the flag is missing. Ships with `OPS-4` (`NEED-112`).
-- **CLI-9** · P2 · **Filters on the listings, and a way to see which profiles exist.** `chats list`
-  and `contacts list` take only `--limit` (`src/commands/chats.ts:9`,
-  `src/commands/contacts.ts:18`), so "every chat matching *work*" cannot be asked for at all —
-  `chats.resolve` is not a substitute, it answers with one id and refuses ambiguity. Wants
-  `--query`, and a filter by kind, which MAX distinguishes and we already map
-  (`src/domain/map.ts:96-107`). The profile list can land in `CLI-12` instead; it must land
-  somewhere. Ships with `OPS-4` (`NEED-112`).
+- **CLI-9** · ✅ Closed 2026-09-22 — `--query` and `--kind` on `chats list`, `--query` on
+  `contacts list`, all three backed by FTS5 with the `trigram` tokenizer. Why it is an index and
+  not a `WHERE`: [`ARCHITECTURE.md`](ARCHITECTURE.md) §16.
+
 - **CLI-10** · P2 · **`--timeout` bounds the command, not one request.** `timeoutMs` is how long to
   wait for one opcode answer (`src/protocol/connection.ts:75`) and comes only from the
   configuration file, while a read is connect + INIT + LOGIN + resolve + history — so an agent
@@ -236,6 +231,12 @@ meaning: `CLI-6` is the settings item.
   forbidden for the token two lines away — and a multiline message breaks. The other CLI carries
   the same wound and patched it with a helper script instead of a flag. From the `tgcli`
   comparison (`NEED-112`).
+- **CLI-14** · P2 · **Show the profiles that exist, and the settings in force.** `CLI-9` left this
+  behind deliberately: a filter on a listing is not the place for it, and `max profiles` would
+  collide with the first-word-is-the-profile rule. `max config show` is the cheap half of `CLI-12`
+  and does not wait for the rest of it. No field in the configuration can hold a secret by
+  construction (`src/config.ts:11-22`), so it can be printed whole. From the `tgcli` comparison
+  (`NEED-112`).
 - **CLI-12** · P2 · **`max doctor`, and reading the effective settings.** Nothing shows the state a
   command depends on, and one trap has no other way of being seen: `MAX_CONFIG_DIR`,
   `MAX_STATE_DIR` and `MAX_CACHE_DIR` change the keyring service name, so a login under them
@@ -250,7 +251,7 @@ meaning: `CLI-6` is the settings item.
   `messages context <id> --before N --after N` — a window either side of one message rather than
   only what came before it. `messages list --before <id-or-time>` already walks backwards
   (`src/commands/messages.ts:21`), so what is missing is one message by id and the forward half.
-  Sits on `MAX-13` for anything older than the cache holds. From the `tgcli` comparison
+  The index `MAX-13` built is already there for it. From the `tgcli` comparison
   (`NEED-112`).
 - **CLI-5** · P3 · The debug escape hatch — `max raw` / `max protocol invoke` — spec-validated,
   explicitly advanced, never arbitrary packet injection (§22).
