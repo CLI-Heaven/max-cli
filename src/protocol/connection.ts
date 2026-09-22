@@ -148,13 +148,22 @@ export class Connection {
     return frame.payload ?? {}
   }
 
+  /**
+   * Closes the socket and **settles anything still waiting**, rather than dropping it.
+   *
+   * ⚠ It used to clear the pending map without rejecting, which left the caller of an in-flight
+   * `invoke` awaiting a promise nothing could ever settle: the timers were cleared and the socket
+   * listeners removed in the same breath, so neither the timeout nor the close event was left to
+   * fire. Invisible in normal use, because `close()` runs in a `finally` once the body is done —
+   * and a hang the moment anything closes the connection while a request is out, which is exactly
+   * what a whole-command deadline does. Found by a test, not by a user.
+   */
   async close(): Promise<void> {
     this.#closed = true
     const socket = this.#socket
     this.#socket = undefined
 
-    for (const { timer } of this.#pending.values()) clearTimeout(timer)
-    this.#pending.clear()
+    this.#failAll(new Error("the connection was closed before MAX answered"))
 
     if (!socket) return
     socket.removeAllListeners()
