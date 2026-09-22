@@ -147,8 +147,14 @@ export class MaxClient {
       if (matches.length === 1 && matches[0]) return matches[0].id
       if (matches.length === 0) throw new CliError("not_found", `no chat matches "${reference}"`)
 
-      const names = matches.map((chat) => `${chat.title} (${chat.id})`).join(", ")
-      throw new CliError("validation_error", `"${reference}" matches ${matches.length} chats: ${names}`)
+      const candidates = matches.map((chat) => ({ id: chat.id, title: chat.title }))
+      const width = Math.max(...candidates.map(({ id }) => id.length))
+      const lines = candidates.map(({ id, title }) => `  ${id.padEnd(width)}  ${title}`).join("\n")
+      throw new CliError(
+        "validation_error",
+        `"${reference}" matches ${matches.length} chats — name one by its id:\n${lines}`,
+        { candidates },
+      )
     },
   }
 

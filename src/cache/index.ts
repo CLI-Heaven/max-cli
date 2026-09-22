@@ -2,6 +2,7 @@ import { chmodSync, mkdirSync } from "node:fs"
 import { join } from "node:path"
 import { resolvePaths } from "@leemour/cli-core"
 import { openCache } from "./open.js"
+import { NewerCacheError } from "./schema.js"
 import { type CacheStore, openStore } from "./store.js"
 
 export type { CacheStore } from "./store.js"
@@ -47,6 +48,7 @@ export const openProfileCache = async (
 
 /** The reason, never the path — a profile name and a home directory are nobody else's business. */
 const asReason = (error: unknown): string => {
+  if (error instanceof NewerCacheError) return error.message
   const code = (error as { code?: unknown })?.code
   return typeof code === "string" ? code : error instanceof Error ? error.name : "an unknown problem"
 }

@@ -215,13 +215,16 @@ const STATEMENTS = [
  * Contacts that are in no chat would be exactly that (`RES-7`), and the day they arrive this
  * becomes `ALTER TABLE … ADD COLUMN` and this paragraph gets rewritten.
  */
+/** Ours, so its message is known to hold no path and can be shown as it is. */
+export class NewerCacheError extends Error {}
+
 export const migrate = (database: CacheDatabase): void => {
   const current = Number(
     (database.prepare("PRAGMA user_version").get() as { user_version?: number })?.user_version ?? 0,
   )
 
   if (current > SCHEMA_VERSION) {
-    throw new Error(
+    throw new NewerCacheError(
       `this cache was written by a newer max (schema ${current}, this one speaks ${SCHEMA_VERSION}) — ` +
         "run `max cache clear`, or use the newer version",
     )

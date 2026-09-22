@@ -194,7 +194,15 @@ describe("MaxClient", () => {
     expect(await client.chats.resolve("555")).toBe("555")
     expect(await client.chats.resolve("Ivan Petrov")).toBe("333")
     expect(await client.chats.resolve("friends")).toBe("555")
-    await expect(client.chats.resolve("Ivan")).rejects.toMatchObject({ code: "validation_error" })
+    await expect(client.chats.resolve("Ivan")).rejects.toMatchObject({
+      code: "validation_error",
+      details: {
+        candidates: [
+          { id: "333", title: "Ivan Petrov" },
+          { id: "555", title: "Ivan and friends" },
+        ],
+      },
+    })
     await expect(client.chats.resolve("nobody")).rejects.toMatchObject({ code: "not_found" })
 
     await client.close()

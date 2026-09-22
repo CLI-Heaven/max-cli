@@ -3,6 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { openProfileCache } from "./index.js"
+import { openCache } from "./open.js"
 
 /** A directory that does not exist yet — which is every machine, the first time. */
 const freshHome = () => {
@@ -45,5 +46,19 @@ describe("opening a profile's record", () => {
     expect(store).toBeUndefined()
     expect(problems).toHaveLength(1)
     expect(problems[0]).toContain("ran against MAX")
+  })
+
+  it("names the schema when a newer max wrote the file, instead of a bare `Error`", async () => {
+    const env = { MAX_CACHE_DIR: mkdtempSync(join(tmpdir(), "max-newer-")) }
+    const database = await openCache(join(env.MAX_CACHE_DIR, "default.db"))
+    database.exec("PRAGMA user_version = 99")
+    database.close()
+
+    const problems: string[] = []
+    const store = await openProfileCache("default", { env, onProblem: (message) => problems.push(message) })
+
+    expect(store).toBeUndefined()
+    expect(problems[0]).toContain("schema 99")
+    expect(problems[0]).not.toContain(env.MAX_CACHE_DIR)
   })
 })
