@@ -1,6 +1,5 @@
 import { Command } from "commander"
 import { diagnose } from "../diagnose.js"
-import { SessionStore } from "../session/store.js"
 import { forCommand } from "./context.js"
 
 /**
@@ -11,8 +10,9 @@ import { forCommand } from "./context.js"
  * open — each is a field in the answer and none is an exception. A diagnosis that fails with
  * `authentication_error` when asked "do I have a session" is worth nothing.
  *
- * It is a thin shell over `diagnose` on purpose: `forCommand` builds its own renderer over the
- * real streams, so anything left in here cannot be asserted on (`CLI-15`).
+ * It is a thin shell over `diagnose` on purpose: the gathering is worth asserting on field by
+ * field, and a command body is a worse place to do that from than a function that takes its
+ * environment as arguments.
  *
  * `max config show` is the neighbouring half and does not overlap: that one reads what was
  * configured, this one reads what exists.
@@ -21,10 +21,9 @@ export const doctorCommand = (): Command => {
   const command = new Command("doctor").description("the state this installation is in, without contacting MAX")
 
   command.action(async function (this: Command) {
-    const { renderer, settings, format, run } = forCommand(this.optsWithGlobals())
+    const { renderer, settings, format, run, store } = forCommand(this)
 
     await run("doctor", async () => {
-      const store = new SessionStore({ profile: settings.profile })
       const report = await diagnose({
         profile: settings.profile,
         // Reading the keyring is the one thing here that can prompt or hang on a locked keyring,
