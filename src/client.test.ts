@@ -253,6 +253,54 @@ describe("MaxClient", () => {
     expect(max.sent.at(-1)?.payload.interactive).toBe(false)
   })
 
+  describe("a window around one message", () => {
+    const at = (ms: number, counter: number) => (BigInt(ms) << 16n) | BigInt(counter)
+    const target = at(1789776000000, 7)
+    const window = {
+      messages: [
+        { id: at(1789775000000, 1), time: 1789775000000, sender: 10000002, text: "before", attaches: [] },
+        { id: target, time: 1789776000000, sender: 10000002, text: "the one", attaches: [] },
+        { id: at(1789777000000, 2), time: 1789777000000, sender: 10000002, text: "after", attaches: [] },
+      ],
+    }
+
+    it("**asks from the message's own time**, one more back for the message itself, and marks it", async () => {
+      const max = mockMax({
+        answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer, [Opcode.CHAT_HISTORY]: window },
+      })
+      const { client } = clientWith(max)
+
+      const found = await client.messages.around("111", String(target), { before: 1, after: 1 })
+      await client.close()
+
+      const asked = max.sent.find((call) => call.opcode === Opcode.CHAT_HISTORY)?.payload
+      expect(asked).toMatchObject({ from: 1789776000000, backward: 2, forward: 1, interactive: false })
+      expect(found.map((m) => m.text)).toEqual(["before", "the one", "after"])
+      expect(found.filter((m) => m.anchor).map((m) => m.text)).toEqual(["the one"])
+      expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.CHAT_MARK)
+    })
+
+    it("**refuses a message that is gone** rather than passing a neighbour off as it", async () => {
+      const neighbours = { messages: window.messages.filter((m) => m.id !== target) }
+      const max = mockMax({
+        answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer, [Opcode.CHAT_HISTORY]: neighbours },
+      })
+      const { client } = clientWith(max)
+
+      await expect(client.messages.around("111", String(target))).rejects.toMatchObject({ code: "not_found" })
+      await client.close()
+    })
+
+    it("refuses what is not a message id before asking MAX anything", async () => {
+      const max = mockMax({ answers: {} })
+      const { client } = clientWith(max)
+
+      await expect(client.messages.around("111", "hello")).rejects.toMatchObject({ code: "validation_error" })
+      expect(max.sent).toEqual([])
+      await client.close()
+    })
+  })
+
   it("names a sender it was told about, and knows which messages are ours", async () => {
     const max = mockMax({
       answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer, [Opcode.CHAT_HISTORY]: historyAnswer },
@@ -901,27 +949,12 @@ describe("with a cache", () => {
       expect(Object.keys(summary).sort()).toEqual(["added", "changed", "full", "known"])
     })
 
-    it("**`--before` takes a message id, and an ISO 8601 time when the id is gone**", async () => {
-      const cache = await cacheStore()
-      const max = mockMax({
-        answers: {
-          [Opcode.SESSION_INIT]: {},
-          [Opcode.CONTACT_INFO]: { contacts: [] },
-          [Opcode.LOGIN]: syncing(),
-          [Opcode.CHAT_HISTORY]: historyAnswer,
-        },
-      })
+    it("**`--before` reads the time out of a message id**, with no stored copy needed", async () => {
+      const client = clientSharing(await cacheStore(), mockMax({ answers: {} }))
 
-      const client = clientSharing(cache, max)
-      await client.messages.list("111", { limit: 5 })
-
-      // The id was just read, which is the case a person is in when they type it.
-      expect(client.messages.before("116762160362694583")).toBe(1789776000000)
+      expect(client.messages.before("116762160362694583")).toBe(Number(116762160362694583n >> 16n))
       expect(client.messages.before("2026-09-20T01:00:00Z")).toBe(Date.parse("2026-09-20T01:00:00Z"))
-
-      // A deleted message is exactly an id the store cannot resolve — so it says so, and names the
-      // way round it, rather than reading eighteen digits as milliseconds.
-      expect(() => client.messages.before("999999999999999999")).toThrow(/ISO 8601/)
+      expect(() => client.messages.before("next tuesday")).toThrow(/ISO 8601/)
       await client.close()
     })
 

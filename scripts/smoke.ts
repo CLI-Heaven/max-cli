@@ -45,6 +45,12 @@ check("--version exits cleanly", version.status === 0)
 check("--version prints a version on stdout", /^\d+\.\d+\.\d+$/.test(version.stdout.trim()))
 check("--version says nothing on stderr", version.stderr === "")
 
+const skill = max("skill", "show")
+check(
+  "skill show prints the SKILL.md the package ships",
+  skill.status === 0 && skill.stdout.startsWith("---\nname: max-cli"),
+)
+
 const help = max("--help")
 check("--help names the command", help.stdout.includes("Usage: max"))
 

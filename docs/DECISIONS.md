@@ -562,3 +562,15 @@ array cannot carry. `--jsonl` writes one object per line and says "there is more
 
 **Replies and forwards are stored with the message.** «Ответы не сохраняются в кэш — а почему? я бы
 сохранял». One `link` column, schema 4; the cache is rebuilt once and loses nothing that was typed.
+
+**NEED-130 · Do `show` and `context` take the chat explicitly?** **Yes.** «1 A». MAX locates a
+message only within a chat; taking the chat from the stored copy would make the command behave
+differently with and without one.
+
+**NEED-131 · How is the message a window was taken around marked in JSON?** **`"anchor": true` on
+that message**, absent on the rest. «2 A», over the recommendation of an `anchorId` beside `items`.
+
+**NEED-132 · How is the agent skill installed?** **`max skill show`, printing the file the installed
+package ships**, so the skill is always the version of `max` beside it. It prints the file itself
+even into a pipe — installing it is a redirect — and JSON only when `--json` is asked for by name.
+

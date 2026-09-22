@@ -147,6 +147,37 @@ max messages search [options] <text>
 | `--chat <id>` | only this chat; an id, because searching never connects to resolve a name |
 | `--limit <n>` | how many to show |
 
+### `max messages show`
+
+one message by its id
+
+```sh
+max messages show [options] <chat> <message>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+| `message` | обязательный | message id |
+
+### `max messages context`
+
+a message and what came either side of it, oldest first
+
+```sh
+max messages context [options] <chat> <message>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+| `message` | обязательный | message id |
+
+| Опция | Что делает |
+|---|---|
+| `--before <n>` | how many before it По умолчанию: `5`. |
+| `--after <n>` | how many after it По умолчанию: `5`. |
+
 ### `max messages send`
 
 send one text message
@@ -214,6 +245,17 @@ max runs path [options] <run-id>
 | Аргумент | | Что это |
 |---|---|---|
 | `run-id` | обязательный | an id from `max runs list` |
+
+## `max skill`
+
+the instructions an agent is given for this tool
+### `max skill show`
+
+print SKILL.md — `max skill show > ~/.claude/skills/max-cli/SKILL.md` installs it
+
+```sh
+max skill show [options]
+```
 
 ## Коды возврата
 

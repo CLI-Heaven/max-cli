@@ -118,13 +118,8 @@ export interface CacheStore {
     write(chatId: Id, messages: Message[]): void
     /** After a send, what we hold for that chat is missing the message we just added. */
     invalidate(chatId: Id): void
-    /**
-     * When a message was sent, for `messages list --before <id>`.
-     *
-     * `undefined` for an id we have never stored — which is exactly what a deleted message looks
-     * like, since it is no longer in the history MAX returns either.
-     */
-    timeOf(id: Id): number | undefined
+    /** `before` messages up to and including `time`, and `after` messages later than it, oldest first. */
+    window(chatId: Id, time: number, before: number, after: number): Message[]
     /**
      * Messages whose text contains `query`, newest first, across every chat we hold or one.
      *
@@ -554,11 +549,14 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
         return Number((database.prepare(sql).get(...values) as { n?: number })?.n ?? 0)
       },
 
-      timeOf: (id) => {
-        const row = database.prepare("SELECT time FROM messages WHERE id = ? LIMIT 1").get(id) as
-          | { time?: number }
-          | undefined
-        return row?.time === undefined ? undefined : Number(row.time)
+      window: (chatId, time, before, after) => {
+        const earlier = database
+          .prepare("SELECT * FROM messages WHERE chat_id = ? AND time <= ? ORDER BY time DESC LIMIT ?")
+          .all(chatId, time, before)
+        const later = database
+          .prepare("SELECT * FROM messages WHERE chat_id = ? AND time > ? ORDER BY time ASC LIMIT ?")
+          .all(chatId, time, after)
+        return [...earlier.reverse(), ...later].map(toMessage)
       },
     },
 

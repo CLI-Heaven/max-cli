@@ -118,3 +118,17 @@ export interface Profile {
   name: string | null
   phone: string | null
 }
+
+/** One message of a window around another, which carries `anchor: true`. */
+export type WindowedMessage = Message & { anchor?: true }
+
+/**
+ * When a message was sent, read from its id: **`id >> 16` is the send time in milliseconds**, the
+ * low 16 bits a counter. Measured 2026-09-22 on three messages across two days, exact every time.
+ * `undefined` for anything that is not a message id.
+ */
+export const timeOfMessageId = (id: Id): number | undefined => {
+  if (!/^\d{10,20}$/.test(id)) return undefined
+  const time = Number(BigInt(id) >> 16n)
+  return Number.isSafeInteger(time) && time > 0 ? time : undefined
+}

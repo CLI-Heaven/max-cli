@@ -1,7 +1,7 @@
 import { styleText } from "node:util"
 import stringWidth from "string-width"
 import wrapAnsi from "wrap-ansi"
-import type { Attachment, Message, MessageHit, QuotedMessage } from "../domain/models.js"
+import type { Attachment, Message, MessageHit, QuotedMessage, WindowedMessage } from "../domain/models.js"
 
 export interface RenderOptions {
   /** 0 — the conversation; 1 — the ids worth searching by; 2 — everything the model knows. */
@@ -26,7 +26,10 @@ const INDENT = " ".repeat(TIME_WIDTH + 2)
 const MIN_WIDTH = 40
 const SENDER_COLOURS = ["green", "yellow", "magenta", "blue", "red"] as const
 
-export const renderMessages = (messages: (Message | MessageHit)[], options: RenderOptions = {}): string => {
+export const renderMessages = (
+  messages: (Message | MessageHit | WindowedMessage)[],
+  options: RenderOptions = {},
+): string => {
   if (messages.length === 0) return "(nothing)"
   const day = dayFormatter(options)
   const paint = painter(options)
@@ -42,7 +45,7 @@ export const renderMessages = (messages: (Message | MessageHit)[], options: Rend
   return blocks.join("\n\n")
 }
 
-export const renderMessage = (message: Message | MessageHit, options: RenderOptions = {}): string => {
+export const renderMessage = (message: Message | MessageHit | WindowedMessage, options: RenderOptions = {}): string => {
   const paint = painter(options)
   const width = Math.max(MIN_WIDTH, options.width ?? 80)
   const room = width - INDENT.length
@@ -50,7 +53,8 @@ export const renderMessage = (message: Message | MessageHit, options: RenderOpti
   const verbosity = options.verbosity ?? 0
 
   const chat = "chatTitle" in message ? paint("dim", ` · ${message.chatTitle ?? message.chatId}`) : ""
-  const lines = [`${paint("dim", time(message.timestamp))}  ${senderOf(message, options)}${chat}`]
+  const mark = "anchor" in message && message.anchor ? paint("bold", "  ◀") : ""
+  const lines = [`${paint("dim", time(message.timestamp))}  ${senderOf(message, options)}${chat}${mark}`]
   const body = (text: string) => wrapAnsi(text, room, { hard: true }).split("\n")
 
   if (message.replyTo) lines.push(paint("dim", preview("↳", message.replyTo, room)))

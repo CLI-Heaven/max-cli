@@ -203,6 +203,17 @@ describe("the cache store", () => {
     expect(plain?.replyTo).toBeNull()
   })
 
+  it("answers a window around a moment: n up to and including it, n after it, oldest first", async () => {
+    const store = await open()
+    store.messages.write(
+      "5",
+      [100, 200, 300, 400, 500].map((at) => message(String(at), at, `m${at}`)),
+    )
+
+    expect(store.messages.window("5", 300, 2, 1).map((m) => m.text)).toEqual(["m200", "m300", "m400"])
+    expect(store.messages.window("6", 300, 2, 1)).toEqual([])
+  })
+
   it("**never lets a stale fetch undo an edit**, whichever of the two writes last", async () => {
     const store = await open()
     const edited = new Date(500).toISOString()
