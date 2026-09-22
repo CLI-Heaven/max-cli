@@ -16,28 +16,34 @@ const begin = (dir: string, command = "chats list", now?: () => Date) =>
   })
 
 describe("a run directory", () => {
-  it("exists before the command does anything, and says it is running", () => {
+  it("exists before the command does anything, and says it is running", async () => {
     const dir = runsDir()
     const run = begin(dir)
 
     const metadata = JSON.parse(readFileSync(join(run.dir, "run.json"), "utf8")) as Record<string, unknown>
     expect(metadata).toMatchObject({ command: "chats list", profile: "default", status: "running" })
     expect(metadata.completedAt).toBeUndefined()
+
+    await run.logger.close()
   })
 
-  it("is named so that it sorts, and reads without being opened", () => {
+  it("is named so that it sorts, and reads without being opened", async () => {
     const run = begin(runsDir(), "messages send", () => new Date("2026-09-20T08:44:31.123Z"))
 
     expect(run.id).toMatch(/^20260920T084431Z-messages-send-[0-9a-f]{6}$/)
     expect(run.dir).toContain(join("2026-09-20", run.id))
+
+    await run.logger.close()
   })
 
-  it("**is readable by nobody else** — the directory as much as the file", () => {
+  it("**is readable by nobody else** — the directory as much as the file", async () => {
     const run = begin(runsDir())
 
     expect(statSync(run.dir).mode & 0o777).toBe(0o700)
     expect(statSync(join(run.dir, "run.json")).mode & 0o777).toBe(0o600)
     expect(statSync(join(run.dir, "events.jsonl")).mode & 0o777).toBe(0o600)
+
+    await run.logger.close()
   })
 
   it("writes one JSON object per event, and no colour ever", async () => {
@@ -94,11 +100,13 @@ describe("reading runs back", () => {
     expect(listRuns(join(tmpdir(), "max-runs-that-do-not-exist"))).toEqual([])
   })
 
-  it("keeps the readable part of a log a killed process left half-written", () => {
+  it("keeps the readable part of a log a killed process left half-written", async () => {
     const run = begin(runsDir())
     writeFileSync(join(run.dir, "events.jsonl"), '{"event":"request","seq":1}\n{"event":"resp')
 
     expect(readEvents(run.dir)).toEqual([{ event: "request", seq: 1 }])
+
+    await run.logger.close()
   })
 })
 
@@ -123,12 +131,14 @@ describe("what is kept, and for how long", () => {
     expect(readdirSync(dir)).toEqual(["notes"])
   })
 
-  it("prunes as a recorded run starts, and not otherwise", () => {
+  it("prunes as a recorded run starts, and not otherwise", async () => {
     const dir = runsDir()
     mkdirSync(join(dir, "2020-01-01"), { recursive: true })
 
-    begin(dir)
+    const run = begin(dir)
 
     expect(readdirSync(dir)).not.toContain("2020-01-01")
+
+    await run.logger.close()
   })
 })
