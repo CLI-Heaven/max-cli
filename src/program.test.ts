@@ -169,6 +169,20 @@ describe("the program", () => {
     expect(stdout).toContain("whole command")
   })
 
+  it("offers `config show`, so the settings in force can be read without guessing", async () => {
+    const { stdout } = await runWith(["--help"])
+    expect(stdout).toContain("config")
+
+    const show = await runWith(["config", "--help"])
+    expect(show.stdout).toContain("show")
+    expect(show.stdout).toContain("where they came from")
+  })
+
+  // ⚠ What `config show` actually prints is not asserted here, and cannot be: a command builds its
+  // own renderer over the real streams, so `runWith` sees help and errors and nothing else
+  // (`FIND-39`). The report's content is covered where it is decided — `profileFrom` and
+  // `configuredProfiles` in `config.test.ts`.
+
   it("does not mistake a command for a profile", () => {
     const program = createProgram()
     expect(liftProfile(["chats", "list"], commandWords(program)).profile).toBeUndefined()

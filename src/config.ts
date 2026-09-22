@@ -52,8 +52,13 @@ export interface GlobalFlags {
   timeout?: string
 }
 
+/** Which layer decided the profile. Only `max config show` needs it, and it needs it to be true. */
+export type ProfileSource = "the first word" | "MAX_PROFILE" | "defaultProfile in the file" | "the built-in default"
+
 export interface Settings {
   profile: string
+  /** Where the profile came from, decided here so nothing has to re-derive the order. */
+  profileFrom: ProfileSource
   json: boolean
   jsonl: boolean
   quiet: boolean
@@ -115,11 +120,25 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
   const configPath = configFilePath(configDir ?? paths.config)
   const config = readConfig(configPath)
 
-  const profile = usableProfileName(flags.profile ?? given(env.MAX_PROFILE) ?? config.defaultProfile ?? DEFAULT_PROFILE)
+  const chosen = flags.profile ?? given(env.MAX_PROFILE) ?? config.defaultProfile ?? DEFAULT_PROFILE
+  const profile = usableProfileName(chosen)
+
+  // Worked out here rather than by whoever wants to display it: a second reading of this order
+  // is a second thing to keep in step with it.
+  const profileFrom: ProfileSource =
+    flags.profile !== undefined
+      ? "the first word"
+      : given(env.MAX_PROFILE) !== undefined
+        ? "MAX_PROFILE"
+        : config.defaultProfile !== undefined
+          ? "defaultProfile in the file"
+          : "the built-in default"
+
   const configured = config.profiles[profile] ?? {}
 
   const settings: Settings = {
     profile,
+    profileFrom,
     json: flags.json === true,
     jsonl: flags.jsonl === true,
     quiet: flags.quiet === true,
@@ -154,6 +173,18 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
   }
 
   return settings
+}
+
+/**
+ * The profile names written in the configuration file.
+ *
+ * ⚠ **This is not every profile that works.** `max <name> session start` stores a token under any
+ * name without writing anything to the file, so a profile can be in daily use and absent here.
+ * Whoever prints this has to say so, or it reads as a complete list and quietly is not.
+ */
+export const configuredProfiles = ({ env = process.env, configDir }: ResolveOptions = {}): string[] => {
+  const paths = resolvePaths({ appName: APP, prefix: "MAX", env })
+  return Object.keys(readConfig(configFilePath(configDir ?? paths.config)).profiles).sort()
 }
 
 /**
