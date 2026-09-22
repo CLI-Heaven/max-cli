@@ -122,13 +122,25 @@ const phone = (value: unknown): string | null => {
 }
 
 /**
- * Attachment **metadata**, never its content. A message that carries a photo says so; downloading
- * it is a different command that does not exist yet (§11 of the brief).
+ * What an attachment is and where it lives — never its bytes. The link fields are the ones
+ * `pnpm probe:attachments` measured on 2026-09-22: `baseUrl` on a photo, `url` on a share.
  */
 const attachments = (value: unknown): Attachment[] => {
   if (!Array.isArray(value)) return []
   return value
     .map(asRecord)
     .filter((entry): entry is Payload => entry !== undefined)
-    .map((entry) => ({ kind: typeof entry._type === "string" ? entry._type.toLowerCase() : "unknown" }))
+    .map((entry) => {
+      const url = text(entry.baseUrl) ?? text(entry.url)
+      const width = count(entry.width)
+      const height = count(entry.height)
+      const title = text(entry.title)
+      return {
+        kind: typeof entry._type === "string" ? entry._type.toLowerCase() : "unknown",
+        ...(url ? { url } : {}),
+        ...(width !== null ? { width } : {}),
+        ...(height !== null ? { height } : {}),
+        ...(title ? { title } : {}),
+      }
+    })
 }

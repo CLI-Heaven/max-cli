@@ -1,4 +1,4 @@
-import { createRenderer, type Renderer, type RenderFormat, type Streams } from "@leemour/cli-core"
+import { createRenderer, processStreams, type Renderer, type RenderFormat, type Streams } from "@leemour/cli-core"
 
 export interface OutputOptions {
   json?: boolean
@@ -17,16 +17,13 @@ export interface OutputOptions {
  * one JSON value and nothing else** — diagnostics are on stderr in all modes, which is what makes
  * that contract hold by construction rather than by remembering.
  */
-export const resolveOutput = ({ json, quiet, streams, tty, color }: OutputOptions = {}) => {
+export const resolveOutput = ({ json, quiet, streams = processStreams, tty, color }: OutputOptions = {}) => {
   const interactive = tty ?? process.stdout.isTTY === true
   const format: RenderFormat = json || !interactive ? "json" : "pretty"
-  const renderer = createRenderer({
-    format,
-    color: color ?? (format === "pretty" && process.env.NO_COLOR === undefined),
-    ...(streams ? { streams } : {}),
-  })
+  const painted = color ?? (format === "pretty" && process.env.NO_COLOR === undefined)
+  const renderer = createRenderer({ format, color: painted, streams })
 
-  return { format, renderer: quiet ? silence(renderer) : renderer }
+  return { format, color: painted, streams, renderer: quiet ? silence(renderer) : renderer }
 }
 
 /**

@@ -34,6 +34,7 @@
     "version:sync": "node --experimental-strip-types scripts/version.ts --sync",
     "probe:ids": "pnpm build && node --experimental-strip-types scripts/id-shape.ts",
     "probe:edits": "pnpm build && node --experimental-strip-types scripts/probe-edits.ts",
+    "probe:attachments": "pnpm build && node --experimental-strip-types scripts/probe-attachments.ts",
     "verify:live": "pnpm build && node --experimental-strip-types scripts/verify-commands.ts",
     "prepare": "lefthook install || true",
     "secrets:scan": "gitleaks git --no-banner --redact .",
