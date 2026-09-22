@@ -249,7 +249,7 @@ meaning: `CLI-6` is the settings item.
   environment to the program, and `forCommand(command)` builds the renderer, the session store and
   the client's connection from it. `runWith` in `program.test.ts` now sees what a command prints,
   including against a scripted MAX; the mock socket opens when it is created, not when the mock is.
-- **CORE-7** · P2 · **A log file that cannot be opened must not kill the command.**
+- **CORE-7** · 🚧 `core-7-log-stream` · P2 · **A log file that cannot be opened must not kill the command.**
   `createFileLogger` in `cli-core` opens its stream with `createWriteStream`, which opens
   asynchronously and has no `error` listener — so a runs directory that vanishes or turns
   unwritable takes the process down with an unhandled event rather than a diagnostic. It surfaced
