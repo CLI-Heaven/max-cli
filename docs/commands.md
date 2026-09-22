@@ -199,10 +199,10 @@ max messages send [options] <chat> [text]
 
 ## `max config`
 
-the settings in force, and where they came from
+the settings in force, and where each one came from
 ### `max config show`
 
-the settings in force, and where they came from
+the profile, the profiles that exist, and each setting with where it came from
 
 ```sh
 max config show [options]
