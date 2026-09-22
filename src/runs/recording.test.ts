@@ -140,8 +140,8 @@ describe("--record", () => {
     expect(listRuns(dir)[0]).toMatchObject({ status: "failed", requests: 0, errorCode: "configuration_error" })
   })
 
-  it("**survives its directory vanishing mid-run** — one warning, the answer intact (`NEED-133`)", async () => {
-    const { streams, answer } = await run({ record: true }, async (events, dir) => {
+  it("**survives its directory vanishing mid-run** — one warning, even under `--quiet` (`NEED-133`)", async () => {
+    const { streams, dir, answer } = await run({ record: true, quiet: true }, async (events, dir) => {
       rmSync(dir, { recursive: true, force: true })
       events(REQUEST)
       await new Promise((resolve) => setTimeout(resolve, 20))
@@ -152,5 +152,16 @@ describe("--record", () => {
     expect(streams.stdout).toEqual([])
     expect(streams.stderr).toHaveLength(1)
     expect(streams.stderr[0]).toMatch(/not recorded.*ENOENT/)
+    expect(listRuns(dir)[0]).toMatchObject({ status: "success", requests: 1 })
+  })
+
+  it("tells a script about it as a JSON object", async () => {
+    const { streams } = await run({ record: true, format: "json" }, async (events, dir) => {
+      rmSync(dir, { recursive: true, force: true })
+      events(REQUEST)
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    })
+
+    expect(JSON.parse(streams.stderr[0] as string).warning).toMatch(/ENOENT/)
   })
 })
