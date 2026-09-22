@@ -33,6 +33,28 @@ const setup = (max: ReturnType<typeof mockMax>, existing?: string) => {
 }
 
 describe("adoptToken", () => {
+  it("**keeps the token the login answered with, not the one that was pasted in**", async () => {
+    const max = mockMax({
+      answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: { ...loginAnswer, token: "the-rotated-one" } },
+    })
+    const { client, store } = setup(max)
+
+    await adoptToken(client, store, "the-pasted-one")
+
+    // Writing the pasted token here unconditionally would replace the fresher one `connect` kept.
+    expect(store.readToken()).toBe("the-rotated-one")
+    await client.close()
+  })
+
+  it("falls back to the pasted token when the login returned none", async () => {
+    const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
+    const { client, store } = setup(max)
+
+    await adoptToken(client, store, "the-pasted-one")
+    expect(store.readToken()).toBe("the-pasted-one")
+    await client.close()
+  })
+
   it("**keeps the working token when the new one is refused** — a keyring entry cannot be read back", async () => {
     const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {} }, refuse: { [Opcode.LOGIN]: "login.token" } })
     const { client, store } = setup(max, "the-working-token")

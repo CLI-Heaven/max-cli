@@ -493,6 +493,92 @@ describe("when we are the ones building a bad request", () => {
   })
 })
 
+describe("the token MAX answers with", () => {
+  it("**is kept when MAX offers a different one**, which is what we used to drop", async () => {
+    const max = mockMax({
+      answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: { ...loginAnswer, token: "the-rotated-one" } },
+    })
+    const { client, store } = clientWith(max)
+
+    await client.connect()
+    await client.close()
+
+    expect(store.readToken()).toBe("the-rotated-one")
+  })
+
+  it("is left alone when MAX sends the same one back, or none at all", async () => {
+    const same = mockMax({
+      answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: { ...loginAnswer, token: "a-token" } },
+    })
+    const first = clientWith(same)
+    await first.client.connect()
+    await first.client.close()
+    expect(first.store.readToken()).toBe("a-token")
+
+    const none = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
+    const second = clientWith(none)
+    await second.client.connect()
+    await second.client.close()
+    expect(second.store.readToken()).toBe("a-token")
+  })
+
+  it("**is not written for an account this profile is not set up with**", async () => {
+    const first = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
+    const { client, store } = clientWith(first)
+    await client.connect()
+    await client.close()
+
+    // A different `viewerId` — somebody else's token, which `connect` refuses. It must not have
+    // replaced the owner's working credential on the way to that refusal.
+    const stranger = mockMax({
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: {
+          profile: { contact: { id: 99999999, names: [{ name: "Somebody Else", type: "FULL_NAME" }] } },
+          token: "a-stranger-token",
+        },
+      },
+    })
+    const second = new MaxClient({
+      store,
+      connection: new Connection({ createSocket: stranger.createSocket, timeoutMs: 50 }),
+      warn: () => {},
+    })
+
+    await expect(second.connect()).rejects.toMatchObject({ code: "authentication_error" })
+    await second.close()
+    expect(store.readToken()).toBe("a-token")
+  })
+
+  it("**never fails the command when the keyring will not take it**, and says why", async () => {
+    const max = mockMax({
+      answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: { ...loginAnswer, token: "the-rotated-one" } },
+    })
+    const { client, store, notes } = clientWith(max)
+    store.writeToken = () => {
+      throw new Error("the keyring is locked")
+    }
+
+    await client.connect()
+    await client.close()
+
+    expect(notes.join(" ")).toContain("could not be saved")
+    expect(notes.join(" ")).not.toContain("the-rotated-one")
+  })
+
+  it("keeps the value out of every diagnostic", async () => {
+    const max = mockMax({
+      answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: { ...loginAnswer, token: "the-rotated-one" } },
+    })
+    const { client, events } = clientWith(max)
+
+    await client.connect()
+    await client.close()
+
+    expect(JSON.stringify(events)).not.toContain("the-rotated-one")
+  })
+})
+
 describe("with a cache", () => {
   const caches: CacheStore[] = []
   afterEach(() => {

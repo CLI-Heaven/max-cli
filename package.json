@@ -38,7 +38,8 @@
     "prepare": "lefthook install || true",
     "secrets:scan": "gitleaks git --no-banner --redact .",
     "prepublishOnly": "pnpm build",
-    "probe:contacts": "pnpm build && node --experimental-strip-types scripts/probe-contacts.ts"
+    "probe:contacts": "pnpm build && node --experimental-strip-types scripts/probe-contacts.ts",
+    "probe:token": "pnpm build && node --experimental-strip-types scripts/probe-token.ts"
   },
   "dependencies": {
     "@leemour/cli-core": "^0.1.0",

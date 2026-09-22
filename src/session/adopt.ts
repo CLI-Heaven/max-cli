@@ -21,5 +21,11 @@ import type { SessionStore } from "./store.js"
  */
 export const adoptToken = async (client: MaxClient, store: SessionStore, token: string): Promise<void> => {
   await client.connect({ token })
-  store.writeToken(token)
+
+  // ⚠ **Only if the login did not already leave a better one.** MAX answers every login with a
+  // fresh token and `connect` now keeps it (`MAX-11`); writing the pasted one here unconditionally
+  // would replace that with the credential the person copied out of a browser, which is the older
+  // of the two. The check also covers the case where the keyring write failed inside `connect`:
+  // then there is nothing stored, and what was pasted is better than nothing.
+  if (store.readToken() === undefined) store.writeToken(token)
 }

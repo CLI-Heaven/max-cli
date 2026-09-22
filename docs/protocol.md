@@ -13,7 +13,7 @@ sources disagree.
 | Operation | Opcode | MAX's name | When | Confidence | Where it came from |
 |---|---|---|---|---|---|
 | `session.init` | 6 | `SESSION_INIT` | before login | measured | measured against MAX 2026-09-19; max-api-docs/protocol/auth.md; tsmax createWebAgent |
-| `session.login` | 19 | `LOGIN` | before login | measured | measured against MAX 2026-09-19; measured against MAX 2026-09-20 (`messages` is an object) |
+| `session.login` | 19 | `LOGIN` | before login | measured | measured against MAX 2026-09-19; measured against MAX 2026-09-20 (`messages` is an object); measured against MAX 2026-09-22 (`token` replaces a stale credential once, then repeats) |
 | `session.logout` | 20 | `LOGOUT` | **never sent** | observed | max-api-docs/protocol/auth.md |
 | `contacts.info` | 32 | `CONTACT_INFO` | after login | measured | measured against MAX 2026-09-19: asked for ten, got ten |
 | `account.update` | 16 | `PROFILE` | **never sent** | measured | measured against MAX 2026-09-19: refused an empty payload |
