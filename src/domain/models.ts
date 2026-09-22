@@ -23,6 +23,15 @@ export interface Chat {
 export interface Attachment {
   /** Lower-cased MAX type: `photo`, `video`, `file`, `share`, `call`, `control`, `sticker`… */
   kind: string
+  /**
+   * A photo's image or a shared page. ⚠ Measured 2026-09-22: a photo link opens with no cookie and
+   * no token, so whoever holds it sees the picture.
+   */
+  url?: string
+  width?: number
+  height?: number
+  /** A shared page's title. */
+  title?: string
 }
 
 export interface Message {

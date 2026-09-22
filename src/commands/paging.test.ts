@@ -8,7 +8,10 @@ const settingsWith = (over: Partial<Settings>): Settings => ({ ...resolveSetting
 const rendered = (format: "json" | "pretty", over: Partial<Settings>, hasMore: boolean) => {
   const streams = captureStreams()
   const renderer = createRenderer({ format, color: false, streams })
-  renderPage({ renderer, format, settings: settingsWith(over) }, { items: [{ id: "1" }, { id: "2" }], hasMore })
+  renderPage(
+    { renderer, format, streams, settings: settingsWith(over) },
+    { items: [{ id: "1" }, { id: "2" }], hasMore },
+  )
   return { stdout: streams.stdout.join(""), stderr: streams.stderr.join("") }
 }
 

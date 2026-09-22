@@ -534,3 +534,17 @@ someone else, in a profile set up for you, sends as them and nothing notices.
 They are one change because they are the same files, the same test run and the same live check —
 and because the second is the difference between a mistake that fails a command and a message that
 reaches a real person from the wrong account, which is the first constraint this project has.
+
+## 2026-09-22
+
+**NEED-120 · Does an attachment's link appear in the output?**
+**Yes, in the JSON and in the feed, and clickable in the feed.** «выводить ссылку и для json и для
+текста. для текста - кликабельную». The alternative was a separate download command, with the link
+kept out of the output, because a photo link opens without credentials
+([`ARCHITECTURE.md` §10](ARCHITECTURE.md)). That command is not built: with the link in the output
+a person clicks it and an agent fetches it.
+
+"Clickable" is the plain URL, printed whole and last on its line, which terminals turn into a link
+themselves. An OSC 8 hyperlink with a short label was the other option; it was not taken because
+a terminal that does not support it shows the label and no way to reach the picture.
+

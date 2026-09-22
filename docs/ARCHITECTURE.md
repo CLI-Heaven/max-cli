@@ -322,7 +322,9 @@ undici version.
 
 `max messages list "Ivan"` matches chat titles — exactly first, then as a fragment. **An ambiguous name
 is an error listing the candidates, not a choice.** Sending to the wrong conversation does not
-undo. Verified live, where a full contact name matched two chats and the command stopped.
+undo. Verified live, where a full contact name matched two chats and the command stopped. The
+candidates are one per line with their ids, and in the machine error as `candidates: [{ id, title }]`,
+so an agent picks one without parsing a sentence.
 
 A one-to-one chat has no title of its own, so the partner's name is filled in from contacts: one
 `CONTACT_INFO` (32) for every unknown partner at once. Measured: the login carried 6 contacts
@@ -365,6 +367,19 @@ A person still gets the table, and the line about another page goes to **stderr*
 built by a helper each command calls (`src/commands/paging.ts`) rather than inside
 `renderer.result`, because `account show` and `session start|end` are not listings and keep
 answering a bare object.
+
+**Messages are the exception to the table**: `messages list` and `messages search` print a feed —
+`[dd.mm.yy hh:mm:ss] author: text` in local time, ids on the line below, one line per attachment
+(`src/commands/message-view.ts`). A table of eight columns fell apart on the first long message.
+The formatter lives here, not in `cli-core`, which knows no entities; the JSON is untouched.
+
+### Attachments carry their link
+
+Measured 2026-09-22 with `pnpm probe:attachments` on a group chat: a `PHOTO` carries `baseUrl`
+(https), `width`, `height`, `photoId`, `photoToken`, `previewData`; a `SHARE` carries `url`, `title`,
+`description`, `image`, `shareId`. **The photo link opened with no cookie and no token** — `200`,
+`image/webp` — so it is shown as it is (`NEED-120`) and whoever holds it sees the picture. The model
+keeps `url`, `width`, `height` and `title`; nothing else of the wire crosses the adapter.
 
 
 ## 11. Trade-off order

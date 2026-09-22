@@ -1,4 +1,4 @@
-import type { Renderer, RenderFormat } from "@leemour/cli-core"
+import type { Renderer, RenderFormat, Streams } from "@leemour/cli-core"
 import { MaxClient, type MaxClientOptions } from "../client.js"
 import { type GlobalFlags, resolveSettings, type Settings } from "../config.js"
 import { resolveOutput } from "../output.js"
@@ -9,6 +9,9 @@ export interface CommandContext {
   settings: Settings
   renderer: Renderer
   format: RenderFormat
+  /** Whether the human view may use colour — the renderer's decision, handed to views that print their own text. */
+  color: boolean
+  streams: Streams
   store: SessionStore
   /** Not connected yet: the action owns the `finally` that closes it — and the cache, if it opened one. */
   createClient: (extra?: Partial<Omit<MaxClientOptions, "store">>) => MaxClient
@@ -36,13 +39,15 @@ export interface CommandContext {
  */
 export const forCommand = (flags: GlobalFlags): CommandContext => {
   const settings = resolveSettings(flags)
-  const { renderer, format } = resolveOutput(settings)
+  const { renderer, format, color, streams } = resolveOutput(settings)
   const store = new SessionStore({ profile: settings.profile })
 
   return {
     settings,
     renderer,
     format,
+    color,
+    streams,
     store,
     createClient: (extra = {}) =>
       new MaxClient({ store, timeoutMs: settings.timeoutMs, warn: renderer.note, ...extra }),

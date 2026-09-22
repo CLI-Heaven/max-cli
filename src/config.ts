@@ -23,6 +23,7 @@ const profileSettings = v.strictObject({
   limit: v.optional(count),
   timeoutMs: v.optional(count),
   color: v.optional(v.boolean()),
+  senderColors: v.optional(v.boolean()),
   /** The run log reads these two; nothing records anything until it exists. */
   record: v.optional(v.boolean()),
   keepRunsForDays: v.optional(count),
@@ -54,6 +55,8 @@ export interface Settings {
   verbose: boolean
   /** Unset means "decide from the terminal", which is `resolveOutput`'s job, not this one's. */
   color: boolean | undefined
+  /** A colour per sender in `messages` — a matter of taste, so off until the profile asks. */
+  senderColors: boolean
   limit: number
   /** Which page, 1-based. Per invocation only — a page number in a configuration file is a setting nobody wants twice. */
   page: number
@@ -96,6 +99,7 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
     quiet: flags.quiet === true,
     verbose: flags.verbose === true,
     color: configured.color,
+    senderColors: configured.senderColors ?? false,
     limit: flags.limit ?? configured.limit ?? DEFAULT_LIMIT,
     page: flags.page ?? 1,
     all: flags.all === true,

@@ -1,4 +1,4 @@
-import type { Renderer, RenderFormat } from "@leemour/cli-core"
+import type { Renderer, RenderFormat, Streams } from "@leemour/cli-core"
 import type { Command } from "commander"
 import type { Settings } from "../config.js"
 import type { Page } from "../domain/models.js"
@@ -36,8 +36,16 @@ export const window = ({ limit, page, all }: Settings): { limit?: number; offset
  * `account show` and `session start` are not lists and keep answering a bare object.
  */
 export const renderPage = <T>(
-  { renderer, format, settings }: { renderer: Renderer; format: RenderFormat; settings: Settings },
+  {
+    renderer,
+    format,
+    settings,
+    streams,
+  }: { renderer: Renderer; format: RenderFormat; settings: Settings; streams: Streams },
   { items, hasMore }: Page<T>,
+  view?: (items: T[]) => string,
+  /** What to type for the rest, when the listing is not paged by `--page`. */
+  more?: (items: T[]) => string,
 ): void => {
   if (format !== "pretty") {
     renderer.result({
@@ -49,7 +57,8 @@ export const renderPage = <T>(
     return
   }
 
-  renderer.result(items)
+  if (view) streams.data(view(items))
+  else renderer.result(items)
   if (!settings.all && hasMore)
-    renderer.note(`page ${settings.page} of more — \`--page ${settings.page + 1}\` for the next`)
+    renderer.note(more ? more(items) : `page ${settings.page} of more — \`--page ${settings.page + 1}\` for the next`)
 }
