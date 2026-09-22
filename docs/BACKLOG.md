@@ -249,15 +249,13 @@ meaning: `CLI-6` is the settings item.
   environment to the program, and `forCommand(command)` builds the renderer, the session store and
   the client's connection from it. `runWith` in `program.test.ts` now sees what a command prints,
   including against a scripted MAX; the mock socket opens when it is created, not when the mock is.
-- **CORE-7** · 🚧 `core-7-log-stream` · P2 · **A log file that cannot be opened must not kill the command.**
-  `createFileLogger` in `cli-core` opens its stream with `createWriteStream`, which opens
-  asynchronously and has no `error` listener — so a runs directory that vanishes or turns
-  unwritable takes the process down with an unhandled event rather than a diagnostic. It surfaced
-  as two uncaught `ENOENT`s in this repository's own suite once the tests began removing their
-  temporary directories (`BUG-30`); the tests are fixed here, the stream is not, and the stream is
-  the defect. **Second instance of this class in two days** — the first was `ws` emitting `error`
-  during a close (`BUG-26`), which killed a `--timeout`. A recording nobody asked for must fail
-  quietly and visibly (`NEED-97`), never fatally. Another repository, so its own change.
+- **CORE-7** · ✅ Closed 2026-09-23 — a run log whose file cannot be opened or written no longer
+  kills the command. `createFileLogger` in `@leemour/cli-core@0.1.1` always listens for the
+  stream's `error` and reports it once through `onError`; `startRun` passes a handler that warns
+  "this run is not recorded past this point" on the diagnostic stream, `--quiet` included, and the
+  command's answer and exit code stay as they were (`NEED-133`: a failure after the operation
+  invites a retry that sends twice). The test removes the run directory in the same tick the run
+  starts (`src/runs/recording.test.ts`). `braze-cli` keeps its own copy until `CORE-5`.
 - **CLI-12** · ✅ Closed 2026-09-23 — `max doctor` prints what a command depends on without
   contacting MAX: the token and its source, the keyring entry **and whether the environment moved
   it**, the login count and the last login, the profiles that have logged in, the cache file with

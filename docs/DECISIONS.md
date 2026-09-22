@@ -574,3 +574,12 @@ that message**, absent on the rest. «2 A», over the recommendation of an `anch
 package ships**, so the skill is always the version of `max` beside it. It prints the file itself
 even into a pipe — installing it is a redirect — and JSON only when `--json` is asked for by name.
 
+
+## 2026-09-23
+
+**NEED-133 · A run log that dies after it started, when recording was asked for: warn, or fail the
+command?** **Warn and continue; the answer and the exit code do not change.** «1 A». `NEED-97` makes
+something asked for fail loudly, and it still does where it can: a run that cannot *start* throws
+before the command does anything. Once the operation has happened or is under way, failing the
+command tells a script it did not — and a script retries, and a retried send is a second message to
+a person. The warning is the loud part.

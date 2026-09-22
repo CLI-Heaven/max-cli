@@ -34,6 +34,8 @@ export interface StartRunOptions {
   keepDays?: number
   runId?: string
   now?: () => Date
+  /** The log file could not be opened or written; the run goes on unrecorded from here. */
+  onError?: (error: Error) => void
 }
 
 export interface Run {
@@ -91,6 +93,7 @@ export const startRun = (options: StartRunOptions): Run => {
   const logger = createFileLogger({
     path: events,
     base: { runId: id, command: options.command, profile: options.profile },
+    ...(options.onError === undefined ? {} : { onError: options.onError }),
   })
 
   const metadata: RunMetadata = {

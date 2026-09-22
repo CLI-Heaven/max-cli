@@ -112,6 +112,7 @@ export const forCommand = (command: Command): CommandContext => {
             options: { record: settings.record, trace: settings.trace },
             format,
             streams,
+            warn: renderer.warn,
             keepDays: settings.keepRunsForDays,
           },
           body,
