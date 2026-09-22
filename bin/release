@@ -12,7 +12,11 @@ cd "$(dirname "$0")/.."
 git fetch -q origin
 [ "$(git branch --show-current)" = "main" ] || { echo "not on main" >&2; exit 1; }
 [ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "uncommitted changes" >&2; exit 1; }
+before=$(git rev-parse HEAD)
 git merge -q --ff-only origin/main
+# The shell is still running the file it read before the merge. On 2026-09-23 that meant the fixed
+# check of 080a5c4 never ran: the checkout was behind, and the old script published and gave up.
+[ "$(git rev-parse HEAD)" = "$before" ] || exec "$0" "$@"
 
 version=$(node -p 'require("./package.json").version')
 # `npm view` rather than a curl of the registry document: that document is served through a CDN
