@@ -21,6 +21,13 @@ const scriptedMax = ({ token = true } = {}) => {
       [Opcode.CHAT_HISTORY]: {
         messages: [{ id: 116762160362694583n, time: 1789776000000, sender: 10000002, text: "hi", attaches: [] }],
       },
+      // The sender is in no chat the login named, so naming them costs this request — a group
+      // member is looked up now, not only the other half of a dialog. Left unscripted it does not
+      // fail: the client waits, gives up and says "shown by id" on stderr, which is correct of it
+      // and looks like a broken assertion from here.
+      [Opcode.CONTACT_INFO]: {
+        contacts: [{ id: 10000002, names: [{ name: "Someone Else", type: "FULL_NAME" }] }],
+      },
     },
   })
   const keyring = memoryKeyring()
@@ -225,9 +232,18 @@ describe("the program", () => {
       const { max, ...environment } = scriptedMax()
       const { stdout, stderr, code } = await runWith(["messages", "list", "111", "--limit", "5", "--json"], environment)
 
+      // ⚠ **First, so the failure names its cause.** This test went red when sender naming began
+      // asking `CONTACT_INFO` that nothing scripted; the mock stayed silent, the client waited,
+      // gave up and said "shown by id" — and what failed was the `stderr` line below, which
+      // reports a symptom three steps downstream. Asserted here, the message is the opcode.
+      expect(max.unexpected).toEqual([])
+
       expect(stderr).toBe("")
       expect(code).toBe(0)
-      expect(JSON.parse(stdout)).toMatchObject({ items: [{ id: "116762160362694583", text: "hi" }], hasMore: false })
+      expect(JSON.parse(stdout)).toMatchObject({
+        items: [{ id: "116762160362694583", text: "hi", senderName: "Someone Else" }],
+        hasMore: false,
+      })
       expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.CHAT_MARK)
     })
 
