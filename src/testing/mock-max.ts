@@ -27,7 +27,13 @@ export interface MockMax {
  * rather than a hope: assert that opcode 50 is absent from `sent`.
  */
 export const mockMax = ({ answers, refuse = {} }: MockMaxOptions): MockMax => {
-  const state: MockMax = { createSocket: () => socket as unknown as WebSocket, sent: [], unexpected: [], closed: false }
+  // Open when asked for, as a real socket does — not when the mock is built, or a connection made
+  // later than the same tick waits for an event that already fired.
+  const createSocket = () => {
+    queueMicrotask(() => socket.emit("open"))
+    return socket as unknown as WebSocket
+  }
+  const state: MockMax = { createSocket, sent: [], unexpected: [], closed: false }
 
   const socket = new (class extends EventEmitter {
     readyState = 1
@@ -76,6 +82,5 @@ export const mockMax = ({ answers, refuse = {} }: MockMaxOptions): MockMax => {
     }
   })()
 
-  queueMicrotask(() => socket.emit("open"))
   return state
 }

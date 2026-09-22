@@ -25,7 +25,7 @@ export const messagesCommand = (): Command => {
     .option("--before <id-or-time>", "read what came before this message id, or this ISO 8601 time")
     .action(async function (this: Command, chat: string) {
       const options = this.optsWithGlobals()
-      const context = forCommand(options)
+      const context = forCommand(this)
       const { renderer, settings, createClient, run } = context
       const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
 
@@ -67,7 +67,7 @@ export const messagesCommand = (): Command => {
     .option("--limit <n>", "how many to show", (value) => Number.parseInt(value, 10))
     .action(async function (this: Command, text: string) {
       const options = this.optsWithGlobals()
-      const context = forCommand(options)
+      const context = forCommand(this)
       const { renderer, settings, createClient, run } = context
       const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
 
@@ -142,7 +142,7 @@ export const messagesCommand = (): Command => {
     .option("--silent", "deliver without a notification")
     .action(async function (this: Command, chat: string, text: string | undefined) {
       const options = this.optsWithGlobals()
-      const { renderer, settings, createClient, run } = forCommand(options)
+      const { renderer, settings, createClient, run } = forCommand(this)
 
       // Before the run directory and before the socket: a body we cannot read is a command that
       // never attempted anything, so there is nothing to record and nothing to close.
@@ -215,7 +215,7 @@ const readWindow = async (
   window: { before: number; after: number },
   name: string,
 ): Promise<void> => {
-  const context = forCommand(command.optsWithGlobals())
+  const context = forCommand(command)
   const { renderer, settings, createClient, run, format, streams } = context
   const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
 

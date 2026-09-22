@@ -1,10 +1,43 @@
 import type { Renderer, RenderFormat, Streams } from "@leemour/cli-core"
+import type { Command } from "commander"
 import { MaxClient, type MaxClientOptions } from "../client.js"
 import { type GlobalFlags, resolveSettings, type Settings } from "../config.js"
 import { withDeadline } from "../deadline.js"
 import { resolveOutput } from "../output.js"
+import { rootOf } from "../profile.js"
 import { recorded } from "../runs/recording.js"
 import { SessionStore } from "../session/store.js"
+
+/**
+ * What a command writes to and talks through, when it is not the real terminal, keyring and MAX.
+ * `run` sets it on the program; without it everything is the real thing.
+ */
+export interface Environment {
+  streams?: Streams
+  tty?: boolean
+  /** A store over a memory keyring, so a test never touches the owner's. */
+  store?: (profile: string) => SessionStore
+  /** A fresh connection per client — to a scripted MAX in a test. */
+  connection?: () => NonNullable<MaxClientOptions["connection"]>
+}
+
+const environments = new WeakMap<Command, Environment>()
+
+export const provide = (program: Command, environment: Environment): void => {
+  environments.set(program, environment)
+}
+
+const environmentOf = (command: Command): Environment => environments.get(rootOf(command)) ?? {}
+
+/** For the commands that print but never need settings or a client. */
+export const outputFor = (command: Command) => {
+  const { streams, tty } = environmentOf(command)
+  return resolveOutput({
+    ...command.optsWithGlobals(),
+    ...(streams ? { streams } : {}),
+    ...(tty === undefined ? {} : { tty }),
+  })
+}
 
 export interface CommandContext {
   settings: Settings
@@ -38,10 +71,15 @@ export interface CommandContext {
  * The cache is not opened here on purpose — only the reading commands want one, and opening it
  * would create a database file for `session end`, which will never read it.
  */
-export const forCommand = (flags: GlobalFlags): CommandContext => {
-  const settings = resolveSettings(flags)
-  const { renderer, format, color, streams } = resolveOutput(settings)
-  const store = new SessionStore({ profile: settings.profile })
+export const forCommand = (command: Command): CommandContext => {
+  const environment = environmentOf(command)
+  const settings = resolveSettings(command.optsWithGlobals<GlobalFlags>())
+  const { renderer, format, color, streams } = resolveOutput({
+    ...settings,
+    ...(environment.streams ? { streams: environment.streams } : {}),
+    ...(environment.tty === undefined ? {} : { tty: environment.tty }),
+  })
+  const store = environment.store?.(settings.profile) ?? new SessionStore({ profile: settings.profile })
 
   // Every client this command builds, so the deadline can shut them. There is always one; relying
   // on that is what makes the second one, some day, the leak that keeps the process alive.
@@ -55,7 +93,13 @@ export const forCommand = (flags: GlobalFlags): CommandContext => {
     streams,
     store,
     createClient: (extra = {}) => {
-      const client = new MaxClient({ store, timeoutMs: settings.timeoutMs, warn: renderer.note, ...extra })
+      const client = new MaxClient({
+        store,
+        timeoutMs: settings.timeoutMs,
+        warn: renderer.note,
+        ...(environment.connection ? { connection: environment.connection() } : {}),
+        ...extra,
+      })
       clients.push(client)
       return client
     },
@@ -67,6 +111,7 @@ export const forCommand = (flags: GlobalFlags): CommandContext => {
             profile: settings.profile,
             options: { record: settings.record, trace: settings.trace },
             format,
+            streams,
             keepDays: settings.keepRunsForDays,
           },
           body,

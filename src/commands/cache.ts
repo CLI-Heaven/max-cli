@@ -1,6 +1,6 @@
 import { Command } from "commander"
 import { openProfileCache } from "../cache/index.js"
-import { resolveOutput } from "../output.js"
+import { outputFor } from "./context.js"
 
 /**
  * The way out, and it matters more than it looks.
@@ -17,7 +17,7 @@ export const cacheCommand = (): Command => {
     .description("forget everything this profile has cached")
     .action(async function (this: Command) {
       const options = this.optsWithGlobals()
-      const { renderer } = resolveOutput(options)
+      const { renderer } = outputFor(this)
       const cache = await openProfileCache(options.profile, { onProblem: (message) => renderer.note(message) })
 
       if (!cache) {

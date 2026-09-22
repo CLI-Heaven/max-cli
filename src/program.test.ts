@@ -1,12 +1,43 @@
-import { captureStreams } from "@leemour/cli-core"
+import { captureStreams, memoryKeyring } from "@leemour/cli-core"
 import { describe, expect, it } from "vitest"
+import type { Environment } from "./commands/context.js"
 import { resolveSettings } from "./config.js"
+import { Opcode } from "./generated/opcodes.generated.js"
 import { commandWords, liftProfile } from "./profile.js"
 import { createProgram, run } from "./program.js"
+import { Connection } from "./protocol/connection.js"
+import { SessionStore } from "./session/store.js"
+import { mockMax } from "./testing/mock-max.js"
 
-const runWith = async (argv: string[]) => {
+/** A MAX that answers a login and one history read, and a keyring that holds a token or not. */
+const scriptedMax = ({ token = true } = {}) => {
+  const max = mockMax({
+    answers: {
+      [Opcode.SESSION_INIT]: {},
+      [Opcode.LOGIN]: {
+        profile: { contact: { id: 10000001, names: [{ name: "Test Person", type: "FULL_NAME" }] } },
+        chats: [{ id: 111, title: "First", type: "CHAT", lastEventTime: 1789776000000 }],
+      },
+      [Opcode.CHAT_HISTORY]: {
+        messages: [{ id: 116762160362694583n, time: 1789776000000, sender: 10000002, text: "hi", attaches: [] }],
+      },
+    },
+  })
+  const keyring = memoryKeyring()
+  return {
+    max,
+    store: (profile: string) => {
+      const store = new SessionStore({ profile, keyring })
+      if (token) store.writeToken("a-token")
+      return store
+    },
+    connection: () => new Connection({ createSocket: max.createSocket, timeoutMs: 50 }),
+  }
+}
+
+const runWith = async (argv: string[], environment: Environment = {}) => {
   const streams = captureStreams()
-  const code = await run(argv, { streams, tty: false })
+  const code = await run(argv, { ...environment, streams, tty: false })
   return { code, stdout: streams.stdout.join("\n"), stderr: streams.stderr.join("\n") }
 }
 
@@ -178,10 +209,42 @@ describe("the program", () => {
     expect(show.stdout).toContain("where each one came from")
   })
 
-  // ⚠ What `config show` actually prints is not asserted here, and cannot be: a command builds its
-  // own renderer over the real streams, so `runWith` sees help and errors and nothing else
-  // (`FIND-39`). The report's content is covered where it is decided — `profileFrom` and
-  // `configuredProfiles` in `config.test.ts`.
+  describe("what a command prints", () => {
+    it("`config show --json` answers one object on stdout", async () => {
+      const { stdout, code } = await runWith(["config", "show", "--json"])
+      expect(code).toBe(0)
+      expect(JSON.parse(stdout)).toMatchObject({ profile: "default", configFound: false })
+    })
+
+    it("`skill show` prints the skill file itself", async () => {
+      const { stdout } = await runWith(["skill", "show"])
+      expect(stdout.startsWith("---\nname: max-cli")).toBe(true)
+    })
+
+    it("`messages list` reads a scripted MAX and answers the listing, and marks nothing read", async () => {
+      const { max, ...environment } = scriptedMax()
+      const { stdout, stderr, code } = await runWith(["messages", "list", "111", "--limit", "5", "--json"], environment)
+
+      expect(stderr).toBe("")
+      expect(code).toBe(0)
+      expect(JSON.parse(stdout)).toMatchObject({ items: [{ id: "116762160362694583", text: "hi" }], hasMore: false })
+      expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.CHAT_MARK)
+    })
+
+    it("`--jsonl` writes one object per line and nothing else", async () => {
+      const { max: _, ...environment } = scriptedMax()
+      const { stdout } = await runWith(["messages", "list", "111", "--jsonl"], environment)
+      expect(stdout.split("\n").map((line) => JSON.parse(line).id)).toEqual(["116762160362694583"])
+    })
+
+    it("**leaves stdout empty on a failure** — no session, nothing printed but the error", async () => {
+      const { max: _, ...environment } = scriptedMax({ token: false })
+      const { stdout, stderr, code } = await runWith(["account", "show", "--json"], environment)
+      expect(stdout).toBe("")
+      expect(JSON.parse(stderr).error.code).toBe("authentication_error")
+      expect(code).toBe(4)
+    })
+  })
 
   it("does not mistake a command for a profile", () => {
     const program = createProgram()

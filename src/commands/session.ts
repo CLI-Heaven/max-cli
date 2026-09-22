@@ -23,7 +23,7 @@ export const sessionCommand = (): Command => {
     .command("start")
     .description("store a MAX session for this profile")
     .action(async function (this: Command) {
-      const { renderer, settings, store, createClient, run } = forCommand(this.optsWithGlobals())
+      const { renderer, settings, store, createClient, run } = forCommand(this)
 
       // Creation is the only moment the collision can still be explained; after this the name is
       // written down and `max <name>` would silently be a command instead.
@@ -64,7 +64,7 @@ export const sessionCommand = (): Command => {
     .command("end")
     .description("forget the stored session for this profile")
     .action(async function (this: Command) {
-      const { renderer, store, run } = forCommand(this.optsWithGlobals())
+      const { renderer, store, run } = forCommand(this)
 
       // It contacts nobody, so the run holds no events — but forgetting a session is an action, and
       // "when did this profile stop working" is a question the record is kept to answer.

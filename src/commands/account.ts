@@ -8,7 +8,7 @@ export const accountCommand = (): Command => {
     .command("show")
     .description("who this profile is logged in as")
     .action(async function (this: Command) {
-      const { renderer, createClient, run } = forCommand(this.optsWithGlobals())
+      const { renderer, createClient, run } = forCommand(this)
 
       await run("account show", async (events) => {
         const client = createClient({ events })
