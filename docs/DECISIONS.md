@@ -359,7 +359,18 @@ left. A *person* absent from a delta is merely unchanged, which after the first 
 normal case. Replace the rows of the chats in the delta, never all of them.
 
 **NEED-106 · The login returns a rotated `token` we ignore. Start persisting it?**
-**Yes, and as its own piece of work.** «2 A». The login response carries a `token` field and we
+**Yes, and as its own piece of work.** «2 A».
+
+**Measured 2026-09-22, and the premise held — with one correction** (`pnpm probe:token`). The
+login answer does carry `token`, a non-empty string, and it differs from the one sent **when that
+one has aged**: presenting a token pasted months earlier returns a different one, and presenting
+*that* one returns the same one back. So it is an exchange that happens once, not a rotation on
+every login, and the keyring is written once rather than per command.
+
+Worth measuring rather than assuming twice over: the specification declared no such field at all,
+and the claim rests on `tsmax`, somebody else's client. The first draft of `MAX-11` said "every
+login returns a different one" on the strength of a single probe run and was wrong; the second run,
+on a scratch profile, is what caught it. Built as `MAX-11`. The login response carries a `token` field and we
 drop it, keeping forever the one that was pasted in. `NEED-8` said on 2026-09-18 that clients
 rotate it and that we should persist it, and nothing ever did. It changes what is in the owner's
 keyring, so it gets its own commit and its own live check rather than riding along with the
