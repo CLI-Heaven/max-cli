@@ -32,6 +32,22 @@ export interface Attachment {
   height?: number
   /** A shared page's title. */
   title?: string
+  /** ⚠ Not measured: no file has been seen on the wire yet. Read if present. */
+  name?: string
+  size?: number
+}
+
+/** The message a reply answers or a forward carries — MAX sends it whole, inside the one that links to it. */
+export interface QuotedMessage {
+  id: Id
+  senderId: Id | null
+  senderName: string | null
+  /** ISO 8601, or `null` when the quote did not say. */
+  timestamp: string | null
+  text: string
+  attachments: Attachment[]
+  /** Whether this account wrote it. `null` when we do not know who we are. */
+  outgoing: boolean | null
 }
 
 export interface Message {
@@ -54,6 +70,8 @@ export interface Message {
   /** Whether this account sent it. `null` when we do not know who we are. */
   outgoing: boolean | null
   attachments: Attachment[]
+  replyTo: QuotedMessage | null
+  forwardedFrom: QuotedMessage | null
 }
 
 /**

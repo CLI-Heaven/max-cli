@@ -2,8 +2,8 @@ import { CliError } from "@leemour/cli-core"
 import { Command } from "commander"
 import { openProfileCache } from "../cache/index.js"
 import type { Id, Message } from "../domain/models.js"
+import { renderMessages } from "../rendering/messages.js"
 import { type CommandContext, forCommand } from "./context.js"
-import { renderMessages } from "./message-view.js"
 import { renderPage } from "./paging.js"
 
 export const messagesCommand = (): Command => {
@@ -37,7 +37,7 @@ export const messagesCommand = (): Command => {
           renderPage(
             context,
             await client.messages.list(chatId, { limit: settings.limit, ...before }),
-            feed(context, chatId),
+            feed(context),
             ([oldest]) => `older ones: \`--before ${oldest?.id}\``,
           )
         } finally {
@@ -88,7 +88,7 @@ export const messagesCommand = (): Command => {
               ? "nothing matched what this machine has read — `max messages list <chat>` reads more"
               : "searched the local copy only; a chat nobody has opened is not in it",
           )
-          renderPage(context, found, feed(context, chatId), () => "more matched — raise `--limit`")
+          renderPage(context, found, feed(context), () => "more matched — raise `--limit`")
         } finally {
           await client.close()
           cache?.close()
@@ -141,13 +141,14 @@ export const messagesCommand = (): Command => {
 }
 
 const feed =
-  ({ color, settings }: CommandContext, chatId?: string) =>
+  ({ color, settings }: CommandContext) =>
   (messages: Message[]) =>
     renderMessages(messages, {
       color,
       senderColors: settings.senderColors,
-      width: process.stdout.columns,
-      ...(chatId === undefined ? {} : { chatId }),
+      verbosity: settings.detail,
+      width: process.stdout.columns ?? 80,
+      profile: settings.profile,
     })
 
 /**

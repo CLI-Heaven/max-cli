@@ -30,7 +30,7 @@ const RESPONSE: DiagnosticEvent = {
 }
 
 const run = async (
-  options: { record?: boolean; verbose?: boolean; quiet?: boolean; format?: "pretty" | "json" },
+  options: { record?: boolean; trace?: boolean; quiet?: boolean; format?: "pretty" | "json" },
   body?: (events: (event: DiagnosticEvent) => void) => Promise<void>,
 ) => {
   const streams = captureStreams()
@@ -42,7 +42,7 @@ const run = async (
       profile: "default",
       options: {
         ...(options.record === undefined ? {} : { record: options.record }),
-        verbose: options.verbose,
+        trace: options.trace,
         ...(options.quiet === undefined ? {} : { quiet: options.quiet }),
       },
       format: options.format ?? "pretty",
@@ -69,9 +69,9 @@ describe("with neither flag", () => {
   })
 })
 
-describe("--verbose", () => {
+describe("--trace", () => {
   it("shows a person the line, and puts nothing on stdout", async () => {
-    const { streams } = await run({ verbose: true })
+    const { streams } = await run({ trace: true })
 
     expect(streams.stdout).toEqual([])
     expect(streams.stderr[0]).toContain("→ chats.history")
@@ -79,21 +79,21 @@ describe("--verbose", () => {
   })
 
   it("gives a script one JSON object per line instead", async () => {
-    const { streams } = await run({ verbose: true, format: "json" })
+    const { streams } = await run({ trace: true, format: "json" })
 
     expect(streams.stdout).toEqual([])
     expect(streams.stderr.map((line) => JSON.parse(line).event)).toEqual(["request", "response"])
   })
 
   it("**outranks `--quiet`** (`NEED-53`) — the flag a person just typed has to do something", async () => {
-    const { streams } = await run({ verbose: true, quiet: true })
+    const { streams } = await run({ trace: true, quiet: true })
 
     expect(streams.stderr).toHaveLength(2)
     expect(streams.stdout).toEqual([])
   })
 
   it("**keeps nothing** — showing and keeping are the two different things", async () => {
-    const { dir } = await run({ verbose: true })
+    const { dir } = await run({ trace: true })
 
     expect(existsSync(dir)).toBe(false)
   })
@@ -115,7 +115,7 @@ describe("--record", () => {
   })
 
   it("records both at once when both are asked for, from the one event", async () => {
-    const { streams, dir } = await run({ record: true, verbose: true })
+    const { streams, dir } = await run({ record: true, trace: true })
 
     expect(streams.stderr).toHaveLength(2)
     expect(listRuns(dir)).toHaveLength(1)

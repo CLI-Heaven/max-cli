@@ -5,17 +5,30 @@ import { renderPage, window } from "./paging.js"
 
 const settingsWith = (over: Partial<Settings>): Settings => ({ ...resolveSettings({}, { env: {} }), ...over })
 
-const rendered = (format: "json" | "pretty", over: Partial<Settings>, hasMore: boolean) => {
+const rendered = (format: "json" | "jsonl" | "pretty", over: Partial<Settings>, hasMore: boolean) => {
   const streams = captureStreams()
   const renderer = createRenderer({ format, color: false, streams })
   renderPage(
     { renderer, format, streams, settings: settingsWith(over) },
     { items: [{ id: "1" }, { id: "2" }], hasMore },
   )
-  return { stdout: streams.stdout.join(""), stderr: streams.stderr.join("") }
+  return { stdout: streams.stdout.join("\n"), stderr: streams.stderr.join("\n") }
 }
 
 describe("what a paged command answers", () => {
+  it("**one object per line with --jsonl**, and whether there is more only on stderr", () => {
+    const { stdout, stderr } = rendered("jsonl", { limit: 2, page: 1 }, true)
+
+    expect(
+      stdout
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line)),
+    ).toEqual([{ id: "1" }, { id: "2" }])
+    expect(stdout).not.toContain("\u001b")
+    expect(stderr).toContain("--page 2")
+  })
+
   it("**one object in machine mode**, always the same four fields", () => {
     const { stdout, stderr } = rendered("json", { limit: 2, page: 1 }, true)
 

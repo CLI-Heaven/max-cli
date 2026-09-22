@@ -40,8 +40,10 @@ export type Config = v.InferOutput<typeof configSchema>
 export interface GlobalFlags {
   profile?: string
   json?: boolean
+  jsonl?: boolean
   quiet?: boolean
-  verbose?: boolean
+  verbose?: number
+  trace?: boolean
   limit?: number
   page?: number
   all?: boolean
@@ -51,8 +53,11 @@ export interface GlobalFlags {
 export interface Settings {
   profile: string
   json: boolean
+  jsonl: boolean
   quiet: boolean
-  verbose: boolean
+  /** How much of what the model knows a human view shows: `-v`, `-vv`. */
+  detail: 0 | 1 | 2
+  trace: boolean
   /** Unset means "decide from the terminal", which is `resolveOutput`'s job, not this one's. */
   color: boolean | undefined
   /** A colour per sender in `messages` — a matter of taste, so off until the profile asks. */
@@ -96,8 +101,10 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
   const settings: Settings = {
     profile,
     json: flags.json === true,
+    jsonl: flags.jsonl === true,
     quiet: flags.quiet === true,
-    verbose: flags.verbose === true,
+    detail: Math.min(2, Math.max(0, flags.verbose ?? 0)) as 0 | 1 | 2,
+    trace: flags.trace === true,
     color: configured.color,
     senderColors: configured.senderColors ?? false,
     limit: flags.limit ?? configured.limit ?? DEFAULT_LIMIT,

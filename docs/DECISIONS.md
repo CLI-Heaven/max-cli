@@ -545,6 +545,20 @@ kept out of the output, because a photo link opens without credentials
 a person clicks it and an agent fetches it.
 
 "Clickable" is the plain URL, printed whole and last on its line, which terminals turn into a link
-themselves. An OSC 8 hyperlink with a short label was the other option; it was not taken because
-a terminal that does not support it shows the label and no way to reach the picture.
+themselves. **поправка, NEED-127:** the owner then asked for `📎 photo` itself to be the link. It is
+an OSC 8 hyperlink where there is colour, and the address is printed beside the label where there
+is not, so a terminal without OSC 8 support still leaves a way to the picture.
 
+**NEED-125 · What do `-v` and `-vv` mean?**
+**More detail in what is shown; the version moves to `-V`, and request diagnostics to `--trace`.**
+«-v, --version — давай использовать для нашего output, потому что там чаще будет и важнее»,
+«--verbose … скорее всего надо менять», «1 А». `-v` counts: ids at one, everything the model holds
+at two. `--verbose` is its long name. The per-request stderr lines that `--verbose` meant until
+0.2.0 are `--trace`, with `NEED-53` unchanged.
+
+**NEED-126 · Is `--json` still the envelope?**
+**Yes; `--jsonl` is added for a stream.** «2 А». A script tells another page by `hasMore`, which an
+array cannot carry. `--jsonl` writes one object per line and says "there is more" on stderr.
+
+**Replies and forwards are stored with the message.** «Ответы не сохраняются в кэш — а почему? я бы
+сохранял». One `link` column, schema 4; the cache is rebuilt once and loses nothing that was typed.

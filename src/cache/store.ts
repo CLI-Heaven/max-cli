@@ -303,11 +303,12 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
    * the point of it.
    */
   const putMessage = database.prepare(`
-    INSERT INTO messages (chat_id, id, sender_id, sender_name, time, update_time, text, outgoing, attachments, fetched_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO messages (chat_id, id, sender_id, sender_name, time, update_time, text, outgoing, attachments, link, fetched_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(chat_id, id) DO UPDATE SET
       sender_name = excluded.sender_name, update_time = excluded.update_time, text = excluded.text,
-      outgoing = excluded.outgoing, attachments = excluded.attachments, fetched_at = excluded.fetched_at
+      outgoing = excluded.outgoing, attachments = excluded.attachments, link = excluded.link,
+      fetched_at = excluded.fetched_at
     WHERE coalesce(excluded.update_time, 0) >= coalesce(messages.update_time, 0)`)
 
   const toChat = (row: Record<string, unknown>): Chat => ({
@@ -329,6 +330,11 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
     text: String(row.text),
     outgoing: row.outgoing === null ? null : row.outgoing === 1,
     attachments: JSON.parse(String(row.attachments)) as Message["attachments"],
+    replyTo: null,
+    forwardedFrom: null,
+    ...(row.link === null || row.link === undefined
+      ? {}
+      : (JSON.parse(String(row.link)) as Pick<Message, "replyTo" | "forwardedFrom">)),
   })
 
   const epoch = (iso: string | null): number | null => (iso === null ? null : new Date(iso).getTime())
@@ -496,6 +502,9 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
             message.text,
             message.outgoing === null ? null : Number(message.outgoing),
             JSON.stringify(message.attachments),
+            message.replyTo || message.forwardedFrom
+              ? JSON.stringify({ replyTo: message.replyTo, forwardedFrom: message.forwardedFrom })
+              : null,
             at,
           )
         }
