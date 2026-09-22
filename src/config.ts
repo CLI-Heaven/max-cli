@@ -48,6 +48,8 @@ export interface GlobalFlags {
   page?: number
   all?: boolean
   record?: boolean
+  /** Raw text from `--timeout`, parsed here so the unit rule lives in one place. */
+  timeout?: string
 }
 
 export interface Settings {
@@ -69,6 +71,19 @@ export interface Settings {
   all: boolean
   /** Unset means the transport's own default; the number lives in `protocol/connection.ts`. */
   timeoutMs: number | undefined
+  /**
+   * How long the **whole command** may take, or `undefined` for no bound.
+   *
+   * ⚠ Not the same thing as `timeoutMs`, which is one request's wait. One read is a connect, an
+   * INIT, a LOGIN, a name to resolve and then the request itself, so the wall clock is a multiple
+   * of `timeoutMs` and never equal to it. An agent given thirty seconds needs to say *thirty
+   * seconds*, and this is the only setting that means that.
+   *
+   * They are spelled differently on purpose — a number of milliseconds in the file, a duration
+   * with a unit on the command line — because two settings called "timeout" that mean different
+   * things are otherwise a trap.
+   */
+  commandTimeoutMs: number | undefined
   record: boolean
   keepRunsForDays: number
   /** Named in errors and in `max --help`, so a person can find the file that decided this. */
@@ -84,6 +99,11 @@ export interface ResolveOptions {
 /**
  * **Flag, then environment, then the configuration file, then the built-in default.** One place,
  * so no command can decide the order differently from another.
+ *
+ * ⚠ **Only two settings actually have the middle step** — `MAX_PROFILE` and `MAX_TIMEOUT` — and
+ * that is deliberate rather than unfinished (`NEED-119`). They are the two an agent sets once for
+ * a whole process. A variable for `--json` or `--color` would be worse than missing: one left set
+ * in a shell silently changes the output of a command that never asked for it.
  *
  * Two things already jump this queue and are documented rather than re-litigated here:
  * `MAX_TOKEN` outranks the keyring (`cli-core`'s `Credentials.read`), and `MAX_CONFIG_DIR`,
@@ -111,6 +131,7 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
     page: flags.page ?? 1,
     all: flags.all === true,
     timeoutMs: configured.timeoutMs,
+    commandTimeoutMs: durationMs(flags.timeout ?? given(env.MAX_TIMEOUT), flags.timeout === undefined),
     record: flags.record ?? configured.record ?? false,
     keepRunsForDays: configured.keepRunsForDays ?? DEFAULT_KEEP_RUNS_FOR_DAYS,
     configPath,
@@ -133,6 +154,37 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
   }
 
   return settings
+}
+
+/**
+ * `30s`, `2m`, `500ms` — **the unit is required, and a bare number is refused.**
+ *
+ * `--timeout 30` is ambiguous in a way that costs real time: the neighbouring setting in the
+ * configuration file is called `timeoutMs` and is milliseconds, while every other tool that spells
+ * it this way means seconds. Guessing either one is a thirty-fold surprise in one direction or the
+ * other, so this asks instead — the same rule as `--kind`, and the reason is the same.
+ *
+ * `fromEnv` only changes the wording of the refusal. A person who set `MAX_TIMEOUT` in a shell
+ * profile weeks ago needs to be told *which* thing is wrong, not shown a flag they did not type.
+ */
+const DURATION = /^(\d+)(ms|s|m)$/
+
+const UNIT_MS: Record<string, number> = { ms: 1, s: 1000, m: 60_000 }
+
+const durationMs = (value: string | undefined, fromEnv: boolean): number | undefined => {
+  if (value === undefined) return undefined
+
+  const source = fromEnv ? "MAX_TIMEOUT" : "--timeout"
+  const match = DURATION.exec(value.trim())
+  if (!match?.[1] || !match[2]) {
+    throw new CliError("validation_error", `${source} takes a duration with a unit — 30s, 2m or 500ms — not "${value}"`)
+  }
+
+  const ms = Number(match[1]) * (UNIT_MS[match[2]] ?? 0)
+  if (ms <= 0) {
+    throw new CliError("validation_error", `${source} has to be more than zero, and "${value}" is not`)
+  }
+  return ms
 }
 
 /**

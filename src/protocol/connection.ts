@@ -167,6 +167,16 @@ export class Connection {
 
     if (!socket) return
     socket.removeAllListeners()
+
+    // ⚠ **An error listener has to survive the close.** `ws` emits `error` when a socket is closed
+    // while it is still CONNECTING — measured against the real service — and an `error` event with
+    // no listener is how Node kills the whole process. Removing every listener and *then* closing
+    // turned a timeout into an unhandled event and a stack trace: exit 1 and a dump of `ws`
+    // internals, instead of exit 9 and one sentence.
+    //
+    // Nothing here can act on such an error anyway. The connection is being discarded; the socket
+    // failing to shut politely changes nothing a caller could use.
+    socket.on("error", () => {})
     if (socket.readyState === socket.OPEN || socket.readyState === socket.CONNECTING) socket.close()
   }
 

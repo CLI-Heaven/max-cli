@@ -30,6 +30,7 @@ max [профиль] [опции] <команда> <действие> [аргу�
 | `--jsonl` | machine-readable output: one JSON object per line, for streaming and jq |
 | `--quiet` | diagnostics off |
 | `--trace` | one line per request on stderr: ids and timings, never message content |
+| `--timeout <duration>` | give up on the whole command after this — 30s, 2m, 500ms |
 | `--offline` | answer from what was recorded and never connect; fails if nothing was |
 | `--record` | keep this run under `max runs` — ids and timings, never message content |
 | `--no-record` | do not keep it, whatever the configuration says |

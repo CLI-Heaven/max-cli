@@ -16,6 +16,48 @@ beforeEach(() => {
   configDir = mkdtempSync(join(tmpdir(), "max-config-"))
 })
 
+describe("--timeout", () => {
+  it("reads a duration in the three units it accepts", () => {
+    expect(settings({ timeout: "500ms" }).commandTimeoutMs).toBe(500)
+    expect(settings({ timeout: "30s" }).commandTimeoutMs).toBe(30_000)
+    expect(settings({ timeout: "2m" }).commandTimeoutMs).toBe(120_000)
+  })
+
+  it("**refuses a bare number**, because the unit is the whole question", () => {
+    // `timeoutMs` in the configuration file is milliseconds and every comparable tool means
+    // seconds. Either guess is a thirty-fold surprise, so it asks.
+    expect(() => settings({ timeout: "30" })).toThrow(/30s, 2m or 500ms/)
+    expect(() => settings({ timeout: "abc" })).toThrow(/duration with a unit/)
+  })
+
+  it("refuses a duration of nothing, which would end the command before it began", () => {
+    expect(() => settings({ timeout: "0s" })).toThrow(/more than zero/)
+  })
+
+  it("has no bound unless one is given", () => {
+    expect(settings().commandTimeoutMs).toBeUndefined()
+  })
+
+  it("reads `MAX_TIMEOUT`, and the flag outranks it", () => {
+    expect(settings({}, { MAX_TIMEOUT: "10s" }).commandTimeoutMs).toBe(10_000)
+    expect(settings({ timeout: "1s" }, { MAX_TIMEOUT: "10s" }).commandTimeoutMs).toBe(1000)
+  })
+
+  it("names the variable, not the flag, when the variable is the broken one", () => {
+    // Somebody who set this in a shell profile weeks ago needs to know which thing is wrong.
+    expect(() => settings({}, { MAX_TIMEOUT: "soon" })).toThrow(/MAX_TIMEOUT/)
+    expect(() => settings({ timeout: "soon" })).toThrow(/--timeout/)
+  })
+
+  it("**is not `timeoutMs`**, which stays one request's wait and comes only from the file", () => {
+    withConfig(JSON.stringify({ profiles: { default: { timeoutMs: 5000 } } }))
+    const resolved = settings({ timeout: "30s" })
+
+    expect(resolved.timeoutMs).toBe(5000)
+    expect(resolved.commandTimeoutMs).toBe(30_000)
+  })
+})
+
 describe("paging", () => {
   it("starts at page one, and turns a page into an offset nobody re-derives", () => {
     expect(settings().page).toBe(1)

@@ -61,9 +61,18 @@ export const mockMax = ({ answers, refuse = {} }: MockMaxOptions): MockMax => {
       queueMicrotask(() => this.emit("message", encodeFrame(frame)))
     }
 
+    /**
+     * ⚠ **Emits `error` on the way out, the way `ws` does when a socket is closed before it
+     * finished connecting** — measured against the real service on 2026-09-22.
+     *
+     * It is here so the suite can see what that costs: an `error` event with nobody listening is
+     * how Node kills the process, so a connection that strips its listeners before closing turns
+     * a timeout into a stack trace. A mock that closed politely would have let that ship.
+     */
     close(): void {
       state.closed = true
       this.readyState = 3
+      this.emit("error", new Error("WebSocket was closed before the connection was established"))
     }
   })()
 
