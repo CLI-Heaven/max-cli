@@ -1,0 +1,56 @@
+#!/usr/bin/env sh
+# Publishes the version in package.json, tags it, creates the GitHub release, installs `max`.
+#
+#   bin/release
+#
+# Steps 3–7 of docs/releasing.md. Run on a clean, up-to-date `main`. The npm token comes from the
+# keyring and is never printed — not on success, not in an error.
+set -eu
+
+cd "$(dirname "$0")/.."
+
+git fetch -q origin
+[ "$(git branch --show-current)" = "main" ] || { echo "not on main" >&2; exit 1; }
+[ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "uncommitted changes" >&2; exit 1; }
+git merge -q --ff-only origin/main
+
+version=$(node -p 'require("./package.json").version')
+published() {
+  curl -sS "https://registry.npmjs.org/@leemour%2fmax-cli?x=$$" |
+    python3 -c "import json,sys; print(' '.join(json.load(sys.stdin).get('versions',{})))"
+}
+case " $(published) " in
+  *" $version "*) echo "$version is already on npm — raise the version first" >&2; exit 1 ;;
+esac
+
+echo "== checks for $version =="
+pnpm install --frozen-lockfile
+pnpm lint && pnpm typecheck && pnpm test
+pnpm build && pnpm smoke:bun
+pnpm generate && git diff --exit-code
+pnpm version:check
+
+token=$(secret-tool lookup service npm account leemour) || { echo "no npm token in the keyring (service=npm account=leemour)" >&2; exit 1; }
+[ -n "$token" ] || { echo "the keyring entry is empty" >&2; exit 1; }
+
+echo "== publishing $version =="
+# Our own checks above stand in for pnpm's: it counts untracked files as a dirty tree.
+NPM_TOKEN="$token" pnpm publish --access public --no-git-checks
+
+# The registry shows a new version with a delay; on 2026-09-22 five seconds was not enough.
+seen=""
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
+  case " $(published) " in *" $version "*) seen=1; break ;; esac
+  sleep 5
+done
+[ -n "$seen" ] || { echo "npm does not show $version after a minute — not tagging" >&2; exit 1; }
+
+echo "== tag and release v$version =="
+git tag -a "v$version" -m "$version"
+git push -q origin "v$version"
+awk -v v="$version" '$0 ~ "^## "v" " {on=1; next} /^## / && on {exit} on' CHANGELOG.md |
+  gh release create "v$version" --title "$version" --notes-file -
+
+echo "== installing =="
+pnpm add -g "@leemour/max-cli@$version"
+cd /tmp && max -V
