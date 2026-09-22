@@ -17,6 +17,7 @@ export const contactsCommand = (): Command => {
 
   withPaging(command.command("list").description("people you have a one-to-one chat with"))
     .option("--order <recent|name>", "newest conversation first, or alphabetical")
+    .option("--query <text>", "only people whose name or @username contains this; at least 3 characters")
     .action(async function (this: Command) {
       const options = this.optsWithGlobals()
       const context = forCommand(options)
@@ -29,7 +30,14 @@ export const contactsCommand = (): Command => {
         const client = createClient({ events, ...(cache ? { cache } : {}) })
 
         try {
-          renderPage(context, await client.contacts.list({ order, ...window(settings) }))
+          renderPage(
+            context,
+            await client.contacts.list({
+              order,
+              ...window(settings),
+              ...(options.query === undefined ? {} : { query: String(options.query) }),
+            }),
+          )
         } finally {
           await client.close()
           cache?.close()

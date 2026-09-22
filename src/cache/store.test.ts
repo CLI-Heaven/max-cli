@@ -59,6 +59,98 @@ const message = (id: string, at: number, text: string, editedAt: string | null =
   attachments: [],
 })
 
+describe("searching the store", () => {
+  const named = (id: string, title: string): Chat => ({ ...chat(id, 100), title })
+
+  it("**matches a Russian name whatever its case** — the measurement this index exists for", async () => {
+    const store = await open()
+    store.chats.write([named("1", "Иван Петров"), named("2", "Work Chat")])
+
+    // `LIKE`, `lower()` and `COLLATE NOCASE` all miss this: they fold ASCII only.
+    expect(store.chats.page({ limit: 20, offset: 0, query: "иван" }).map((c) => c.title)).toEqual(["Иван Петров"])
+    expect(store.chats.page({ limit: 20, offset: 0, query: "ИВАН" }).map((c) => c.title)).toEqual(["Иван Петров"])
+  })
+
+  it("matches inside a word, which is what `unicode61` could not do", async () => {
+    const store = await open()
+    store.chats.write([named("1", "Иван Петров")])
+
+    expect(store.chats.page({ limit: 20, offset: 0, query: "етро" }).map((c) => c.title)).toEqual(["Иван Петров"])
+  })
+
+  it("**survives a name that is FTS5 syntax**, instead of failing the command", async () => {
+    const store = await open()
+    store.chats.write([named("1", "O'Brien & Co"), named("2", "a-b test"), named("3", 'say "hello"')])
+
+    // Unescaped, each of these is a syntax error rather than a search.
+    expect(store.chats.page({ limit: 20, offset: 0, query: "O'Brien" }).map((c) => c.id)).toEqual(["1"])
+    expect(store.chats.page({ limit: 20, offset: 0, query: "a-b" }).map((c) => c.id)).toEqual(["2"])
+    expect(store.chats.page({ limit: 20, offset: 0, query: '"hello"' }).map((c) => c.id)).toEqual(["3"])
+  })
+
+  it("**counts what it pages**, or `hasMore` would lie on a filtered list", async () => {
+    const store = await open()
+    store.chats.write([named("1", "Иван Петров"), named("2", "Иван Сидоров"), named("3", "Work Chat")])
+
+    expect(store.chats.count({ query: "иван" })).toBe(2)
+    expect(store.chats.count({ kind: "dialog" })).toBe(3)
+    expect(store.chats.count()).toBe(3)
+  })
+
+  it("**forgets a renamed chat's old name** — an external index does not follow its table alone", async () => {
+    const store = await open()
+    store.chats.write([named("1", "Work Chat")])
+    store.chats.write([named("1", "Renamed")])
+
+    expect(store.chats.page({ limit: 20, offset: 0, query: "Work" })).toEqual([])
+    expect(store.chats.page({ limit: 20, offset: 0, query: "Rena" }).map((c) => c.id)).toEqual(["1"])
+  })
+
+  it("keeps a person findable when a later sighting omits their name", async () => {
+    const store = await open()
+    store.people.upsert([person("7", "Иван Петров")], "login")
+    // A participant list carries an id and often nothing else; `putPerson` coalesces, so the
+    // trigger has to index the row that results rather than the null that arrived.
+    store.people.upsert([person("7", null)], "participant")
+
+    store.mergeDelta(delta({ chats: [chat("5", 100)], members: new Map([["5", ["7"]]]) }))
+    expect(store.people.contacts({ ...recent, query: "иван" }).map((p) => p.id)).toEqual(["7"])
+  })
+
+  it("finds a message by its text, across chats, newest first", async () => {
+    const store = await open()
+    store.chats.write([named("5", "Иван Петров")])
+    store.messages.write("5", [message("a", 100, "договорились на ЧЕТВЕРГ"), message("b", 200, "ничего про это")])
+
+    const found = store.messages.search({ query: "четве", limit: 20, offset: 0 })
+    expect(found.map((m) => m.id)).toEqual(["a"])
+    // The chat's name travels with the hit: a search spans chats, and an id alone makes the
+    // reader look up their own results.
+    expect(found[0]?.chatTitle).toBe("Иван Петров")
+    expect(store.messages.countSearch({ query: "четве" })).toBe(1)
+  })
+
+  it("**stops finding a message whose text was edited away**", async () => {
+    const store = await open()
+    store.messages.write("5", [message("a", 100, "the original text")])
+    store.messages.write("5", [message("a", 100, "something else entirely")])
+
+    expect(store.messages.search({ query: "original", limit: 20, offset: 0 })).toEqual([])
+    expect(store.messages.search({ query: "entirely", limit: 20, offset: 0 }).map((m) => m.id)).toEqual(["a"])
+  })
+
+  it("narrows a search to one chat when asked", async () => {
+    const store = await open()
+    store.messages.write("5", [message("a", 100, "shared word here")])
+    store.messages.write("6", [{ ...message("b", 200, "shared word too"), chatId: "6" }])
+
+    expect(store.messages.search({ query: "shared", limit: 20, offset: 0 })).toHaveLength(2)
+    expect(store.messages.search({ query: "shared", chatId: "6", limit: 20, offset: 0 }).map((m) => m.id)).toEqual([
+      "b",
+    ])
+  })
+})
+
 describe("the cache store", () => {
   it("gives back what it was given, newest chat first", async () => {
     const store = await open()

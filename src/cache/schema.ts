@@ -4,7 +4,7 @@ import type { CacheDatabase } from "./driver.js"
  * **Raise this on every change to the statements below.** The second schema change is the one that
  * corrupts somebody's file, because the first is always made while the only copy is your own.
  */
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
 /**
  * Everything the cache holds, and the indexes are part of it rather than an afterthought — each
@@ -116,6 +116,81 @@ const STATEMENTS = [
      at   INTEGER NOT NULL
    )`,
 
+  /**
+   * **Search, as three indexes over tables that already hold the text.**
+   *
+   * `content=` means FTS5 stores the index and **not a second copy of the words** — it reads the
+   * columns back from the base table by rowid. That matters twice: the file does not double, and
+   * message bodies do not get a second home in it.
+   *
+   * ⚠ **`trigram`, not `unicode61`, and the difference is the whole point.** Measured 2026-09-22
+   * on both runtimes: `unicode61` matches whole words or prefixes, so searching `етро` finds
+   * nothing, while `trigram` matches inside a word and finds `Иван Петров`. `chats.resolve`
+   * already matches with `includes()`, so substring is the behaviour that was already promised.
+   *
+   * Both tokenizers fold case for any alphabet, which `LIKE`, `lower()` and `COLLATE NOCASE` do
+   * **not** — those are ASCII-only, and a name search built on them silently misses half a Russian
+   * address book. That measurement is why this is FTS5 at all.
+   *
+   * ⚠ **A trigram index cannot answer a query shorter than three characters.** It returns nothing
+   * rather than failing, so the caller refuses such a query instead of printing an empty list —
+   * `src/client.ts`, and it refuses on every path so the answer cannot depend on whether a cache
+   * happens to exist.
+   */
+  `CREATE VIRTUAL TABLE IF NOT EXISTS chats_fts USING fts5(title, content='chats', tokenize='trigram')`,
+  `CREATE VIRTUAL TABLE IF NOT EXISTS people_fts USING fts5(name, username, content='people', tokenize='trigram')`,
+  `CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(text, content='messages', tokenize='trigram')`,
+
+  /**
+   * **Triggers, because an external-content index does not follow its table on its own.**
+   *
+   * Measured: rename a chat with no trigger in place and a search for the *old* title still
+   * matches the row, handing back the new name. Nothing errors; the index is simply a lie. And
+   * SQLite reuses a freed rowid, so a deleted chat can bequeath its words to the next one.
+   *
+   * They are triggers rather than writes in TypeScript because there is more than one write path
+   * — the chat list, the people upsert, the delta merge, the message window — and the failure of
+   * forgetting one is invisible.
+   *
+   * ⚠ Verified on this project's real statements, not on a plain `UPDATE`: our writes are
+   * `INSERT … ON CONFLICT DO UPDATE`, and `people` resolves its columns with `coalesce`, so the
+   * trigger has to index the row that results rather than the values that arrived. `new.*` in an
+   * `AFTER UPDATE` trigger is the finished row, which is what makes a re-sent person with no name
+   * keep the name we already had.
+   */
+  `CREATE TRIGGER IF NOT EXISTS chats_fts_ai AFTER INSERT ON chats BEGIN
+     INSERT INTO chats_fts(rowid, title) VALUES (new.rowid, new.title);
+   END`,
+  `CREATE TRIGGER IF NOT EXISTS chats_fts_ad AFTER DELETE ON chats BEGIN
+     INSERT INTO chats_fts(chats_fts, rowid, title) VALUES ('delete', old.rowid, old.title);
+   END`,
+  `CREATE TRIGGER IF NOT EXISTS chats_fts_au AFTER UPDATE ON chats BEGIN
+     INSERT INTO chats_fts(chats_fts, rowid, title) VALUES ('delete', old.rowid, old.title);
+     INSERT INTO chats_fts(rowid, title) VALUES (new.rowid, new.title);
+   END`,
+
+  `CREATE TRIGGER IF NOT EXISTS people_fts_ai AFTER INSERT ON people BEGIN
+     INSERT INTO people_fts(rowid, name, username) VALUES (new.rowid, new.name, new.username);
+   END`,
+  `CREATE TRIGGER IF NOT EXISTS people_fts_ad AFTER DELETE ON people BEGIN
+     INSERT INTO people_fts(people_fts, rowid, name, username) VALUES ('delete', old.rowid, old.name, old.username);
+   END`,
+  `CREATE TRIGGER IF NOT EXISTS people_fts_au AFTER UPDATE ON people BEGIN
+     INSERT INTO people_fts(people_fts, rowid, name, username) VALUES ('delete', old.rowid, old.name, old.username);
+     INSERT INTO people_fts(rowid, name, username) VALUES (new.rowid, new.name, new.username);
+   END`,
+
+  `CREATE TRIGGER IF NOT EXISTS messages_fts_ai AFTER INSERT ON messages BEGIN
+     INSERT INTO messages_fts(rowid, text) VALUES (new.rowid, new.text);
+   END`,
+  `CREATE TRIGGER IF NOT EXISTS messages_fts_ad AFTER DELETE ON messages BEGIN
+     INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', old.rowid, old.text);
+   END`,
+  `CREATE TRIGGER IF NOT EXISTS messages_fts_au AFTER UPDATE ON messages BEGIN
+     INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', old.rowid, old.text);
+     INSERT INTO messages_fts(rowid, text) VALUES (new.rowid, new.text);
+   END`,
+
   `CREATE TABLE IF NOT EXISTS fetch_lease (
      chat_id    TEXT NOT NULL,
      anchor     TEXT NOT NULL,
@@ -167,6 +242,18 @@ export const migrate = (database: CacheDatabase): void => {
  * and keeping it would claim a sweep whose rows have just been thrown away.
  */
 const rebuild = (database: CacheDatabase): void => {
+  // ⚠ **Virtual tables first.** An FTS5 index keeps four shadow tables of its own, and
+  // `sqlite_master` lists them as ordinary tables. Dropping one of those out from under a live
+  // index is how a rebuild leaves a corrupt file behind. Dropping the virtual table takes its
+  // shadows with it, and the second pass then finds only real tables.
+  //
+  // It happens to work without this today, because `sqlite_master` returns them in creation order
+  // and `IF EXISTS` swallows the leftovers. That is an accident of ordering, not a guarantee.
+  const virtual = database
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND sql LIKE 'CREATE VIRTUAL TABLE%'")
+    .all()
+  for (const { name } of virtual) database.exec(`DROP TABLE IF EXISTS "${String(name)}"`)
+
   const tables = database
     .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
     .all()

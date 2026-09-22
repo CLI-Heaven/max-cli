@@ -1,4 +1,4 @@
-import type { Chat, Contact, Id, Message } from "../domain/models.js"
+import type { Chat, ChatKind, Contact, Id, Message, MessageHit } from "../domain/models.js"
 import type { CacheDatabase } from "./driver.js"
 import { migrate } from "./schema.js"
 
@@ -9,6 +9,23 @@ export type PersonOrder = "recent" | "name"
 
 export interface PageOptions {
   order: PersonOrder
+  limit: number
+  offset: number
+  /** Part of a name, already checked to be long enough for the index (`src/client.ts`). */
+  query?: string
+}
+
+export interface ChatPageOptions {
+  limit: number
+  offset: number
+  query?: string
+  kind?: ChatKind
+}
+
+export interface MessageSearch {
+  query: string
+  /** One chat, or every chat we hold when absent. */
+  chatId?: Id
   limit: number
   offset: number
 }
@@ -55,8 +72,9 @@ export interface CacheStore {
     read(freshForMs: number): Chat[] | undefined
     write(chats: Chat[]): void
     /** One page, newest first, in SQL rather than by building the whole list and slicing it. */
-    page(options: { limit: number; offset: number }): Chat[]
-    count(): number
+    page(options: ChatPageOptions): Chat[]
+    /** ⚠ Takes the same filter as `page`, or the two disagree about whether a next page exists. */
+    count(options?: { query?: string; kind?: ChatKind }): number
   }
   people: {
     /**
@@ -68,7 +86,7 @@ export interface CacheStore {
      */
     contacts(options: PageOptions): Contact[]
     /** How many that query would return, so a page can say whether another one exists. */
-    countContacts(): number
+    countContacts(options?: { query?: string }): number
     /** Everyone we can put a name to, contact or not. */
     page(options: PageOptions): Contact[]
     /** Everyone, counted — what `max contacts sync` reports as known. */
@@ -107,6 +125,15 @@ export interface CacheStore {
      * like, since it is no longer in the history MAX returns either.
      */
     timeOf(id: Id): number | undefined
+    /**
+     * Messages whose text contains `query`, newest first, across every chat we hold or one.
+     *
+     * ⚠ **It answers from this database and never asks MAX**, because MAX has no search operation
+     * we know of. So it finds what has been read, not what exists — `src/client.ts` is where that
+     * is said out loud rather than left for somebody to discover.
+     */
+    search(options: MessageSearch): MessageHit[]
+    countSearch(options: { query: string; chatId?: Id }): number
   }
   /** True when this process may go to MAX for that window; false when somebody else already is. */
   claim(chatId: Id, anchor: string, holder: string, forMs: number): boolean
@@ -117,6 +144,47 @@ export interface CacheStore {
 
 export const openStore = ({ database, now = () => Date.now() }: CacheOptions): CacheStore => {
   migrate(database)
+
+  /**
+   * **What the person typed is data, not a query.** FTS5 reads its argument as an expression, so
+   * `O'Brien` is a syntax error, `a-b` is a column that does not exist and a bare `"` never
+   * terminates — a chat whose name has an apostrophe would take the command down with it.
+   *
+   * Wrapping in double quotes makes the whole thing one literal phrase, and doubling any quote
+   * inside keeps it that way. This is the only place a MATCH argument is built; nowhere else
+   * concatenates one.
+   */
+  const phrase = (query: string): string => `"${query.replace(/"/g, '""')}"`
+
+  /**
+   * The `WHERE` for a chat listing, built once and handed to both the page and its count.
+   *
+   * ⚠ They have to come from the same function. A page that filters and a count that does not is
+   * a `hasMore` that lies, and it lies quietly — the reader simply never sees the last page.
+   */
+  const chatWhere = ({ query, kind }: { query?: string; kind?: ChatKind }) => {
+    const clauses: string[] = []
+    const values: (string | number)[] = []
+
+    if (query !== undefined) {
+      clauses.push("c.rowid IN (SELECT rowid FROM chats_fts WHERE chats_fts MATCH ?)")
+      values.push(phrase(query))
+    }
+    if (kind !== undefined) {
+      clauses.push("c.kind = ?")
+      values.push(kind)
+    }
+
+    return { sql: clauses.length === 0 ? "" : ` WHERE ${clauses.join(" AND ")}`, values }
+  }
+
+  const peopleWhere = ({ query }: { query?: string }) => {
+    if (query === undefined) return { sql: "", values: [] as (string | number)[] }
+    return {
+      sql: " AND p.rowid IN (SELECT rowid FROM people_fts WHERE people_fts MATCH ?)",
+      values: [phrase(query)] as (string | number)[],
+    }
+  }
 
   const markFetched = database.prepare(
     "INSERT INTO fetched (kind, at) VALUES (?, ?) ON CONFLICT(kind) DO UPDATE SET at = excluded.at",
@@ -271,13 +339,19 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
         if (!isFresh("chats", freshForMs)) return undefined
         return database.prepare("SELECT * FROM chats ORDER BY last_message_at DESC").all().map(toChat)
       },
-      page: ({ limit, offset }) =>
-        database
-          .prepare("SELECT * FROM chats ORDER BY last_message_at DESC LIMIT ? OFFSET ?")
-          .all(limit, offset)
-          .map(toChat),
+      page: ({ limit, offset, query, kind }) => {
+        const where = chatWhere({ query, kind })
+        return database
+          .prepare(`SELECT c.* FROM chats c${where.sql} ORDER BY c.last_message_at DESC LIMIT ? OFFSET ?`)
+          .all(...where.values, limit, offset)
+          .map(toChat)
+      },
 
-      count: () => Number((database.prepare("SELECT COUNT(*) AS n FROM chats").get() as { n?: number })?.n ?? 0),
+      count: ({ query, kind } = {}) => {
+        const where = chatWhere({ query, kind })
+        const row = database.prepare(`SELECT COUNT(*) AS n FROM chats c${where.sql}`).get(...where.values)
+        return Number((row as { n?: number })?.n ?? 0)
+      },
 
       write: (chats) => {
         const at = now()
@@ -297,14 +371,21 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
     },
 
     people: {
-      contacts: ({ order, limit, offset }) =>
-        database
-          .prepare(`SELECT DISTINCT p.* ${CONTACTS_FROM} ORDER BY ${ORDER[order]} LIMIT ? OFFSET ?`)
-          .all(limit, offset)
-          .map(toContact),
+      contacts: ({ order, limit, offset, query }) => {
+        const where = peopleWhere({ query })
+        return database
+          .prepare(`SELECT DISTINCT p.* ${CONTACTS_FROM}${where.sql} ORDER BY ${ORDER[order]} LIMIT ? OFFSET ?`)
+          .all(...where.values, limit, offset)
+          .map(toContact)
+      },
 
-      countContacts: () =>
-        Number((database.prepare(`SELECT COUNT(DISTINCT p.id) AS n ${CONTACTS_FROM}`).get() as { n?: number })?.n ?? 0),
+      countContacts: ({ query } = {}) => {
+        const where = peopleWhere({ query })
+        const row = database
+          .prepare(`SELECT COUNT(DISTINCT p.id) AS n ${CONTACTS_FROM}${where.sql}`)
+          .get(...where.values)
+        return Number((row as { n?: number })?.n ?? 0)
+      },
 
       page: ({ order, limit, offset }) =>
         database
@@ -431,6 +512,39 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
       invalidate: (chatId) => {
         database.prepare("DELETE FROM fetched WHERE kind = ?").run(`messages:${chatId}`)
       },
+      search: ({ query, chatId, limit, offset }) => {
+        const values: (string | number)[] = [phrase(query)]
+        let sql = `SELECT m.*, c.title AS chat_title FROM messages_fts f
+                     JOIN messages m ON m.rowid = f.rowid
+                     LEFT JOIN chats c ON c.id = m.chat_id
+                    WHERE messages_fts MATCH ?`
+        if (chatId !== undefined) {
+          sql += " AND m.chat_id = ?"
+          values.push(chatId)
+        }
+        sql += " ORDER BY m.time DESC LIMIT ? OFFSET ?"
+        values.push(limit, offset)
+
+        return database
+          .prepare(sql)
+          .all(...values)
+          .map((row) => ({
+            ...toMessage(row),
+            chatTitle: row.chat_title === null || row.chat_title === undefined ? null : String(row.chat_title),
+          }))
+      },
+
+      countSearch: ({ query, chatId }) => {
+        const values: (string | number)[] = [phrase(query)]
+        let sql = `SELECT COUNT(*) AS n FROM messages_fts f JOIN messages m ON m.rowid = f.rowid
+                    WHERE messages_fts MATCH ?`
+        if (chatId !== undefined) {
+          sql += " AND m.chat_id = ?"
+          values.push(chatId)
+        }
+        return Number((database.prepare(sql).get(...values) as { n?: number })?.n ?? 0)
+      },
+
       timeOf: (id) => {
         const row = database.prepare("SELECT time FROM messages WHERE id = ? LIMIT 1").get(id) as
           | { time?: number }
