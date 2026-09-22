@@ -208,6 +208,10 @@ the profile, the profiles that exist, and each setting with where it came from
 max config show [options]
 ```
 
+## `max doctor`
+
+the state this installation is in, without contacting MAX
+
 ## `max cache`
 
 the local copy of chats, contacts and messages

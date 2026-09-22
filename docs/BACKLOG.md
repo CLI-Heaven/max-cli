@@ -258,16 +258,14 @@ meaning: `CLI-6` is the settings item.
   the defect. **Second instance of this class in two days** — the first was `ws` emitting `error`
   during a close (`BUG-26`), which killed a `--timeout`. A recording nobody asked for must fail
   quietly and visibly (`NEED-97`), never fatally. Another repository, so its own change.
-- **CLI-12** · 🚧 · P2 · **`max doctor`, and reading the effective settings.** Nothing shows the state a
-  command depends on, and one trap has no other way of being seen: `MAX_CONFIG_DIR`,
-  `MAX_STATE_DIR` and `MAX_CACHE_DIR` change the keyring service name, so a login under them
-  answers "no session" without them (`docs_ai/HANDOFF.md` §6). It prints the profile and where it
-  came from, the profiles that exist, the config file and whether it parsed, whether a token exists
-  and from which source, the login count and the last login (`src/session/store.ts:14-21`, which is
-  what `RISK-2` wants counted), the cache file and its schema version, and the run directory.
-  `--connect` separately, because reaching MAX costs a login. Answering "is there a session at all"
-  is part of it — today that question costs a real command. From the `tgcli` comparison
-  (`NEED-112`).
+- **CLI-12** · ✅ Closed 2026-09-23 — `max doctor` prints what a command depends on without
+  contacting MAX: the token and its source, the keyring entry **and whether the environment moved
+  it**, the login count and the last login, the profiles that have logged in, the cache file with
+  its schema version against the one this build speaks, and the run directory. It answers when
+  everything is broken, which is the only time it is run — no session is a field, not an error, and
+  the exit code stays `0`. The gathering lives in `src/diagnose.ts` rather than in the command,
+  because a command's output cannot be asserted on until `CLI-15` lands. It never prints the token
+  and it does not create the state file it reports on.
 - **CLI-13** · ✅ Closed 2026-09-22 — `messages show <chat> <id>` and `messages context <chat> <id>
   --before N --after N` (`NEED-130`, `NEED-131`). A message's time is its id shifted right by 16
   bits, measured, so neither needs a stored copy, and `--before <id>` on `list` no longer does
