@@ -16,17 +16,23 @@ beforeEach(() => {
   configDir = mkdtempSync(join(tmpdir(), "max-config-"))
 })
 
-describe("where the profile came from", () => {
-  it("names the layer that decided it, so nobody has to re-derive the order", () => {
-    expect(settings().profileFrom).toBe("the built-in default")
-    expect(settings({}, { MAX_PROFILE: "work" }).profileFrom).toBe("MAX_PROFILE")
-    expect(settings({ profile: "work" }, { MAX_PROFILE: "other" }).profileFrom).toBe("the first word")
+describe("where a setting came from", () => {
+  it("names the layer that decided the profile, so nobody has to re-derive the order", () => {
+    expect(settings().sources.profile).toBe("default")
+    expect(settings({}, { MAX_PROFILE: "work" }).sources.profile).toBe("MAX_PROFILE")
+    expect(settings({ profile: "work" }, { MAX_PROFILE: "other" }).sources.profile).toBe("first word")
   })
 
   it("credits the file when the file is what decided it", () => {
     withConfig(JSON.stringify({ defaultProfile: "work" }))
     expect(settings().profile).toBe("work")
-    expect(settings().profileFrom).toBe("defaultProfile in the file")
+    expect(settings().sources.profile).toBe("config file")
+  })
+
+  it("**names where the command budget came from**, which has no file row to fall back on", () => {
+    expect(settings().sources.commandTimeoutMs).toBe("default")
+    expect(settings({}, { MAX_TIMEOUT: "10s" }).sources.commandTimeoutMs).toBe("MAX_TIMEOUT")
+    expect(settings({ timeout: "1s" }).sources.commandTimeoutMs).toBe("flag")
   })
 })
 
@@ -199,5 +205,31 @@ describe("what a flag is checked for", () => {
     expect(() => settings({ profile: "../elsewhere" })).toThrowError(
       expect.objectContaining({ code: "validation_error" }),
     )
+  })
+})
+
+describe("where each setting came from", () => {
+  it("says default for everything when nothing is configured, and that no file was found", () => {
+    const resolved = settings()
+    expect(resolved.configFound).toBe(false)
+    expect(Object.values(resolved.sources).every((from) => from === "default")).toBe(true)
+  })
+
+  it("tells a flag from the file from the built-in value", () => {
+    withConfig(JSON.stringify({ profiles: { default: { limit: 7, record: true } } }))
+
+    expect(settings().sources).toMatchObject({ limit: "config file", record: "config file", color: "default" })
+    expect(settings({ limit: 3 }).sources.limit).toBe("flag")
+    expect(settings({ limit: 3 }).limit).toBe(3)
+    expect(settings().configFound).toBe(true)
+  })
+
+  it("names what chose the profile: the first word, then MAX_PROFILE, then the file", () => {
+    withConfig(JSON.stringify({ defaultProfile: "home", profiles: { home: {}, work: {} } }))
+
+    expect(settings({ profile: "work" }, { MAX_PROFILE: "home" }).sources.profile).toBe("first word")
+    expect(settings({}, { MAX_PROFILE: "work" }).sources.profile).toBe("MAX_PROFILE")
+    expect(settings().sources.profile).toBe("config file")
+    expect(settings().configuredProfiles).toEqual(["home", "work"])
   })
 })
