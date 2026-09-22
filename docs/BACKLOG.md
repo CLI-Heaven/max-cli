@@ -171,14 +171,12 @@ asserted the rotation from somebody else's client, and the first measurement sup
 every login" — which a second run disproved. MAX replaces a credential that has aged, once, and
 then repeats it. `pnpm probe:token` re-runs the first half and prints no value.
 
-- **MAX-12** · **P1** · **Two keyring defects, as one change, with a live check** (`NEED-113`).
-  **`session start` writes the token before it verifies it** (`src/commands/session.ts:40`), so a
-  typo or an expired token destroys the working one with no way back — `Credentials.write`
-  overwrites unconditionally and a keyring entry cannot be read out again, which is how two working
-  keys died in `brazecli` on 2026-09-14 (`../cli-core/src/credentials.ts:20-31`). **And nothing
-  checks whose account a profile's token belongs to**: `viewerId` is written on every login
-  (`src/client.ts:383`) and never compared, so a token belonging to someone else sends as them in
-  silence. Same files, same test run, same live check as `MAX-11`, and worth doing beside it.
+- **MAX-12** · ✅ Closed 2026-09-21 — the token reaches the keyring only after MAX accepts it
+  (`src/session/adopt.ts`), and a profile refuses a token belonging to another account. Verified on
+  the real account, all three halves ([`ARCHITECTURE.md`](ARCHITECTURE.md) §7).
+  ⚠ **This line said "P1, not started" until 2026-09-23, two days after it shipped.** Corrected in
+  place; the work was never missing, only the record of it.
+
 - **MAX-13** · ✅ Closed 2026-09-22 — `max messages search`, over the same index. It is the one
   read that never connects, because MAX has no search operation we know of, so it finds what has
   been read rather than what exists and says so ([`ARCHITECTURE.md`](ARCHITECTURE.md) §16).
@@ -210,9 +208,11 @@ were written before that and name the number that was taken (`FIND-35`). A numbe
 meaning: `CLI-6` is the settings item.
 
 
-- **CLI-8** · P2 · **`--silent` on `messages send`.** The wire already carries it — `notify` is in
-  the request (`src/spec/operations/messages.ts:22`) and `MaxClient.messages.send` takes it
-  (`src/client.ts:310`); only the flag is missing. Ships with `OPS-4` (`NEED-112`).
+- **CLI-8** · ✅ Closed 2026-09-22 — `--silent` on `messages send`, sending `notify: false`.
+  ⚠ Only the `true` side is measured; what MAX does with `false` has never been observed, because
+  observing it means sending a message to somebody ([`ARCHITECTURE.md`](ARCHITECTURE.md) §6).
+  ⚠ **This line said "not started" until 2026-09-23.** Corrected in place.
+
 - **CLI-9** · ✅ Closed 2026-09-22 — `--search` and `--kind` on `chats list`, `--search` on
   `contacts list`, all three backed by FTS5 with the `trigram` tokenizer. Why it is an index and
   not a `WHERE`: [`ARCHITECTURE.md`](ARCHITECTURE.md) §16.
