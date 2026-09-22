@@ -10,6 +10,7 @@ import {
   type MessageHit,
   type Page,
   type Profile,
+  type QuotedMessage,
   timeOfMessageId,
   type WindowedMessage,
 } from "./domain/models.js"
@@ -601,9 +602,53 @@ export class MaxClient {
     })
 
     const lookup = { names: namesFrom(session.contacts), ...viewer(this.#store) }
-    const messages = asArray(answer.messages).map((raw) => toMessage(raw, chatId, lookup))
+    const messages = await this.#nameSenders(asArray(answer.messages).map((raw) => toMessage(raw, chatId, lookup)))
     this.#cache?.messages.write(chatId, messages)
     return messages
+  }
+
+  /**
+   * **A group member who is not a contact arrives as a bare id** — the login names contacts only,
+   * so in a group chat everyone but the owner showed as a number (`FIND-45`). The names we hold
+   * answer first; the rest cost one `CONTACT_INFO` per hundred, and are kept so the next read
+   * does not ask again. Quoted senders in replies and forwards are named the same way.
+   *
+   * A refused lookup costs the names, not the read: the messages are what was asked for.
+   */
+  async #nameSenders(messages: Message[]): Promise<Message[]> {
+    const quoted = messages.flatMap((message) => [message.replyTo, message.forwardedFrom]).filter(isPresent)
+    const ids = [...new Set([...messages, ...quoted].filter(needsName).map((message) => message.senderId as Id))]
+    if (ids.length === 0) return messages
+
+    const names = this.#cache?.people.names(ids) ?? new Map<Id, string>()
+    const fetched: Contact[] = []
+    try {
+      for (const batch of batched(
+        ids.filter((id) => !names.has(id)),
+        CONTACT_INFO_BATCH,
+      )) {
+        const answer = await this.#wire.contacts.info({ contactIds: batch })
+        for (const raw of asArray(answer.contacts)) {
+          const contact = toContact(raw)
+          if (!contact.id || !contact.name) continue
+          names.set(contact.id, contact.name)
+          fetched.push(contact)
+        }
+      }
+    } catch (error) {
+      this.#warn(`some senders are shown by id: their names could not be looked up (${reasonOf(error)})`)
+    }
+    if (fetched.length > 0) this.#cache?.people.upsert(fetched, "info")
+
+    const name = <T extends QuotedMessage | Message>(message: T): T =>
+      needsName(message) && names.has(message.senderId as Id)
+        ? { ...message, senderName: names.get(message.senderId as Id) ?? null }
+        : message
+    return messages.map((message) => ({
+      ...name(message),
+      replyTo: message.replyTo && name(message.replyTo),
+      forwardedFrom: message.forwardedFrom && name(message.forwardedFrom),
+    }))
   }
 
   async #connectOnce(): Promise<void> {
@@ -797,6 +842,11 @@ const checkedQuery = (query: string | undefined): string | undefined => {
  * names itself rather than as a wrong answer.
  */
 const CONTACT_INFO_BATCH = 100
+
+const isPresent = <T>(value: T | null | undefined): value is T => value !== null && value !== undefined
+
+const needsName = (message: Pick<Message, "senderId" | "senderName" | "outgoing">): boolean =>
+  message.senderId !== null && message.senderName === null && message.outgoing !== true
 
 const batched = <T>(items: T[], size: number): T[][] => {
   const batches: T[][] = []

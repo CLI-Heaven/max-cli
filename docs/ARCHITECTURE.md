@@ -330,6 +330,12 @@ A one-to-one chat has no title of its own, so the partner's name is filled in fr
 `CONTACT_INFO` (32) for every unknown partner at once. Measured: the login carried 6 contacts
 against 17 dialog partners, and naming took 0 of 17 dialogs to 16 of 17.
 
+The same lookup names **the senders of a group chat** (`FIND-45`). The login names contacts only,
+so a member who is not one arrived as a bare id — on 2026-09-22, every sender in a real group chat
+but the owner. After a history read, the ids still unnamed are looked up in the store first and
+then in one `CONTACT_INFO`, and kept; the next read of that chat asks nothing. A refused lookup
+leaves the ids and says so on stderr; the messages are still answered.
+
 ⚠ Opcode 36 is `CONTACT_LIST` in tsmax and PyMax, and `GET_BLOCKED` in the protocol documentation.
 **Not used.** "Your contacts" and "people you blocked" is not a difference to discover in
 production.

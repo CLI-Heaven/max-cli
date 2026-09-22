@@ -95,6 +95,8 @@ export interface CacheStore {
     upsert(people: Contact[], source: PersonSource): void
     /** The chats this person is in — which, every chat here being one we are in, is the shared set. */
     chatsWith(personId: Id): Id[]
+    /** The names we hold for these people; anyone unnamed or unknown is absent from the map. */
+    names(ids: Id[]): Map<Id, string>
     /**
      * Recomputes `last_messaged_at` from the dialogs we hold.
      *
@@ -405,6 +407,16 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
           .prepare("SELECT chat_id FROM chat_members WHERE person_id = ?")
           .all(personId)
           .map((row) => String(row.chat_id)),
+
+      names: (ids) => {
+        const named = new Map<Id, string>()
+        const one = database.prepare("SELECT name FROM people WHERE id = ? AND name IS NOT NULL")
+        for (const id of new Set(ids)) {
+          const row = one.get(id) as { name?: string } | undefined
+          if (row?.name) named.set(id, String(row.name))
+        }
+        return named
+      },
     },
 
     syncMarker: () =>

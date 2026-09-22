@@ -659,6 +659,72 @@ describe("with a cache", () => {
     })
   }
 
+  describe("naming the senders of a group chat", () => {
+    const group = {
+      messages: [
+        { id: 116762160362694583n, time: 1789776000000, sender: 10000009, text: "hi", attaches: [] },
+        {
+          id: 116762160362694590n,
+          time: 1789776000100,
+          sender: 10000008,
+          text: "re",
+          attaches: [],
+          link: { type: "REPLY", chatId: 1, message: { id: 1, sender: 10000009, text: "hi", time: 1789776000000 } },
+        },
+      ],
+    }
+    const info = {
+      contacts: [
+        { id: 10000009, names: [{ name: "Михаил", type: "FULL_NAME" }] },
+        { id: 10000008, names: [{ name: "Стас", type: "FULL_NAME" }] },
+      ],
+    }
+
+    it("**asks once for the names of members who are not contacts**, and keeps them", async () => {
+      const cache = await cacheStore()
+      const max = mockMax({
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.LOGIN]: loginAnswer,
+          [Opcode.CHAT_HISTORY]: group,
+          [Opcode.CONTACT_INFO]: info,
+        },
+      })
+      const client = clientSharing(cache, max)
+      const { items } = await client.messages.list("111", { limit: 5 })
+      await client.close()
+
+      expect(items.map((m) => m.senderName)).toEqual(["Михаил", "Стас"])
+      expect(items[1]?.replyTo?.senderName).toBe("Михаил")
+      const asked = max.sent.filter((call) => call.opcode === Opcode.CONTACT_INFO)
+      expect(asked.at(-1)?.payload.contactIds).toEqual(expect.arrayContaining([10000009, 10000008]))
+
+      const again = mockMax({
+        answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer, [Opcode.CHAT_HISTORY]: group },
+      })
+      const second = clientSharing(cache, again)
+      expect((await second.messages.list("111", { limit: 5 })).items.map((m) => m.senderName)).toEqual([
+        "Михаил",
+        "Стас",
+      ])
+      await second.close()
+      expect(again.sent.map((call) => call.opcode)).not.toContain(Opcode.CONTACT_INFO)
+    })
+
+    it("**still answers when the names cannot be looked up**, showing ids and saying why", async () => {
+      const max = mockMax({
+        answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer, [Opcode.CHAT_HISTORY]: group },
+        refuse: { [Opcode.CONTACT_INFO]: "proto.payload" },
+      })
+      const { client, notes } = clientWith(max)
+      const { items } = await client.messages.list("111", { limit: 5 })
+      await client.close()
+
+      expect(items.map((m) => m.senderName)).toEqual([null, null])
+      expect(notes.join("\n")).toContain("shown by id")
+    })
+  })
+
   it("**answers from the record without opening a connection**, when offline is asked for", async () => {
     const cache = await cacheStore()
 
