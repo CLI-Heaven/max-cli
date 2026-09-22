@@ -157,6 +157,18 @@ describe("the program", () => {
     expect(stderr).toContain("chat id")
   })
 
+  it("**refuses `--timeout` without a unit**, because the neighbouring setting is milliseconds", async () => {
+    const { code, stderr } = await runWith(["--timeout", "30", "chats", "list"])
+    expect(code).not.toBe(0)
+    expect(stderr).toContain("30s, 2m or 500ms")
+  })
+
+  it("offers --timeout at the top level, where every command can be given one", async () => {
+    const { stdout } = await runWith(["--help"])
+    expect(stdout).toContain("--timeout <duration>")
+    expect(stdout).toContain("whole command")
+  })
+
   it("does not mistake a command for a profile", () => {
     const program = createProgram()
     expect(liftProfile(["chats", "list"], commandWords(program)).profile).toBeUndefined()

@@ -26,6 +26,19 @@ describe("the connection", () => {
     expect(await outcome).toContain("closed before MAX answered")
   })
 
+  it("**survives the error `ws` emits when a socket is closed mid-connect**", async () => {
+    const max = mockMax({ answers: { 6: silent } })
+    const connection = new Connection({ createSocket: max.createSocket, timeoutMs: 60_000 })
+    await connection.open()
+
+    // Closing used to strip every listener and *then* close, so this error had nobody to hear it
+    // — and an unheard `error` event takes the whole process down. Against the real service that
+    // turned `--timeout` into exit 1 and a dump of `ws` internals rather than exit 9 and a
+    // sentence. Found by running it, not by a test; the test exists so it stays found.
+    await expect(connection.close()).resolves.toBeUndefined()
+    expect(max.closed).toBe(true)
+  })
+
   it("times out one request without waiting for the whole command", async () => {
     const max = mockMax({ answers: { 6: silent } })
     const connection = new Connection({ createSocket: max.createSocket, timeoutMs: 20 })

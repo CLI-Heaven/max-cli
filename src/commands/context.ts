@@ -1,6 +1,7 @@
 import type { Renderer, RenderFormat, Streams } from "@leemour/cli-core"
 import { MaxClient, type MaxClientOptions } from "../client.js"
 import { type GlobalFlags, resolveSettings, type Settings } from "../config.js"
+import { withDeadline } from "../deadline.js"
 import { resolveOutput } from "../output.js"
 import { recorded } from "../runs/recording.js"
 import { SessionStore } from "../session/store.js"
@@ -42,6 +43,10 @@ export const forCommand = (flags: GlobalFlags): CommandContext => {
   const { renderer, format, color, streams } = resolveOutput(settings)
   const store = new SessionStore({ profile: settings.profile })
 
+  // Every client this command builds, so the deadline can shut them. There is always one; relying
+  // on that is what makes the second one, some day, the leak that keeps the process alive.
+  const clients: MaxClient[] = []
+
   return {
     settings,
     renderer,
@@ -49,18 +54,23 @@ export const forCommand = (flags: GlobalFlags): CommandContext => {
     color,
     streams,
     store,
-    createClient: (extra = {}) =>
-      new MaxClient({ store, timeoutMs: settings.timeoutMs, warn: renderer.note, ...extra }),
+    createClient: (extra = {}) => {
+      const client = new MaxClient({ store, timeoutMs: settings.timeoutMs, warn: renderer.note, ...extra })
+      clients.push(client)
+      return client
+    },
     run: (command, body) =>
-      recorded(
-        {
-          command,
-          profile: settings.profile,
-          options: { record: settings.record, trace: settings.trace },
-          format,
-          keepDays: settings.keepRunsForDays,
-        },
-        body,
+      withDeadline(settings.commandTimeoutMs, clients, () =>
+        recorded(
+          {
+            command,
+            profile: settings.profile,
+            options: { record: settings.record, trace: settings.trace },
+            format,
+            keepDays: settings.keepRunsForDays,
+          },
+          body,
+        ),
       ),
   }
 }
