@@ -1,7 +1,7 @@
 import { CliError } from "@leemour/cli-core"
 import { Command } from "commander"
-import { resolveOutput } from "../output.js"
 import { findRun, listRuns, readEvents, runsDirFor } from "../runs/run.js"
+import { outputFor } from "./context.js"
 
 /**
  * What this tool did, when it was asked to keep the record.
@@ -18,7 +18,7 @@ export const runsCommand = (): Command => {
     .option("--limit <n>", "how many to show", (value) => Number.parseInt(value, 10), 20)
     .action(function (this: Command) {
       const options = this.optsWithGlobals()
-      const { renderer } = resolveOutput(options)
+      const { renderer } = outputFor(this)
       const runs = listRuns(runsDirFor())
 
       renderer.result(runs.slice(0, options.limit))
@@ -34,8 +34,7 @@ export const runsCommand = (): Command => {
     .argument("<run-id>", "an id from `max runs list`")
     .description("one run: what it was, and one line per request")
     .action(function (this: Command, id: string) {
-      const options = this.optsWithGlobals()
-      const { renderer } = resolveOutput(options)
+      const { renderer } = outputFor(this)
       const found = runOrRefuse(id)
 
       // Both, because neither answers the question on its own: the metadata says how it ended and
@@ -48,8 +47,7 @@ export const runsCommand = (): Command => {
     .argument("<run-id>", "an id from `max runs list`")
     .description("the directory holding one run")
     .action(function (this: Command, id: string) {
-      const options = this.optsWithGlobals()
-      const { renderer } = resolveOutput(options)
+      const { renderer } = outputFor(this)
 
       // One JSON value on stdout here too, with no exception for convenience (`NEED-88`): a script
       // reads `--json | jq -r .path`, and a terminal prints the bare path as a labelled line.

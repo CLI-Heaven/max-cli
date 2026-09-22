@@ -12,7 +12,7 @@ export const skillCommand = (): Command => {
     .command("show")
     .description("print SKILL.md — `max skill show > ~/.claude/skills/max-cli/SKILL.md` installs it")
     .action(function (this: Command) {
-      const { settings, renderer, streams } = forCommand(this.optsWithGlobals())
+      const { settings, renderer, streams } = forCommand(this)
       const content = readFileSync(SKILL, "utf8").trimEnd()
       // The file itself even into a pipe: installing it *is* a redirect, and a redirect is where
       // every other command switches to JSON. Asked for by name, it is JSON like the rest.

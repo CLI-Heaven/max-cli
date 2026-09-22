@@ -26,7 +26,7 @@ export const configCommand = (): Command => {
     .command("show")
     .description("the profile, the profiles that exist, and each setting with where it came from")
     .action(function (this: Command) {
-      const { settings, renderer } = forCommand(this.optsWithGlobals())
+      const { settings, renderer } = forCommand(this)
       const overridden = pathsAreOverridden({ appName: "max-cli", prefix: "MAX" })
 
       renderer.result({

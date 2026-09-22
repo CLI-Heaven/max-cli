@@ -245,12 +245,10 @@ meaning: `CLI-6` is the settings item.
   setting with where it came from. It warns when `MAX_CONFIG_DIR` and friends have moved the
   keyring entry. Files only — no keyring, no cache, no MAX; tokens stay with `CLI-12`.
 
-- **CLI-15** · P2 · **Make a command's output testable.** `forCommand` builds its own renderer
-  over the real streams and its own `SessionStore`, so `runWith` in `program.test.ts` sees help and
-  errors and **nothing a command prints** (`FIND-53`). It has cost twice now: the ordering in
-  `session start` had to move into `src/session/adopt.ts` to be provable at all, and two tests
-  written for `config show` would have passed against an empty string. Inject streams, store and
-  connection through `forCommand`; it touches all eight commands, which is why it is its own item.
+- **CLI-15** · ✅ Closed 2026-09-23 — `run(argv, { streams, tty, store, connection })` hands its
+  environment to the program, and `forCommand(command)` builds the renderer, the session store and
+  the client's connection from it. `runWith` in `program.test.ts` now sees what a command prints,
+  including against a scripted MAX; the mock socket opens when it is created, not when the mock is.
 - **CORE-7** · P2 · **A log file that cannot be opened must not kill the command.**
   `createFileLogger` in `cli-core` opens its stream with `createWriteStream`, which opens
   asynchronously and has no `error` listener — so a runs directory that vanishes or turns

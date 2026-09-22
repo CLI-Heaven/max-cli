@@ -20,7 +20,7 @@ export const contactsCommand = (): Command => {
     .option("--search <text>", "only people whose name or @username contains this; at least 3 characters")
     .action(async function (this: Command) {
       const options = this.optsWithGlobals()
-      const context = forCommand(options)
+      const context = forCommand(this)
       const { renderer, settings, createClient, run } = context
       const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
 
@@ -57,7 +57,7 @@ export const contactsCommand = (): Command => {
     .command("sync")
     .description("forget where the last sync left off and take the whole list again")
     .action(async function (this: Command) {
-      const { renderer, settings, createClient, run } = forCommand(this.optsWithGlobals())
+      const { renderer, settings, createClient, run } = forCommand(this)
       const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
 
       await run("contacts sync", async (events) => {

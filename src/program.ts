@@ -5,6 +5,7 @@ import { cacheCommand } from "./commands/cache.js"
 import { chatsCommand } from "./commands/chats.js"
 import { configCommand } from "./commands/config.js"
 import { contactsCommand } from "./commands/contacts.js"
+import { type Environment, provide } from "./commands/context.js"
 import { messagesCommand } from "./commands/messages.js"
 import { runsCommand } from "./commands/runs.js"
 import { sessionCommand } from "./commands/session.js"
@@ -12,7 +13,7 @@ import { skillCommand } from "./commands/skill.js"
 import { commandWords, liftProfile } from "./profile.js"
 import { VERSION } from "./version.js"
 
-export interface RunOptions {
+export interface RunOptions extends Environment {
   streams?: Streams
   /** Whether a person is looking. Defaults to whether stdout is a terminal. */
   tty?: boolean
@@ -105,6 +106,10 @@ export const run = async (argv: string[], options: RunOptions = {}): Promise<num
     out: (text) => streams.data(text.replace(/\n$/, "")),
     err: (text) => streams.diagnostic(text.replace(/\n$/, "")),
   })
+
+  // Commands print through this rather than the process's own streams, so a test sees their output
+  // and not only help and errors.
+  provide(program, { ...options, streams })
 
   // Commander calls process.exit for --help and --version. A library that kills the process cannot
   // be tested and cannot be embedded, so it throws instead and `run` decides the exit code.

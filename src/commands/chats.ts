@@ -13,7 +13,7 @@ export const chatsCommand = (): Command => {
     .option("--kind <dialog|group|channel>", "only chats of this kind")
     .action(async function (this: Command) {
       const options = this.optsWithGlobals()
-      const context = forCommand(options)
+      const context = forCommand(this)
       const { renderer, settings, createClient, run } = context
       const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
 
