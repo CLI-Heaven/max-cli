@@ -56,7 +56,7 @@ export const forCommand = (flags: GlobalFlags): CommandContext => {
         {
           command,
           profile: settings.profile,
-          options: { record: settings.record, verbose: settings.verbose },
+          options: { record: settings.record, trace: settings.trace },
           format,
           keepDays: settings.keepRunsForDays,
         },

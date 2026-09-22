@@ -2,6 +2,7 @@ import { createRenderer, processStreams, type Renderer, type RenderFormat, type 
 
 export interface OutputOptions {
   json?: boolean
+  jsonl?: boolean
   quiet?: boolean
   streams?: Streams
   /** Whether a person is looking. Defaults to whether stdout is a terminal. */
@@ -13,13 +14,13 @@ export interface OutputOptions {
  * One place decides the mode, so no command can disagree with another.
  *
  * `--json` forces machine output; otherwise a terminal gets the pretty renderer and a pipe gets
- * JSON, because a pipe is a script until proven otherwise. In every machine mode **stdout carries
- * one JSON value and nothing else** — diagnostics are on stderr in all modes, which is what makes
+ * JSON, because a pipe is a script until proven otherwise. `--jsonl` gives one JSON object per line
+ * instead. In every machine mode **stdout carries JSON and nothing else** — diagnostics are on stderr in all modes, which is what makes
  * that contract hold by construction rather than by remembering.
  */
-export const resolveOutput = ({ json, quiet, streams = processStreams, tty, color }: OutputOptions = {}) => {
+export const resolveOutput = ({ json, jsonl, quiet, streams = processStreams, tty, color }: OutputOptions = {}) => {
   const interactive = tty ?? process.stdout.isTTY === true
-  const format: RenderFormat = json || !interactive ? "json" : "pretty"
+  const format: RenderFormat = jsonl ? "jsonl" : json || !interactive ? "json" : "pretty"
   const painted = color ?? (format === "pretty" && process.env.NO_COLOR === undefined)
   const renderer = createRenderer({ format, color: painted, streams })
 

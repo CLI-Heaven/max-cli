@@ -1,5 +1,6 @@
 import { captureStreams } from "@leemour/cli-core"
 import { describe, expect, it } from "vitest"
+import { resolveSettings } from "./config.js"
 import { commandWords, liftProfile } from "./profile.js"
 import { createProgram, run } from "./program.js"
 
@@ -68,7 +69,7 @@ describe("the program", () => {
     expect(untouched.opts().record).toBeUndefined()
   })
 
-  it("promises only what `--verbose` actually does", async () => {
+  it("promises only what `--trace` actually does", async () => {
     // `commander` wraps the column, so the promise is checked in the piece that survives wrapping.
     const { stdout } = await runWith(["--help"])
     expect(stdout).toContain("ids and timings")
@@ -94,9 +95,19 @@ describe("the program", () => {
     expect(code).not.toBe(0)
   })
 
+  it("counts -v, gives the version to -V, and turns -vv into the second level", async () => {
+    expect((await runWith(["-V"])).stdout.trim()).toMatch(/^\d+\.\d+\.\d+/)
+    expect(resolveSettings({ verbose: 2 }, { env: {} }).detail).toBe(2)
+    expect(resolveSettings({ verbose: 5 }, { env: {} }).detail).toBe(2)
+
+    const program = createProgram()
+    program.parseOptions(["-vv"])
+    expect(program.opts().verbose).toBe(2)
+  })
+
   it("carries the global options every command needs", async () => {
     const { stdout } = await runWith(["--help"])
-    for (const option of ["--json", "--quiet", "--verbose"]) expect(stdout).toContain(option)
+    for (const option of ["--json", "--jsonl", "--quiet", "--verbose", "--trace"]) expect(stdout).toContain(option)
   })
 
   it("**has no `--profile`, and says in its help where the profile went**", async () => {

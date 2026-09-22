@@ -47,6 +47,13 @@ export const renderPage = <T>(
   /** What to type for the rest, when the listing is not paged by `--page`. */
   more?: (items: T[]) => string,
 ): void => {
+  if (format === "jsonl") {
+    renderer.stream(items)
+    if (!settings.all && hasMore)
+      renderer.note(more ? more(items) : `more — \`--page ${settings.page + 1}\` for the next`)
+    return
+  }
+
   if (format !== "pretty") {
     renderer.result({
       items,

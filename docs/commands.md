@@ -24,10 +24,12 @@ max [профиль] [опции] <команда> <действие> [аргу�
 
 | Опция | Что делает |
 |---|---|
-| `-v, --version` | output the version number |
+| `-V, --version` | output the version number |
+| `-v, --verbose` | more detail in what is shown: -v ids, -vv everything we know По умолчанию: `0`. |
 | `--json` | machine-readable output: one JSON value on stdout, nothing else |
+| `--jsonl` | machine-readable output: one JSON object per line, for streaming and jq |
 | `--quiet` | diagnostics off |
-| `--verbose` | diagnostics on: ids and timings on stderr, never message content |
+| `--trace` | one line per request on stderr: ids and timings, never message content |
 | `--offline` | answer from what was recorded and never connect; fails if nothing was |
 | `--record` | keep this run under `max runs` — ids and timings, never message content |
 | `--no-record` | do not keep it, whatever the configuration says |

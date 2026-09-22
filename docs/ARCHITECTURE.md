@@ -368,10 +368,13 @@ built by a helper each command calls (`src/commands/paging.ts`) rather than insi
 `renderer.result`, because `account show` and `session start|end` are not listings and keep
 answering a bare object.
 
-**Messages are the exception to the table**: `messages list` and `messages search` print a feed —
-`[dd.mm.yy hh:mm:ss] author: text` in local time, ids on the line below, one line per attachment
-(`src/commands/message-view.ts`). A table of eight columns fell apart on the first long message.
-The formatter lives here, not in `cli-core`, which knows no entities; the JSON is untouched.
+**Messages are the exception to the table**: `messages list` and `messages search` print a feed
+(`src/rendering/messages.ts`) — a date line when the day changes, `hh:mm:ss  sender` and the text
+under it, aligned; `↳` for what a reply answers, `↪` for a forward, `📎` per attachment, `-v` for
+ids, `-vv` for everything the model holds. Pure functions return the string; the command writes it.
+Widths are measured with `string-width`, never `length`, so `张伟` and `👨‍💻` align. Colour goes
+through `util.styleText`, **but the decision is ours**: Node leaves a pipe unstyled, Bun 1.3.14
+styles it anyway (measured 2026-09-22). The JSON is untouched; `--jsonl` gives one object per line.
 
 ### Attachments carry their link
 
@@ -380,6 +383,11 @@ Measured 2026-09-22 with `pnpm probe:attachments` on a group chat: a `PHOTO` car
 `description`, `image`, `shareId`. **The photo link opened with no cookie and no token** — `200`,
 `image/webp` — so it is shown as it is (`NEED-120`) and whoever holds it sees the picture. The model
 keeps `url`, `width`, `height` and `title`; nothing else of the wire crosses the adapter.
+
+A reply or a forward carries **the other message whole**: `link: { type: "REPLY" | "FORWARD",
+chatId, message: { id, sender, text, time, attaches } }` (same probe, 200 messages). So the preview
+needs no lookup, and `replyTo` / `forwardedFrom` are stored with the message (schema 4) so
+`--offline` shows them too.
 
 
 ## 11. Trade-off order
@@ -457,7 +465,7 @@ on its own turns that check into a permanent failure.
 
 Every request is one object — direction, operation, opcode, `seq`, the ids the request named, how
 long it took, how many bytes moved, how many things came back. **One object, two sinks**:
-`--verbose` renders it on stderr as it happens, `--record` writes it to a file and shows nothing.
+`--trace` renders it on stderr as it happens, `--record` writes it to a file and shows nothing.
 Either, both, or — by default — neither.
 
 ```text
