@@ -113,6 +113,29 @@ describe("toMessage", () => {
     ])
   })
 
+  it("carries the message a reply answers and a forward carries, named when the login named its sender", () => {
+    const quoted = { id: 9, sender: 3260455, text: "the question", time: 1789776000000, attaches: [{ _type: "PHOTO" }] }
+    const names = new Map([["3260455", "Ivan Petrov"]])
+    const reply = toMessage({ ...messageWire, link: { type: "REPLY", chatId: 1, message: quoted } }, "7268926", {
+      names,
+    })
+    const forward = toMessage({ ...messageWire, link: { type: "FORWARD", chatId: 1, message: quoted } }, "7268926")
+
+    expect(reply.replyTo).toEqual({
+      id: "9",
+      senderId: "3260455",
+      senderName: "Ivan Petrov",
+      timestamp: new Date(1789776000000).toISOString(),
+      text: "the question",
+      attachments: [{ kind: "photo" }],
+      outgoing: null,
+    })
+    expect(reply.forwardedFrom).toBeNull()
+    expect(forward.forwardedFrom?.id).toBe("9")
+    expect(forward.replyTo).toBeNull()
+    expect(toMessage(messageWire, "7268926").replyTo).toBeNull()
+  })
+
   it("does not lose a message because it has no text", () => {
     const empty = toMessage({ id: 1, time: 1789776000000, sender: 2 }, "7268926")
     expect(empty.text).toBe("")

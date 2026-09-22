@@ -9,7 +9,7 @@ thread: `docs_ai/plans/` (local only, not committed).
 **Working as of 2026-09-20**: seven operations under five commands — `session start|end`,
 `account show`, `chats list`, `contacts list`, `messages list|send` — verified against the real
 MAX, and every request they send is built from the specification in `src/spec/`. The profile is
-the first word, every setting comes from one resolver, `--verbose` shows each request as it
+the first word, every setting comes from one resolver, `--trace` shows each request as it
 happens and `--record` keeps it under `max runs`. What each part does and why is
 [`ARCHITECTURE.md`](ARCHITECTURE.md); what was ruled is [`DECISIONS.md`](DECISIONS.md).
 

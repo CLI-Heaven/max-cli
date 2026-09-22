@@ -40,10 +40,17 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
         "The first word is the profile whenever it is not a command — `max personal chats list`.\n" +
         "`MAX_PROFILE` says the same thing for a whole shell session; without either it is `default`.",
     )
-    .version(VERSION, "-v, --version")
+    .version(VERSION, "-V, --version")
+    .option(
+      "-v, --verbose",
+      "more detail in what is shown: -v ids, -vv everything we know",
+      (_, level: number) => level + 1,
+      0,
+    )
     .option("--json", "machine-readable output: one JSON value on stdout, nothing else")
+    .option("--jsonl", "machine-readable output: one JSON object per line, for streaming and jq")
     .option("--quiet", "diagnostics off")
-    .option("--verbose", "diagnostics on: ids and timings on stderr, never message content")
+    .option("--trace", "one line per request on stderr: ids and timings, never message content")
     .option("--offline", "answer from what was recorded and never connect; fails if nothing was")
     .option("--record", "keep this run under `max runs` — ids and timings, never message content")
     .option("--no-record", "do not keep it, whatever the configuration says")

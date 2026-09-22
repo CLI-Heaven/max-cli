@@ -57,6 +57,8 @@ const message = (id: string, at: number, text: string, editedAt: string | null =
   text,
   outgoing: false,
   attachments: [],
+  replyTo: null,
+  forwardedFrom: null,
 })
 
 describe("searching the store", () => {
@@ -180,6 +182,25 @@ describe("the cache store", () => {
     store.messages.write("5", [message("a", 100, "first"), message("b", 200, "second")])
 
     expect((store.messages.read("5", 20, 60_000) ?? []).map((m) => m.text)).toEqual(["first", "second"])
+  })
+
+  it("keeps what a reply answered and what a forward carried, so --offline shows them too", async () => {
+    const store = await open()
+    const quoted = {
+      id: "q",
+      senderId: "8",
+      senderName: null,
+      timestamp: null,
+      text: "the question",
+      attachments: [],
+      outgoing: false,
+    }
+    store.messages.write("5", [{ ...message("a", 100, "the answer"), replyTo: quoted }, message("b", 200, "plain")])
+
+    const [reply, plain] = store.messages.read("5", 20, 60_000) ?? []
+    expect(reply?.replyTo).toEqual(quoted)
+    expect(reply?.forwardedFrom).toBeNull()
+    expect(plain?.replyTo).toBeNull()
   })
 
   it("**never lets a stale fetch undo an edit**, whichever of the two writes last", async () => {

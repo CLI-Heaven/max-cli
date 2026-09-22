@@ -52,7 +52,7 @@ try {
       chatId,
       from: Date.now(),
       forward: 0,
-      backward: 50,
+      backward: Number(process.argv[3] ?? 50),
       forwardTime: 0,
       backwardTime: 0,
       itemType: "REGULAR",
@@ -63,9 +63,34 @@ try {
   )
 
   let photoLink: string | undefined
+  const messageFields = new Map<string, Set<string>>()
+  const links = new Map<string, Map<string, Set<string>>>()
   const kinds = new Map<string, { count: number; fields: Map<string, Set<string>> }>()
   for (const message of Array.isArray(answer.messages) ? answer.messages : []) {
-    const attaches = record(message)?.attaches
+    const entry0 = record(message) ?? {}
+    for (const [key, value] of Object.entries(entry0)) {
+      const types = messageFields.get(key) ?? new Set()
+      types.add(describe(value))
+      messageFields.set(key, types)
+    }
+    const link = record(entry0.link)
+    if (link) {
+      const type = typeof link.type === "string" ? link.type : "unknown"
+      const fields = links.get(type) ?? new Map()
+      for (const [key, value] of Object.entries(link)) {
+        const types = fields.get(key) ?? new Set()
+        types.add(
+          key === "message"
+            ? `object{${Object.keys(record(value) ?? {})
+                .sort()
+                .join(",")}}`
+            : describe(value),
+        )
+        fields.set(key, types)
+      }
+      links.set(type, fields)
+    }
+    const attaches = entry0.attaches
     for (const attach of Array.isArray(attaches) ? attaches : []) {
       const entry = record(attach)
       if (!entry) continue
@@ -88,6 +113,16 @@ try {
     console.log(`  ${kind} ×${count}`)
     for (const [key, types] of [...fields].sort(([a], [b]) => a.localeCompare(b)))
       console.log(`    ${key}: ${[...types].join(" | ")}`)
+  }
+
+  console.log("\nmessage fields:")
+  for (const [key, types] of [...messageFields].sort(([a], [b]) => a.localeCompare(b)))
+    console.log(`    ${key}: ${[...types].join(" | ")}`)
+  console.log("\nlink kinds:")
+  if (links.size === 0) console.log("  none")
+  for (const [type, fields] of links) {
+    console.log(`  ${type}`)
+    for (const [key, types] of fields) console.log(`    ${key}: ${[...types].join(" | ")}`)
   }
 
   if (photoLink) {

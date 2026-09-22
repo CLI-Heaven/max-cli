@@ -1,7 +1,7 @@
 import type { Payload } from "../protocol/frame.js"
 
 /**
- * One request, as both sinks see it: `--verbose` renders it, the run log writes it as a line of
+ * One request, as both sinks see it: `--trace` renders it, the run log writes it as a line of
  * JSON. **One object, two sinks** — a second shape for one of them is how the two start disagreeing
  * about what happened.
  *

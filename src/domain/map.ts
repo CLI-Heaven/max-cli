@@ -1,5 +1,5 @@
 import { asId, type Payload } from "../protocol/frame.js"
-import type { Attachment, Chat, ChatKind, Contact, Id, Message, Profile } from "./models.js"
+import type { Attachment, Chat, ChatKind, Contact, Id, Message, Profile, QuotedMessage } from "./models.js"
 
 /**
  * Wire shapes into our own types.
@@ -38,6 +38,31 @@ export const toMessage = (raw: Payload, chatId: Id, lookup: NameLookup = {}): Me
     text: text(raw.text) ?? "",
     outgoing: lookup.viewerId === undefined || senderId === undefined ? null : senderId === lookup.viewerId,
     attachments: attachments(raw.attaches),
+    ...linked(raw.link, lookup),
+  }
+}
+
+/** Measured 2026-09-22: `link: { type: "REPLY" | "FORWARD", chatId, message: { id, sender, text, time, attaches } }`. */
+const linked = (value: unknown, lookup: NameLookup): Pick<Message, "replyTo" | "forwardedFrom"> => {
+  const link = asRecord(value)
+  const quoted = asRecord(link?.message)
+  const message = quoted ? toQuoted(quoted, lookup) : null
+  return {
+    replyTo: link?.type === "REPLY" ? message : null,
+    forwardedFrom: link?.type === "FORWARD" ? message : null,
+  }
+}
+
+const toQuoted = (raw: Payload, lookup: NameLookup): QuotedMessage => {
+  const senderId = asId(raw.sender) ?? null
+  return {
+    id: asId(raw.id) ?? "",
+    senderId,
+    senderName: senderId ? (lookup.names?.get(senderId) ?? null) : null,
+    timestamp: timestamp(raw.time),
+    text: text(raw.text) ?? "",
+    attachments: attachments(raw.attaches),
+    outgoing: lookup.viewerId === undefined || senderId === null ? null : senderId === lookup.viewerId,
   }
 }
 
@@ -135,12 +160,16 @@ const attachments = (value: unknown): Attachment[] => {
       const width = count(entry.width)
       const height = count(entry.height)
       const title = text(entry.title)
+      const name = text(entry.name)
+      const size = count(entry.size)
       return {
         kind: typeof entry._type === "string" ? entry._type.toLowerCase() : "unknown",
         ...(url ? { url } : {}),
         ...(width !== null ? { width } : {}),
         ...(height !== null ? { height } : {}),
         ...(title ? { title } : {}),
+        ...(name ? { name } : {}),
+        ...(size !== null ? { size } : {}),
       }
     })
 }

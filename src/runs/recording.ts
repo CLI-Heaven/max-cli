@@ -11,7 +11,7 @@ export interface RecordingOptions {
    * What `commander` parsed. `record` is three-valued on purpose: `--record`, `--no-record`, and
    * absent — the third is where the configuration file's `"record": true` plugs in (thread C).
    */
-  options: { record?: boolean | undefined; verbose?: boolean | undefined }
+  options: { record?: boolean | undefined; trace?: boolean | undefined }
   /** What `resolveOutput` decided for the data stream. Diagnostics follow it (`NEED-53`). */
   format: RenderFormat
   streams?: Streams
@@ -24,7 +24,7 @@ export interface RecordingOptions {
 /**
  * Runs one command with the diagnostics turned on, and **finalizes on every path**.
  *
- * Two sinks, one event object (plan §3.1, §3.7): `--verbose` shows it as it happens and keeps
+ * Two sinks, one event object (plan §3.1, §3.7): `--trace` shows it as it happens and keeps
  * nothing, `--record` keeps it and shows nothing. Either, both, or — by default — neither, in
  * which case this costs a counter.
  *
@@ -37,7 +37,7 @@ export const recorded = async <T>(
   body: (events: (event: DiagnosticEvent) => void) => Promise<T>,
 ): Promise<T> => {
   const streams = options.streams ?? processStreams
-  const verbose = options.options.verbose === true
+  const trace = options.options.trace === true
 
   const run: Run | undefined =
     options.options.record === true
@@ -57,7 +57,7 @@ export const recorded = async <T>(
     if (event.event === "request") requests += 1
     // Text for a person, one JSON object per line for anything else — the rule `resolveOutput`
     // already applies to the data stream (`NEED-53`). Never stdout, in any mode.
-    if (verbose) streams.diagnostic(options.format === "pretty" ? renderEvent(event) : JSON.stringify(event))
+    if (trace) streams.diagnostic(options.format === "pretty" ? renderEvent(event) : JSON.stringify(event))
     run?.logger.info(event)
   }
 

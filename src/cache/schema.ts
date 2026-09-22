@@ -4,7 +4,7 @@ import type { CacheDatabase } from "./driver.js"
  * **Raise this on every change to the statements below.** The second schema change is the one that
  * corrupts somebody's file, because the first is always made while the only copy is your own.
  */
-export const SCHEMA_VERSION = 3
+export const SCHEMA_VERSION = 4
 
 /**
  * Everything the cache holds, and the indexes are part of it rather than an afterthought — each
@@ -85,6 +85,7 @@ const STATEMENTS = [
      text        TEXT NOT NULL,
      outgoing    INTEGER,
      attachments TEXT NOT NULL,
+     link        TEXT,
      fetched_at  INTEGER NOT NULL,
      PRIMARY KEY (chat_id, id)
    )`,
