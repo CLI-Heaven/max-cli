@@ -48,8 +48,23 @@ happens and `--record` keeps it under `max runs`. What each part does and why is
   `docs_ai/plans/` (local only).
 - **Priority.** **P1** blocks other work or breaks something real · **P2** needed this cycle ·
   **P3** someday. Rank honestly; a backlog where everything is P1 says nothing.
-- **Mark.** Empty — not started · 🟡 half done, the remainder named in the line · ⏸️ deferred by
-  the owner · 🚩 waiting on an owner decision, not on code.
+- **Mark.** Empty — not started · 🚧 somebody is on it · 🟡 half done, the remainder named in the
+  line · ⏸️ deferred by the owner · 🚩 waiting on an owner decision, not on code.
+- **Claim an item in the same push that creates its branch**: `🚧 <branch>` on the line, before
+  any code. Clear it when the work merges, in the commit that closes the item.
+
+  ```
+  - **CLI-15** · 🚧 `command-streams` · P2 · Make a command's output testable…
+  ```
+
+  ⚠ **This exists because it has already gone wrong twice.** On 2026-09-23 two agents built
+  `max config show` independently and one of the two pull requests was closed as a duplicate —
+  the better one, as it turned out. An open pull request is too late to be the signal: by the time
+  one appears the second person has usually finished. Nothing else announces that an item is taken.
+
+  The same week `MAX-12` and `CLI-8` sat marked "not started" for two days after they shipped, so
+  the file was misleading in both directions at once. **Close the line in the pull request that
+  ships the work**, not afterwards.
 
 </details>
 
@@ -235,7 +250,7 @@ meaning: `CLI-6` is the settings item.
   `session start` had to move into `src/session/adopt.ts` to be provable at all, and two tests
   written for `config show` would have passed against an empty string. Inject streams, store and
   connection through `forCommand`; it touches all eight commands, which is why it is its own item.
-- **CLI-12** · P2 · **`max doctor`, and reading the effective settings.** Nothing shows the state a
+- **CLI-12** · 🚧 · P2 · **`max doctor`, and reading the effective settings.** Nothing shows the state a
   command depends on, and one trap has no other way of being seen: `MAX_CONFIG_DIR`,
   `MAX_STATE_DIR` and `MAX_CACHE_DIR` change the keyring service name, so a login under them
   answers "no session" without them (`docs_ai/HANDOFF.md` §6). It prints the profile and where it
