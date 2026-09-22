@@ -162,6 +162,6 @@ const offlineChat = (reference: string): Id => {
   throw new CliError(
     "validation_error",
     `\`messages search --chat\` takes a chat id, not a name — searching never connects, and a name ` +
-      `can only be resolved by asking MAX. \`max chats list --query ${trimmed}\` gives you the id.`,
+      `can only be resolved by asking MAX. \`max chats list --search ${trimmed}\` gives you the id.`,
   )
 }
