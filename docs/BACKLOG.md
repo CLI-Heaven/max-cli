@@ -102,10 +102,11 @@ now, in their own pass. How to add an operation is
   `scripts/commands.ts` from the command tree, on every `pnpm generate`. It needed no new CI step:
   the staleness check that already guarded [`protocol.md`](protocol.md) guards it too, and the
   suite compares the committed page with what the generator produces right now.
-- **OPS-9** · P3 · `scripts/probe.ts` does not run — the command in its own header fails on the
-  first import, because Node's type stripping will not resolve a `.js` specifier to a `.ts` file.
-  `scripts/id-shape.ts` shows the working shape: import from `dist/` and build first. It also
-  calls opcode 16, which is an update, against a real account.
+- **OPS-9** · **closed 2026-09-22 by deletion, not by repair.** `scripts/probe.ts` never ran: its
+  own header fails on the first import, it was wired to no `pnpm` script, and it sent opcode 16 —
+  an **update** — to a real account. Everything it asked is answered by `probe:ids`,
+  `probe:contacts` and `probe:token`, which import from `dist/`, take the token from the keyring
+  rather than the environment, and read only. A probe nobody can run is not a probe.
 
 ## The foundation
 

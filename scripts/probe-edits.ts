@@ -12,6 +12,7 @@
  * `status` — never a message, a name, an id or a timestamp. Chat 0 is the owner's Saved-messages
  * dialog, the only chat safe to read for this (`NEED-28`), and reading never marks anything read.
  */
+import type { Invoke } from "../dist/generated/client.generated.js"
 import { Connection } from "../dist/protocol/connection.js"
 import { startSession } from "../dist/session/handshake.js"
 import { SessionStore } from "../dist/session/store.js"
@@ -31,9 +32,16 @@ const record = (value: unknown): Record<string, unknown> | undefined =>
 
 const connection = new Connection({ timeoutMs: 20_000 })
 
+/**
+ * `startSession` takes the caller's `invoke` rather than a socket, so that every request it makes
+ * is built and checked like any other. A probe has no client to borrow one from, so it builds the
+ * two payloads itself — which is all `MaxClient` does with it either.
+ */
+const invoke: Invoke = (operation, request) => connection.invoke(operation.opcode, buildRequest(operation, request))
+
 try {
   await connection.open()
-  await startSession(connection, { token, deviceId: store.readState().deviceId, chatsCount: 100 })
+  await startSession(invoke, { token, deviceId: store.readState().deviceId, chatsCount: 100 })
 
   const answer = await connection.invoke(
     chatsHistory.opcode,
