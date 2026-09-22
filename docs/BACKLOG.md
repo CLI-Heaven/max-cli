@@ -251,6 +251,15 @@ meaning: `CLI-6` is the settings item.
   `session start` had to move into `src/session/adopt.ts` to be provable at all, and two tests
   written for `config show` would have passed against an empty string. Inject streams, store and
   connection through `forCommand`; it touches all eight commands, which is why it is its own item.
+- **CORE-7** · P2 · **A log file that cannot be opened must not kill the command.**
+  `createFileLogger` in `cli-core` opens its stream with `createWriteStream`, which opens
+  asynchronously and has no `error` listener — so a runs directory that vanishes or turns
+  unwritable takes the process down with an unhandled event rather than a diagnostic. It surfaced
+  as two uncaught `ENOENT`s in this repository's own suite once the tests began removing their
+  temporary directories (`BUG-30`); the tests are fixed here, the stream is not, and the stream is
+  the defect. **Second instance of this class in two days** — the first was `ws` emitting `error`
+  during a close (`BUG-26`), which killed a `--timeout`. A recording nobody asked for must fail
+  quietly and visibly (`NEED-97`), never fatally. Another repository, so its own change.
 - **CLI-12** · 🚧 · P2 · **`max doctor`, and reading the effective settings.** Nothing shows the state a
   command depends on, and one trap has no other way of being seen: `MAX_CONFIG_DIR`,
   `MAX_STATE_DIR` and `MAX_CACHE_DIR` change the keyring service name, so a login under them
