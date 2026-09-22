@@ -15,13 +15,15 @@ git fetch -q origin
 git merge -q --ff-only origin/main
 
 version=$(node -p 'require("./package.json").version')
+# `npm view` rather than a curl of the registry document: that document is served through a CDN
+# cache, and on 2026-09-22 the script twice stopped after publishing, before the tag.
 published() {
-  curl -sS "https://registry.npmjs.org/@leemour%2fmax-cli?x=$$" |
-    python3 -c "import json,sys; print(' '.join(json.load(sys.stdin).get('versions',{})))"
+  npm view "@leemour/max-cli@$version" version --prefer-online >/dev/null 2>&1
 }
-case " $(published) " in
-  *" $version "*) echo "$version is already on npm — raise the version first" >&2; exit 1 ;;
-esac
+if published; then
+  echo "$version is already on npm — raise the version first" >&2
+  exit 1
+fi
 
 echo "== checks for $version =="
 pnpm install --frozen-lockfile
@@ -37,13 +39,12 @@ echo "== publishing $version =="
 # Our own checks above stand in for pnpm's: it counts untracked files as a dirty tree.
 NPM_TOKEN="$token" pnpm publish --access public --no-git-checks
 
-# The registry shows a new version with a delay; on 2026-09-22 five seconds was not enough.
 seen=""
-for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
-  case " $(published) " in *" $version "*) seen=1; break ;; esac
+for _ in $(seq 36); do
+  if published; then seen=1; break; fi
   sleep 5
 done
-[ -n "$seen" ] || { echo "npm does not show $version after a minute — not tagging" >&2; exit 1; }
+[ -n "$seen" ] || { echo "npm does not show $version after three minutes — not tagging; steps 6–7 of docs/releasing.md finish it by hand" >&2; exit 1; }
 
 echo "== tag and release v$version =="
 git tag -a "v$version" -m "$version"
