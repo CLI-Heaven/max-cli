@@ -12,12 +12,14 @@
  *
  * It imports from `dist/`, not `src/`: Node's type stripping does not resolve a `.js` specifier
  * to a `.ts` file, so a script importing `../src/...js` dies on the first import. `pnpm probe:ids`
- * builds first for that reason. `scripts/probe.ts` has the same bug and does not run at all.
+ * builds first for that reason.
  */
 
+import type { Invoke } from "../dist/generated/client.generated.js"
 import { Connection } from "../dist/protocol/connection.js"
 import { startSession } from "../dist/session/handshake.js"
 import { SessionStore } from "../dist/session/store.js"
+import { buildRequest } from "../dist/spec/define.js"
 
 const store = new SessionStore({ profile: process.env.MAX_PROFILE ?? "default" })
 const token = store.readToken()
@@ -60,9 +62,16 @@ const collect = (rows: unknown, field: string): unknown[] =>
 const connection = new Connection({ timeoutMs: 20_000 })
 let unsafeTotal = 0
 
+/**
+ * `startSession` takes the caller's `invoke` rather than a socket, so that every request it makes
+ * is built and checked like any other. A probe has no client to borrow one from, so it builds the
+ * two payloads itself — which is all `MaxClient` does with it either.
+ */
+const invoke: Invoke = (operation, request) => connection.invoke(operation.opcode, buildRequest(operation, request))
+
 try {
   await connection.open()
-  const login = await startSession(connection, { token, deviceId: store.readState().deviceId, chatsCount: 100 })
+  const login = await startSession(invoke, { token, deviceId: store.readState().deviceId, chatsCount: 100 })
 
   const groups: [string, unknown[]][] = [
     ["chat ids", collect(login.chats, "id")],

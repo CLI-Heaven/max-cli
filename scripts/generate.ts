@@ -30,7 +30,12 @@ interface Row {
   binding: string
 }
 
-const fail = (message: string): never => {
+/**
+ * ⚠ **The annotation is on the binding, not on the arrow**, and it has to be: a `never`-returning
+ * call only narrows what follows it when the declaration itself is typed. Written the other way
+ * round, the two checks below are dead weight and `group` stays `string | undefined`.
+ */
+const fail: (message: string) => never = (message) => {
   throw new Error(`the specification cannot be generated from: ${message}`)
 }
 

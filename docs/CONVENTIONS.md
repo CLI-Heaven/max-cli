@@ -65,6 +65,12 @@ rather than break the command — and must still say why, on the diagnostic stre
 reason cost a day: the cache looked identical whether it was working or had never opened once
 (`NEED-97`).
 
+**A file nothing checks will rot, and quietly.** `scripts/` sat outside every `tsconfig` until
+2026-09-22, so three of the four probes had been broken for two days by a signature change in
+`src/` and CI stayed green throughout — the compiler had never been shown them. `tsconfig.scripts.json`
+now covers them. The rule generalises: when a directory is added, it is either in a project the
+build checks or it is a directory that will be wrong within a month.
+
 **Report honestly.** If a test failed, show the output. If something could not be verified, say
 which thing and why. "Probably works" is a sentence you are allowed to write; a green tick you did
 not earn is not.

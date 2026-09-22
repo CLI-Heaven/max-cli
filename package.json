@@ -24,7 +24,7 @@
   "scripts": {
     "build": "tsc --build",
     "generate": "pnpm build && node --experimental-strip-types scripts/generate.ts && node --experimental-strip-types scripts/commands.ts",
-    "typecheck": "tsc --build --force --emitDeclarationOnly && tsc -p tsconfig.test.json",
+    "typecheck": "tsc --build --force --emitDeclarationOnly && tsc -p tsconfig.test.json && tsc -p tsconfig.scripts.json",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "vitest run",
