@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs"
 import { CliError, configFilePath, loadConfigFile, resolvePaths } from "@leemour/cli-core"
 import * as v from "valibot"
 import { DEFAULT_PROFILE, usableProfileName } from "./profile.js"
@@ -52,13 +53,9 @@ export interface GlobalFlags {
   timeout?: string
 }
 
-/** Which layer decided the profile. Only `max config show` needs it, and it needs it to be true. */
-export type ProfileSource = "the first word" | "MAX_PROFILE" | "defaultProfile in the file" | "the built-in default"
-
 export interface Settings {
   profile: string
   /** Where the profile came from, decided here so nothing has to re-derive the order. */
-  profileFrom: ProfileSource
   json: boolean
   jsonl: boolean
   quiet: boolean
@@ -93,6 +90,28 @@ export interface Settings {
   keepRunsForDays: number
   /** Named in errors and in `max --help`, so a person can find the file that decided this. */
   configPath: string
+  configFound: boolean
+  /** Profiles the configuration file names, whether or not anyone has logged in to them. */
+  configuredProfiles: string[]
+  /** Where each value came from — `max config show` prints it. */
+  sources: Record<SourcedSetting, Source>
+}
+
+export type Source = "first word" | "flag" | "MAX_PROFILE" | "MAX_TIMEOUT" | "config file" | "default"
+export type SourcedSetting =
+  | "profile"
+  | "limit"
+  | "timeoutMs"
+  | "commandTimeoutMs"
+  | "color"
+  | "senderColors"
+  | "record"
+  | "keepRunsForDays"
+
+/** The first given value wins, and says which it was. */
+const first = <T>(candidates: [Source, T | undefined][], fallback: T): { value: T; from: Source } => {
+  for (const [from, value] of candidates) if (value !== undefined) return { value, from }
+  return { value: fallback, from: "default" }
 }
 
 export interface ResolveOptions {
@@ -120,40 +139,77 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
   const configPath = configFilePath(configDir ?? paths.config)
   const config = readConfig(configPath)
 
-  const chosen = flags.profile ?? given(env.MAX_PROFILE) ?? config.defaultProfile ?? DEFAULT_PROFILE
-  const profile = usableProfileName(chosen)
+  const profile = first(
+    [
+      ["first word", flags.profile],
+      ["MAX_PROFILE", given(env.MAX_PROFILE)],
+      ["config file", config.defaultProfile],
+    ],
+    DEFAULT_PROFILE,
+  )
+  const configured = config.profiles[usableProfileName(profile.value)] ?? {}
 
-  // Worked out here rather than by whoever wants to display it: a second reading of this order
-  // is a second thing to keep in step with it.
-  const profileFrom: ProfileSource =
-    flags.profile !== undefined
-      ? "the first word"
-      : given(env.MAX_PROFILE) !== undefined
-        ? "MAX_PROFILE"
-        : config.defaultProfile !== undefined
-          ? "defaultProfile in the file"
-          : "the built-in default"
+  const limit = first<number>(
+    [
+      ["flag", flags.limit],
+      ["config file", configured.limit],
+    ],
+    DEFAULT_LIMIT,
+  )
+  const timeoutMs = first<number | undefined>([["config file", configured.timeoutMs]], undefined)
+  const color = first<boolean | undefined>([["config file", configured.color]], undefined)
+  const senderColors = first([["config file", configured.senderColors]], false)
+  const record = first(
+    [
+      ["flag", flags.record],
+      ["config file", configured.record],
+    ],
+    false,
+  )
+  const keepRunsForDays = first([["config file", configured.keepRunsForDays]], DEFAULT_KEEP_RUNS_FOR_DAYS)
 
-  const configured = config.profiles[profile] ?? {}
+  /**
+   * ⚠ **The only setting with no `config file` row, on purpose.** A budget for one command is
+   * about a particular run, not a habit, and a timeout written into a file is one somebody trips
+   * over months later without remembering they set it.
+   */
+  const timeout = first<string | undefined>(
+    [
+      ["flag", flags.timeout],
+      ["MAX_TIMEOUT", given(env.MAX_TIMEOUT)],
+    ],
+    undefined,
+  )
 
   const settings: Settings = {
-    profile,
-    profileFrom,
+    profile: usableProfileName(profile.value),
     json: flags.json === true,
     jsonl: flags.jsonl === true,
     quiet: flags.quiet === true,
     detail: Math.min(2, Math.max(0, flags.verbose ?? 0)) as 0 | 1 | 2,
     trace: flags.trace === true,
-    color: configured.color,
-    senderColors: configured.senderColors ?? false,
-    limit: flags.limit ?? configured.limit ?? DEFAULT_LIMIT,
+    color: color.value,
+    senderColors: senderColors.value,
+    limit: limit.value,
     page: flags.page ?? 1,
     all: flags.all === true,
-    timeoutMs: configured.timeoutMs,
-    commandTimeoutMs: durationMs(flags.timeout ?? given(env.MAX_TIMEOUT), flags.timeout === undefined),
-    record: flags.record ?? configured.record ?? false,
-    keepRunsForDays: configured.keepRunsForDays ?? DEFAULT_KEEP_RUNS_FOR_DAYS,
+    timeoutMs: timeoutMs.value,
+    commandTimeoutMs: durationMs(timeout.value, timeout.from),
+    record: record.value,
+    keepRunsForDays: keepRunsForDays.value,
     configPath,
+    configFound: existsSync(configPath),
+    configuredProfiles: Object.keys(config.profiles),
+    sources: {
+      profile: profile.from,
+      limit: limit.from,
+      timeoutMs: timeoutMs.from,
+      commandTimeoutMs: timeout.from,
+      color: color.from,
+      senderColors: senderColors.from,
+      record: record.from,
+      keepRunsForDays: keepRunsForDays.from,
+    },
   }
 
   // The file was checked by the schema; a flag was not, and `--limit abc` is `NaN` by the time it
@@ -195,17 +251,18 @@ export const configuredProfiles = ({ env = process.env, configDir }: ResolveOpti
  * it this way means seconds. Guessing either one is a thirty-fold surprise in one direction or the
  * other, so this asks instead — the same rule as `--kind`, and the reason is the same.
  *
- * `fromEnv` only changes the wording of the refusal. A person who set `MAX_TIMEOUT` in a shell
- * profile weeks ago needs to be told *which* thing is wrong, not shown a flag they did not type.
+ * The refusal names whichever of the two supplied the value — see `durationMs`.
  */
 const DURATION = /^(\d+)(ms|s|m)$/
 
 const UNIT_MS: Record<string, number> = { ms: 1, s: 1000, m: 60_000 }
 
-const durationMs = (value: string | undefined, fromEnv: boolean): number | undefined => {
+const durationMs = (value: string | undefined, from: Source): number | undefined => {
   if (value === undefined) return undefined
 
-  const source = fromEnv ? "MAX_TIMEOUT" : "--timeout"
+  // Named by where it came from, so somebody who set `MAX_TIMEOUT` in a shell profile weeks ago is
+  // told which thing is wrong rather than shown a flag they never typed.
+  const source = from === "MAX_TIMEOUT" ? "MAX_TIMEOUT" : "--timeout"
   const match = DURATION.exec(value.trim())
   if (!match?.[1] || !match[2]) {
     throw new CliError("validation_error", `${source} takes a duration with a unit — 30s, 2m or 500ms — not "${value}"`)

@@ -225,9 +225,10 @@ meaning: `CLI-6` is the settings item.
   multiline message is writable at all and the text stays out of `ps` and shell history. Omission
   is the signal rather than a `--stdin` flag, because `session start` already reads a piped token
   that way. A terminal is refused, never waited at.
-- **CLI-14** · ✅ Closed 2026-09-22 — `max config show`: the settings in force, which layer chose
-  the profile, and the profiles the file lists. ⚠ It reads files only — no keyring, no cache, no
-  MAX — so "is my session alive" is still `CLI-12`.
+- **CLI-14** · ✅ Closed 2026-09-23 — `max config show`: the profile and what chose it, the profiles
+  that exist (named in the file or with a state file), the configuration file and whether it was
+  found, and each setting with where it came from. The source is recorded where the value is
+  chosen, in `resolveSettings`, so there is one copy of the order. Tokens stay with `CLI-12`.
 - **CLI-15** · P2 · **Make a command's output testable.** `forCommand` builds its own renderer
   over the real streams and its own `SessionStore`, so `runWith` in `program.test.ts` sees help and
   errors and **nothing a command prints** (`FIND-53`). It has cost twice now: the ordering in

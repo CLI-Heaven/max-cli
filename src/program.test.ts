@@ -175,7 +175,7 @@ describe("the program", () => {
 
     const show = await runWith(["config", "--help"])
     expect(show.stdout).toContain("show")
-    expect(show.stdout).toContain("where they came from")
+    expect(show.stdout).toContain("where each one came from")
   })
 
   // ⚠ What `config show` actually prints is not asserted here, and cannot be: a command builds its
