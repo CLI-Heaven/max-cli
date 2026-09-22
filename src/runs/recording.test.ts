@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs"
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { CliError, captureStreams } from "@leemour/cli-core"
@@ -31,7 +31,7 @@ const RESPONSE: DiagnosticEvent = {
 
 const run = async (
   options: { record?: boolean; trace?: boolean; quiet?: boolean; format?: "pretty" | "json" },
-  body?: (events: (event: DiagnosticEvent) => void) => Promise<void>,
+  body?: (events: (event: DiagnosticEvent) => void, dir: string) => Promise<void>,
 ) => {
   const streams = captureStreams()
   const dir = runsDir()
@@ -49,11 +49,12 @@ const run = async (
       streams,
       runsDir: dir,
     },
-    body ??
-      (async (events) => {
-        events(REQUEST)
-        events(RESPONSE)
-      }),
+    body
+      ? (events) => body(events, dir)
+      : async (events) => {
+          events(REQUEST)
+          events(RESPONSE)
+        },
   ).catch((error: unknown) => error)
 
   return { streams, dir, answer }
@@ -137,5 +138,19 @@ describe("--record", () => {
     })
 
     expect(listRuns(dir)[0]).toMatchObject({ status: "failed", requests: 0, errorCode: "configuration_error" })
+  })
+
+  it("**survives its directory vanishing mid-run** — one warning, the answer intact (`NEED-133`)", async () => {
+    const { streams, answer } = await run({ record: true }, async (events, dir) => {
+      rmSync(dir, { recursive: true, force: true })
+      events(REQUEST)
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      events(RESPONSE)
+    })
+
+    expect(answer).toBeUndefined()
+    expect(streams.stdout).toEqual([])
+    expect(streams.stderr).toHaveLength(1)
+    expect(streams.stderr[0]).toMatch(/not recorded.*ENOENT/)
   })
 })

@@ -15,6 +15,8 @@ export interface RecordingOptions {
   /** What `resolveOutput` decided for the data stream. Diagnostics follow it (`NEED-53`). */
   format: RenderFormat
   streams?: Streams
+  /** Where a log that breaks mid-run is reported. The renderer's, so `--quiet` and the format hold. */
+  warn?: (message: string) => void
   /** Tests point this at a temporary directory. */
   runsDir?: string
   keepDays?: number
@@ -38,6 +40,7 @@ export const recorded = async <T>(
 ): Promise<T> => {
   const streams = options.streams ?? processStreams
   const trace = options.options.trace === true
+  const warn = options.warn ?? streams.diagnostic
 
   const run: Run | undefined =
     options.options.record === true
@@ -46,6 +49,9 @@ export const recorded = async <T>(
           command: options.command,
           profile: options.profile,
           cliVersion: VERSION,
+          // Asked for, so never silent — but the operation it describes has happened or is under
+          // way, and failing the command now invites a retry that sends twice (`NEED-133`).
+          onError: (error) => warn(`this run is not recorded past this point: ${error.message}`),
           ...(options.keepDays === undefined ? {} : { keepDays: options.keepDays }),
           ...(options.now === undefined ? {} : { now: options.now }),
         })
