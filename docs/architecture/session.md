@@ -39,8 +39,8 @@ only comparison is against the token sent; the only output is whether a write fa
 
 ⚠ **A token reaches the keyring only after MAX accepts it** (`src/session/adopt.ts`). Writing first
 let a typo, an expired token or a closed browser tab replace a *working* credential — unrecoverably:
-`Credentials.write` overwrites, and a keyring entry cannot be read back. The same shape destroyed two
-working keys in `brazecli` on 2026-09-14 (noted in `cli-core`'s `credentials.ts`).
+`Credentials.write` overwrites, and a keyring entry cannot be read back. The same shape destroyed
+two working keys in `brazecli` on 2026-09-14 (noted in `cli-core`'s `credentials.ts`).
 
 Restoring the old token after a failed login is worse: a kill between write and restore breaks the
 profile. So `MaxClient.connect` tries a candidate token and stores nothing; `adoptToken` writes once
@@ -48,23 +48,24 @@ it is worth writing. It sits beside `handshake.ts`, not in the command, because 
 its own store and socket and code inside a command action cannot be driven by a test.
 
 ⚠ **A profile remembers its account and refuses another.** `viewerId` is saved from the first login;
-every later `connect` compares it with LOGIN's answer. A mismatch is an `authentication_error` naming
-`max <profile> session end` — the deliberate way to switch (`forget()` clears the id with the token).
-Otherwise `max <profile> messages send` could speak as somebody else.
+every later `connect` compares it with LOGIN's answer. A mismatch is an `authentication_error`
+naming `max <profile> session end` — the deliberate way to switch (`forget()` clears the id with the
+token). Otherwise `max <profile> messages send` could speak as somebody else.
 
 - The refusal comes **before** the state is written: no login count (`RISK-2`), no `lastLoginAt`.
 - Nothing to compare (a profile older than the check, a login with no profile) → accepted, and the
   stored id is kept.
 
 Measured 2026-09-21, all three halves: **MAX returns the same account id on every login** (three in
-a row against an id stored by older code, no refusal); a refused login left an existing keyring entry
-byte-for-byte unchanged, in the OS keyring, not the in-memory one tests use; a crossed id was refused
-with `stdout` empty and the login count still zero. The last two ran on a throwaway profile.
+a row against an id stored by older code, no refusal); a refused login left an existing keyring
+entry byte-for-byte unchanged, in the OS keyring, not the in-memory one tests use; a crossed id was
+refused with `stdout` empty and the login count still zero. The last two ran on a throwaway profile,
+so the owner's session was never at risk.
 
 ## The login asks for a delta
 
-`LOGIN` carries `chatsSync`, `contactsSync`, `presenceSync`, `draftsSync`. They are **timestamps, not
-flags**: MAX returns only what changed since then, and the response's `time` is the next marker.
+`LOGIN` carries `chatsSync`, `contactsSync`, `presenceSync`, `draftsSync`. They are **timestamps,
+not flags**: MAX returns only what changed since then, and the response's `time` is the next marker.
 
 Measured 2026-09-20 (`pnpm probe:contacts`):
 
@@ -78,12 +79,12 @@ Row three rules out "any non-zero value suppresses the collection". The profile 
 All four fields take the same marker: a week-old one in `presenceSync` and `draftsSync` too changed
 nothing and the profile still arrived (same day, `NEED-103`).
 
-- **`src/session/handshake.ts` sends the stored marker in all four**, so only a profile's first login
-  fetches everything. The marker is one row (`sync_marker`) in the cache database, not the state
-  file, so `max cache clear` forgets marker and rows together.
-- ⚠ **Marker and rows are written in one transaction** (`mergeDelta`, `src/cache/store.ts`). A marker
-  saved over rows that failed makes the next login ask for changes since data nobody has; those
-  people stay missing, silently. It has its own test.
+- **`src/session/handshake.ts` sends the stored marker in all four**, so only a profile's first
+  login fetches everything. The marker is one row (`sync_marker`) in the cache database, not the
+  state file, so `max cache clear` forgets marker and rows together.
+- ⚠ **Marker and rows are written in one transaction** (`mergeDelta`, `src/cache/store.ts`). A
+  marker saved over rows that failed makes the next login ask for changes since data nobody has;
+  those people stay missing, silently. It has its own test.
 - ⚠ **A delta is mostly empty, and that is correct**: after the first login, absent means unchanged.
   The store merges and never deletes on absence — except chat membership, which MAX restates in full
   with the chat. Rendering the response instead of the store shows a full list once, then empty.
@@ -91,14 +92,15 @@ nothing and the profile still arrived (same day, `NEED-103`).
   seventeen dialog partners on 2026-09-19. A delta keeps it current; it does not widen it.
 - `max contacts sync` forgets the marker so the next login takes everything. It repairs a drifted
   store or one emptied by a schema rebuild, and is the only way to prune somebody MAX stopped
-  returning. It is not how contacts normally arrive.
+  returning. It is not how contacts normally arrive: the delta rides on a login every command
+  already performs.
 
 ## A chat carries its members, and we ask who they are
 
 `chat.participants` is an object **keyed by contact id**. `#partnerOf` returns `undefined` unless
-exactly one id is not ours; it still names a *dialog*, but no longer decides whom we look up.
-`#peopleFor` takes every participant of every non-channel chat (before 2026-09-20 a group of three
-named nobody).
+exactly one id is not ours; it still names a *dialog*, which needs the single person on the other
+side, but no longer decides whom we look up. `#peopleFor` takes every participant of every
+non-channel chat (before 2026-09-20 a group of three named nobody).
 
 Measured 2026-09-20: the login's chats held **23 distinct people**; its `contacts` named **6**.
 
