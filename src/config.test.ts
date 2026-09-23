@@ -203,7 +203,7 @@ describe("the configuration file", () => {
     withConfig(JSON.stringify({ profiles: { default: { limit: 2.5 } }, defaultProfil: "x" }))
     expect(() => settings()).toThrowError("limit: has to be a whole number, 1 or more, not 2.5")
     expect(() => settings()).toThrowError(
-      "defaultProfil: unknown setting — the known ones are defaultProfile, profiles",
+      "defaultProfil: unknown setting — the known ones are defaultProfile, defaults, profiles",
     )
     expect(() => settings()).not.toThrowError(/Expected|Invalid/)
   })
