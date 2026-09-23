@@ -22,21 +22,11 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 
 ## Quick wins — local code, hours each
 
-- **CLI-20** · 🚧 `reading-quick-wins` · P2 · `chats list --unread` — only chats with unread messages. `unreadCount` is
-  already in the model (`src/domain/models.ts:17`); filter in the cache query like `--kind`
-  (`src/commands/chats.ts:13`).
-- **CLI-16** · 🚧 `reading-quick-wins` · P2 · `messages list --after <id|time>` — read forward from a point, the pair of
-  `--before`. History already takes `forward` (`src/spec/operations/chats.ts:31`), and
-  `messages context` uses it.
 - **MAX-15** · 🚩 P2 · Show reactions when reading. **Correction 2026-09-23:** this line said MAX sends
   `reactionInfo` on each message; that came from made-up test data (`src/domain/map.test.ts:83`).
   Measured with `pnpm probe:reactions` (PR #50): 1,101 history messages from 25 chats carried no
   reaction field at all. Either nobody reacted in the sample, or reactions come by another request.
   Next: the owner reacts to a message in Saved messages, then the probe runs again.
-- **CLI-17** · 🚧 `reading-quick-wins` · P3 · `chats show <chat>` — one chat: title, kind, members, unread, last message time.
-  Everything is in the cache after a login; no new opcode.
-- **CLI-18** · 🚧 `reading-quick-wins` · P3 · `contacts show <person>` — one person from the cache: name, `@username`, the chats
-  we share (`chat_members`).
 ## Features
 
 - **MAX-9** · 🟡 P2 · The rest of the messenger surface, in the order of REQUIREMENTS §35.

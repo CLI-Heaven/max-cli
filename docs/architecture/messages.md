@@ -25,7 +25,10 @@ milliseconds, exactly**; the low 16 bits are a counter (`timeOfMessageId`). A me
 its id alone, with no stored copy.
 
 `CHAT_HISTORY` from that time, measured the same day: `backward: n` gives n messages ending with it,
-`forward: n` the n after it, oldest first; `0/0` gives nothing. `messages context` asks `before + 1`
+`forward: n` the n after it, oldest first; `0/0` gives nothing. **Correction, measured
+2026-09-23:** with `backward: 0`, `forward: n` starts **with** the anchor message itself. So
+`messages list --after` asks for one extra and drops anything not later than the point; `--after
+<id>` leaves that message out, `--before <id>` includes it. `messages context` asks `before + 1`
 back and `after` forward, and **refuses when the id is not in the answer**: MAX answers with the
 nearest messages, and showing a neighbour as the one asked for would be a lie.
 
