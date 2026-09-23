@@ -1,5 +1,6 @@
 // Generated from src/spec/ by scripts/generate.ts. Do not edit; run `pnpm generate`.
 
+import { attachmentsFile, attachmentsVideo } from "../spec/operations/attachments.js"
 import { chatsHistory, chatsList } from "../spec/operations/chats.js"
 import { contactsInfo } from "../spec/operations/contacts.js"
 import { messagesSend } from "../spec/operations/messages.js"
@@ -13,6 +14,8 @@ export const OPERATIONS = {
   "chats.history": chatsHistory,
   "chats.list": chatsList,
   "messages.send": messagesSend,
+  "attachments.video": attachmentsVideo,
+  "attachments.file": attachmentsFile,
 } as const
 
 export type OperationName = keyof typeof OPERATIONS

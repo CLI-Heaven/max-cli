@@ -2,6 +2,7 @@ import { CliError } from "@leemour/cli-core"
 import { Command } from "commander"
 import { openProfileCache } from "../cache/index.js"
 import type { Id, Message, WindowedMessage } from "../domain/models.js"
+import { type Saved, save } from "../download.js"
 import { renderMessages } from "../rendering/messages.js"
 import { readBody } from "./body.js"
 import { type CommandContext, forCommand } from "./context.js"
@@ -129,6 +130,40 @@ export const messagesCommand = (): Command => {
     .action(async function (this: Command, chat: string, messageId: string) {
       const { before, after } = this.opts<{ before: number; after: number }>()
       await readWindow(this, chat, messageId, { before, after }, "messages context")
+    })
+
+  command
+    .command("download")
+    .argument("<chat>", "chat id, or part of a chat name")
+    .argument("<message>", "message id")
+    .description("save a message's photos, files, videos and audio to a directory")
+    .option("--output <dir>", "where to save them", ".")
+    .action(async function (this: Command, chat: string, messageId: string) {
+      const { output } = this.opts<{ output: string }>()
+      const context = forCommand(this)
+      const { renderer, format, streams, createClient, run } = context
+
+      await run("messages download", async (events) => {
+        const client = createClient({ events })
+        try {
+          const chatId = await client.chats.resolve(chat)
+          const id = messageId.trim()
+          const { links, skipped } = await client.messages.links(chatId, id)
+          if (skipped.length > 0) renderer.note(`not downloadable: ${skipped.join(", ")}`)
+          if (links.length === 0) throw new CliError("not_found", `message ${id} has nothing to download`)
+
+          const saved: Saved[] = []
+          for (const [index, attachment] of links.entries()) {
+            if (attachment.unsafe) renderer.note(`MAX marks ${attachment.name ?? "this file"} as possibly unsafe`)
+            saved.push(await save(attachment, output, `${id}-${index + 1}`))
+          }
+
+          if (format === "pretty") streams.data(`${saved.map((file) => file.path).join("\n")}\n`)
+          else renderer.result({ items: saved })
+        } finally {
+          await client.close()
+        }
+      })
     })
 
   /**

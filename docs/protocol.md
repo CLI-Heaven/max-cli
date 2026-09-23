@@ -23,6 +23,8 @@ sources disagree.
 | `chats.list` | 53 | `CHATS_LIST` | after login | measured | measured against MAX 2026-09-19; max-api-docs/protocol/chats.md |
 | `messages.send` | 64 | `MSG_SEND` | after login | measured | measured against MAX 2026-09-19, including deduplication by `cid` across two connections |
 | `messages.delete` | 66 | `MSG_DELETE` | **never sent** | observed | tsmax |
+| `attachments.video` | 83 | `VIDEO_PLAY` | after login | measured | measured against MAX 2026-09-23 (`pnpm probe:download`); tsmax getVideoById; PyMax get_video_by_id |
+| `attachments.file` | 88 | `FILE_DOWNLOAD` | after login | measured | measured against MAX 2026-09-23 (`pnpm probe:download`); tsmax getFileById; PyMax get_file_by_id |
 
 ## The numbers that are declared and never sent
 

@@ -1,4 +1,5 @@
 import type { Entry, Operation, Reservation } from "./define.js"
+import { attachmentsFile, attachmentsVideo } from "./operations/attachments.js"
 import { chatMark, chatsHistory, chatsList } from "./operations/chats.js"
 import { contactsInfo, profile, unidentified36 } from "./operations/contacts.js"
 import { messageDelete, messagesSend } from "./operations/messages.js"
@@ -27,6 +28,8 @@ export const spec: readonly Entry[] = [
   chatsList,
   messagesSend,
   messageDelete,
+  attachmentsVideo,
+  attachmentsFile,
 ]
 
 export const operations: readonly Operation[] = spec.filter((entry): entry is Operation => entry.kind === "operation")

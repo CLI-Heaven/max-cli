@@ -205,6 +205,23 @@ max messages context [options] <chat> <message>
 | `--before <n>` | how many before it По умолчанию: `5`. |
 | `--after <n>` | how many after it По умолчанию: `5`. |
 
+### `max messages download`
+
+save a message's photos, files, videos and audio to a directory
+
+```sh
+max messages download [options] <chat> <message>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+| `message` | обязательный | message id |
+
+| Опция | Что делает |
+|---|---|
+| `--output <dir>` | where to save them По умолчанию: `.`. |
+
 ### `max messages send`
 
 send one text message

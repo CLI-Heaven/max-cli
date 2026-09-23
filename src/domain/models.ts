@@ -32,9 +32,21 @@ export interface Attachment {
   height?: number
   /** A shared page's title. */
   title?: string
-  /** ⚠ Not measured: no file has been seen on the wire yet. Read if present. */
+  /** A file's name and size, measured 2026-09-23. */
   name?: string
   size?: number
+  /** A file or a video carries no link, only these; `messages download` asks MAX for the link. */
+  fileId?: Id
+  videoId?: Id
+}
+
+/** Where one attachment's bytes can be fetched. Measured 2026-09-23: no token and no cookie needed. */
+export interface AttachmentLink {
+  kind: string
+  url: string
+  name?: string
+  /** MAX flags the file as possibly harmful. */
+  unsafe?: boolean
 }
 
 /** The message a reply answers or a forward carries — MAX sends it whole, inside the one that links to it. */
