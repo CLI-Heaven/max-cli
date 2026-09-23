@@ -1,0 +1,74 @@
+# Backlog — done
+
+Closed items, moved out of [`BACKLOG.md`](BACKLOG.md) so it lists only open work. One line each:
+what exists now, and where it is described. The numbers stay reserved — commits and code cite them.
+
+## Foundation and repository
+
+- **RES-1** — what moved from `braze-cli` into `cli-core`, file by file.
+- **RES-2** — our own WebSocket adapter rather than a third-party MAX client (`NEED-17`).
+- **RES-3** — the protocol spec is a TypeScript module, not TypeSpec (`NEED-7`).
+- **RES-4** — survey of how agent-driven CLIs are built; its findings shaped the command contract.
+- **RES-6** — replaced by `RES-7`.
+- **RISK-1** — driving the real account through an unofficial client: accepted by the owner (`NEED-2`).
+- **PROTO-4** — replaced by `PROTO-5` in `BACKLOG.md`.
+- **CORE-1…CORE-4** — `@leemour/cli-core` extracted from `braze-cli`: output modes, errors and
+  exit codes, credentials (keyring, then file), retry primitives, one version for both CLIs.
+- **CORE-6** — `node:sqlite` works on Node 22.23 without a flag. Its experimental warning on stderr
+  stays (`NEED-59`).
+- **CORE-7** — a run log that cannot be written warns once and never kills the command
+  (`cli-core` 0.1.1, `onError`; `NEED-133`). `src/runs/recording.ts`.
+- **OPS-1** — the npm scope is `@leemour` (`NEED-111`).
+- **OPS-2** — one package, not a workspace (`NEED-12`).
+- **OPS-5** — a Bun smoke run in CI beside the Node suite.
+- **OPS-6** — lint fails when `src/commands/` imports from `src/protocol/`.
+- **OPS-7** — `cli-core` published, so `max-cli` installs it from npm.
+- **OPS-3, SPEC-0…SPEC-2** — the protocol is declared once in `src/spec/`; the registry, the
+  operation table, the wire wrappers and [`protocol.md`](protocol.md) are generated from it, and CI
+  fails on drift. [`ARCHITECTURE.md`](ARCHITECTURE.md) §12; `NEED-7`, `NEED-34`, `NEED-35`.
+- **OPS-4** — published on npm as `@leemour/max-cli`. How to release: [`releasing.md`](releasing.md).
+- **OPS-8** — the tests are typechecked in their own pass.
+- **OPS-9** — `scripts/probe.ts` deleted: it never ran and it sent an update opcode. The working
+  probes are `pnpm probe:*`.
+- **OPS-10** — [`commands.md`](commands.md) is generated from the command tree (`pnpm generate`).
+
+## MAX
+
+- **MAX-1…MAX-3** — our own `MaxClient`, the stored session, domain models mapped from the wire.
+  [`ARCHITECTURE.md`](ARCHITECTURE.md) §3–§7.
+- **MAX-5** — a person type in the domain model (`src/domain/models.ts`).
+- **MAX-6** — contacts, taken from the chats (`NEED-102`); opcode 36 stays unsent (`PROTO-1`).
+- **MAX-7** — SQLite cache behind a driver seam; `--offline`, `max cache clear`. §15.
+- **MAX-10** — delta login with the stored marker; every group member is named, `max contacts
+  sync` re-takes the store. §7, §15.
+- **MAX-11** — the token LOGIN returns is stored; `pnpm probe:token` re-measures it. §7.
+- **MAX-12** — a token reaches the keyring only after MAX accepts it (`src/session/adopt.ts`), and a
+  profile refuses a token from another account. §7.
+- **MAX-13** — `max messages search`, over the local index; it never connects. §16.
+
+## The command
+
+- **CLI-1** — the vertical slice: session, account, chats, messages, send.
+- **CLI-2** — machine mode: stdout carries one JSON value and nothing else, tested.
+- **CLI-3** — every command closes its transport on every exit path, tested.
+- **CLI-4, CLI-6** — the configuration file, the order a setting is decided in, the profile as the
+  first word, `--quiet`, `--verbose`, `--record` and `max runs`. §13, §14.
+- **CLI-7** — `--limit`, `--page`, `--all` on every listing; the `{items, page, limit, hasMore}`
+  envelope; `--before` on `messages list` (`NEED-81`, `NEED-86`). §10, §14.
+- **CLI-8** — `--silent` on `messages send` (`notify: false`). Only `true` is measured. §6.
+- **CLI-9** — `--search` and `--kind` on `chats list`, `--search` on `contacts list`; FTS5 with the
+  `trigram` tokenizer. §16.
+- **CLI-10** — `--timeout <duration>` bounds the whole command; `MAX_TIMEOUT` (`NEED-119`).
+- **CLI-11** — `messages send` reads the body from stdin when the argument is left off.
+- **CLI-12** — `max doctor`: token source, keyring entry, login count, profiles, cache schema, run
+  directory. Never contacts MAX. `src/diagnose.ts`.
+- **CLI-13** — `messages show` and `messages context` (`NEED-130`, `NEED-131`). §10.
+- **CLI-14** — `max config show`: every setting and where it came from.
+- **CLI-15** — `run(argv, { streams, tty, store, connection })`; tests read what a command prints.
+
+## Documentation
+
+- **DOC-1** — [`ARCHITECTURE.md`](ARCHITECTURE.md).
+- **DOC-2** — the user pages in Russian, indexed by [`README.md`](README.md) (`NEED-108`).
+- **DOC-3** — [`skills/max-cli/SKILL.md`](../skills/max-cli/SKILL.md), printed by `max skill show`
+  (`NEED-132`).

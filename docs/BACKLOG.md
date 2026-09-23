@@ -1,303 +1,101 @@
 # Backlog
 
-Everything not yet built, one line per item. A closed item is **deleted** from here — the trail
-stays in git history, and in `BACKLOG_DONE.md` once a first closed item starts that file.
+Open work only, one item per line. Closed items move to [`BACKLOG_DONE.md`](BACKLOG_DONE.md).
+What the tool does today: [`commands.md`](commands.md) (generated). How it is built:
+[`ARCHITECTURE.md`](ARCHITECTURE.md). What the owner ruled: [`DECISIONS.md`](DECISIONS.md).
 
-The brief this is cut from: [`REQUIREMENTS.md`](REQUIREMENTS.md). The plan for the current
-thread: `docs_ai/plans/` (local only, not committed).
+## Rules
 
-**Working as of 2026-09-20**: seven operations under five commands — `session start|end`,
-`account show`, `chats list`, `contacts list`, `messages list|send` — verified against the real
-MAX, and every request they send is built from the specification in `src/spec/`. The profile is
-the first word, every setting comes from one resolver, `--trace` shows each request as it
-happens and `--record` keeps it under `max runs`. What each part does and why is
-[`ARCHITECTURE.md`](ARCHITECTURE.md); what was ruled is [`DECISIONS.md`](DECISIONS.md).
+- **An id is permanent** and never reused. Next free one:
+  `grep -ohE '<PREFIX>-[0-9]+' docs/BACKLOG*.md | sort -V | tail -1`.
+- **Prefixes:** `RES` research and measurement · `OPS` repository, tooling, CI, release · `CORE`
+  `cli-core` · `SPEC` protocol spec and generator · `MAX` domain, client, transport, session ·
+  `CLI` commands and output · `DOC` handwritten docs · `PROTO` protocol unknowns · `RISK` risks.
+- **One item:** the task as a title, then where the work starts (`path:line` or a REQUIREMENTS §).
+  Analysis goes to a plan in `docs_ai/plans/`, a ruling to `DECISIONS.md`.
+- **Priority:** **P1** blocks work or breaks something real · **P2** this cycle · **P3** someday.
+- **Mark:** none — not started · 🚧 `<branch>` — taken · 🟡 — half done, the rest named ·
+  ⏸️ — deferred by the owner · 🚩 — waits on an owner decision.
+- **Claim before code:** put `🚧 <branch>` on the line in the first push of the branch. Two agents
+  built the same command on 2026-09-23 because an open PR was the only signal.
+- **Close in the PR that ships the work:** move the line to `BACKLOG_DONE.md` in the same PR.
 
-⚠ **Correction 2026-09-20: this line still listed `login`, `me`, `send` and `logout`** — the names
-`NEED-48` replaced on 2026-09-19. They have not existed since.
+## Quick wins — local code, hours each
 
-<details>
-<summary>Rules of this file — read once</summary>
+- **CLI-20** · P2 · `chats list --unread` — only chats with unread messages. `unreadCount` is
+  already in the model (`src/domain/models.ts:17`); filter in the cache query like `--kind`
+  (`src/commands/chats.ts:13`).
+- **CLI-16** · P2 · `messages list --after <id|time>` — read forward from a point, the pair of
+  `--before`. History already takes `forward` (`src/spec/operations/chats.ts:31`), and
+  `messages context` uses it.
+- **MAX-15** · P2 · Show reactions when reading. MAX sends `reactionInfo` on each message and we drop
+  it (`src/domain/map.ts`). Measure the shape first with a field-only probe like
+  `scripts/probe-attachments.ts`.
+- **OPS-11** · P2 · The scripted MAX in tests fails the test on a request it has no answer for.
+  Today it only records it (`src/testing/mock-max.ts:56`), two tests check the record, and every
+  other test fails later as a timeout (`docs/TESTING.md:52` promises otherwise).
+- **CLI-17** · P3 · `chats show <chat>` — one chat: title, kind, members, unread, last message time.
+  Everything is in the cache after a login; no new opcode.
+- **CLI-18** · P3 · `contacts show <person>` — one person from the cache: name, `@username`, the chats
+  we share (`chat_members`).
+- **CLI-21** · P3 · A broken config file names the field in plain words. Today the text is the
+  validation library's ("Expected never but received …"), from `loadConfigFile` in `cli-core`
+  (`src/config.ts:285`).
+- **OPS-12** · P3 · `bin/release` prints "waiting for npm" before it polls, so the 3-minute wait does
+  not look like a hang (`bin/release:46`). Done the same way in `cli-core#3`.
 
-- **A number is a permanent address.** Commits, code comments and plans cite it. A number is never
-  reused. Take the next one like this, not by eye:
-  ```sh
-  git pull --ff-only
-  grep -ohE '<PREFIX>-[0-9]+' docs/BACKLOG.md | sort -V | tail -1
-  ```
-- **Prefixes, and nothing invented:**
+## Features
 
-  | | |
-  |---|---|
-  | `RES` | research: reading someone else's code, protocol archaeology, a proof of concept, a decision that needs evidence before it can be made |
-  | `OPS` | repository, tooling, CI, release |
-  | `CORE` | `cli-core` — the vendor-neutral foundation shared with `braze-cli` |
-  | `SPEC` | the protocol specification, the generator, generated output, coverage |
-  | `MAX` | `max-core` — domain models, the client adapter, transport, session |
-  | `CLI` | commands, options, output, profiles — everything a person or an agent types |
-  | `DOC` | handwritten documentation |
+- **MAX-9** · 🟡 P2 · The rest of the messenger surface, in the order of REQUIREMENTS §35.
+  Done: attachments, replies and forwards when reading (`src/domain/models.ts:23-75`). Left:
+  reactions when reading (`MAX-15`), then uploads, sending reactions, edits; group administration
+  last. Each writing operation needs its request shape measured first.
+- **MAX-14** · P2 · Download an attachment: `messages download <chat> <id> [--output <dir>]`. A photo
+  link opens without a cookie or a token (`src/domain/models.ts:26-29`); files are not measured yet.
+- **RES-8** · P2 · Does `MSG_SEND` take a reply and markup? `elements` is always sent empty
+  (`src/spec/operations/messages.ts:19`); its meaning is a guess from the name. Needs a frame from
+  the real web client sending a reply and bold text — the owner captures it in the browser's
+  network tab. Unblocks `--reply-to` and markup.
+- **CLI-19** · P3 · `config set|unset <key> [value]`, and defaults shared by every profile. Today the
+  file is edited by hand and settings exist only per profile (`src/config.ts:35`).
+- **MAX-4** · 🟡 P3 · Chat addressing. Done: an id, or a title matched exactly then as a fragment,
+  an ambiguous one refused (`src/client.ts:149`). Left: `@username`, a phone number, a chat the
+  account is not in.
+- **CLI-5** · P3 · `max raw <operation>` — a debug escape hatch, validated against the spec, never
+  arbitrary frames (REQUIREMENTS §22).
+- **MAX-8** · P3 · Telemetry as the official client sends it — only once our own traffic is
+  understood (`NEED-16`).
 
-  Findings carry the journal's own prefixes (`FIND`, `BUG`, `SEC`, `PERF`, `UX`, `IDEA`, `RISK`,
-  `DEBT`) and are allocated by `docs_ai/journal/note.sh` (local only). A finding that turns into
-  work gets a backlog number too, and the journal entry keeps a pointer.
-- **The title is the task, not the symptom.** "Close the transport on every exit path", not
-  "the command hangs".
-- **One line, with an anchor in it.** A `REQUIREMENTS.md` section or a `path:line` — it points at
-  where the work starts. Analysis goes elsewhere: an owner's ruling into
-  [`DECISIONS.md`](DECISIONS.md), a deletion into `docs_ai/CLEANUP.md` (local only), a plan into
-  `docs_ai/plans/` (local only).
-- **Priority.** **P1** blocks other work or breaks something real · **P2** needed this cycle ·
-  **P3** someday. Rank honestly; a backlog where everything is P1 says nothing.
-- **Mark.** Empty — not started · 🚧 somebody is on it · 🟡 half done, the remainder named in the
-  line · ⏸️ deferred by the owner · 🚩 waiting on an owner decision, not on code.
-- **Claim an item in the same push that creates its branch**: `🚧 <branch>` on the line, before
-  any code. Clear it when the work merges, in the commit that closes the item.
+## Research and protocol unknowns
 
-  ```
-  - **CLI-15** · 🚧 `command-streams` · P2 · Make a command's output testable…
-  ```
+- **RES-5** · 🟡 P2 · Does `LOGIN` move presence or read state? Reading history does not (no
+  `CHAT_MARK`, tested). The login flag `interactive` is unexplained (`ARCHITECTURE.md` §4). Needs a
+  second device watching.
+- **RES-7** · P3 · What a real client sends as opcode 36's payload. `{}`, `{marker}` are refused and
+  `{marker, count}` closes the connection (`pnpm probe:contacts`), so only a capture answers it. It
+  is the only route to contacts who share no chat. Closes `PROTO-1`.
+- **PROTO-1** · 🟡 P3 · What opcode 36 returns: other clients call it `CONTACT_LIST`, the protocol
+  notes call it `GET_BLOCKED`. Waits on `RES-7`.
+- **PROTO-2** · P2 · How long MAX remembers a `cid`. The send retry rests on deduplication measured
+  seconds apart; minutes apart is unproven (`ARCHITECTURE.md` §6).
+- **PROTO-3** · P3 · The upper bound on `chatsCount` in `LOGIN`: 100 works, 200 is refused. The spec
+  caps it at 100 (`src/spec/operations/session.ts:52`).
+- **PROTO-5** · P3 · Whether any id passes 2⁵³. Chat ids reach 14 digits, contact ids 9; ids are
+  strings everywhere, so only a number crossing the boundary in arithmetic would break.
+- **PROTO-6** · P3 · What the `messages` object in the `LOGIN` answer holds. Nothing reads it
+  (`src/spec/operations/session.ts:89`); `pnpm probe:ids` prints its type and key count.
+- **SPEC-3** · P3 · Sanitized protocol fixtures under `fixtures/protocol/`, synthetic values only
+  (REQUIREMENTS §24). Response shapes are already tested with made-up payloads in `src/spec/`.
+- **SPEC-4** · P3 · A generated list of implemented operations (§8, §30). Deferred: listing what MAX
+  has and we lack means maintaining MAX's whole surface (§10).
 
-  ⚠ **This exists because it has already gone wrong twice.** On 2026-09-23 two agents built
-  `max config show` independently and one of the two pull requests was closed as a duplicate —
-  the better one, as it turned out. An open pull request is too late to be the signal: by the time
-  one appears the second person has usually finished. Nothing else announces that an item is taken.
+## Foundation and risks
 
-  The same week `MAX-12` and `CLI-8` sat marked "not started" for two days after they shipped, so
-  the file was misleading in both directions at once. **Close the line in the pull request that
-  ships the work**, not afterwards.
-
-</details>
-
----
-
-**Ten items below came from the `tgcli` comparison** (`NEED-112`) — `CLI-8`…`CLI-13`, `MAX-12`,
-`MAX-13`, `DOC-3`, `RES-8`. The comparison itself is `docs_ai/tgcli-comparison.md` (local only):
-every command of another personal-account messenger CLI sorted into what we have, what is queued,
-what the brief rules out, and what was in neither. Only `CLI-8`, `CLI-9` and `CLI-10` are in the
-release; `MAX-12` is `P1` on its own account (`NEED-113`).
-
-## Done, and where the trail went
-
-The architecture proposal, the `cli-core` extraction, the vertical slice and contacts are all
-closed. `RES-1`, `RES-2`, `RES-3`, `CORE-1`…`CORE-4`, `MAX-1`…`MAX-3`, `MAX-6`, `CLI-1`…`CLI-3`,
-`OPS-1`, `OPS-2`, `OPS-5`, `OPS-6`, `OPS-7` — their reasoning lives in
-[`ARCHITECTURE.md`](ARCHITECTURE.md) and [`DECISIONS.md`](DECISIONS.md), and the proposal itself is
-in `docs_ai/plans/` on the machine that did the work.
-
-The specification and its generator closed the same way: `SPEC-0`, `SPEC-1`, `SPEC-2` and
-`OPS-3`. Every opcode and payload shape is declared once in `src/spec/`, the registry, the
-operation table, the wire wrappers and [`protocol.md`](protocol.md) are generated from it, and CI
-regenerates and asserts the tree did not change. `OPS-8` closed with it: the tests are typechecked
-now, in their own pass. How to add an operation is
-[`ARCHITECTURE.md`](ARCHITECTURE.md) §12; what was ruled is `NEED-7`, `NEED-34` and `NEED-35`.
-
-**Still open from that phase:**
-
-- **RES-5** · 🟡 P2 · Whether `LOGIN` itself moves presence or read state. Reading history does not
-  (we never send `CHAT_MARK`, and a test asserts it), but the login flag `interactive` is
-  unexplained by every source. Needs a second device watching.
-- **DOC-1** · ✅ Closed — [`ARCHITECTURE.md`](ARCHITECTURE.md) exists and describes working code.
-- **DOC-2** · ✅ Closed 2026-09-21 — nine pages in Russian plus a `CHANGELOG.md`, indexed by
-  [`README.md`](README.md). The three things it was meant to do better than the sibling's all
-  landed: the command reference is generated (`OPS-10`), [`diagnostics.md`](diagnostics.md) is a
-  page the sibling has no equivalent of, and [`security.md`](security.md) says plainly what the
-  tool does **not** do. What remains of the release is `OPS-4`: publish.
-  Owner's instruction 2026-09-20. The shape is the sibling's — `../braze-cli/docs/README.md` lists
-  eleven pages, each answering one question — and three things are meant to be better than it:
-  (a) the command reference is **generated** and CI-checked, never hand-written (`OPS-10`);
-  (b) a page for the diagnostics, `--verbose`, `--record` and `max runs`, which the sibling has no
-  equivalent of and which is what an agent-driver needs; (c) it is written in Russian.
-  **Language is settled (`NEED-108`): everything written from now on is Russian, and the English
-  documents that already exist are left alone** — a new section inside one of them follows the
-  language of the file it lands in. Ships with `OPS-4`; plan:
-  `docs_ai/plans/2026-09-20-first-release.md`.
-- **DOC-3** · ✅ Closed 2026-09-22 — [`skills/max-cli/SKILL.md`](../skills/max-cli/SKILL.md), in
-  Russian like every new document, shipped in the package and printed by `max skill show`
-  (`NEED-132`). Traps and boundaries, not flags; a test fails if it names a flag or a command
-  that does not exist.
-
-## Repository and tooling
-
-- **OPS-4** · ✅ Closed 2026-09-21 — `@leemour/max-cli@0.1.0` is on npm and installs: `npm i
-  @leemour/max-cli` then `max --version` answers `0.1.0`, verified from a directory outside the
-  repository. `@leemour/cli-core@0.1.0` went first, because the dependency had to exist before
-  anything could install. Both packages published under the previous scope were deleted the same
-  day (`NEED-111`). How a release is made: [`releasing.md`](releasing.md).
-- **OPS-10** · ✅ Closed 2026-09-20 — [`commands.md`](commands.md) is written by
-  `scripts/commands.ts` from the command tree, on every `pnpm generate`. It needed no new CI step:
-  the staleness check that already guarded [`protocol.md`](protocol.md) guards it too, and the
-  suite compares the committed page with what the generator produces right now.
-- **OPS-9** · **closed 2026-09-22 by deletion, not by repair.** `scripts/probe.ts` never ran: its
-  own header fails on the first import, it was wired to no `pnpm` script, and it sent opcode 16 —
-  an **update** — to a real account. Everything it asked is answered by `probe:ids`,
-  `probe:contacts` and `probe:token`, which import from `dist/`, take the token from the keyring
-  rather than the environment, and read only. A probe nobody can run is not a probe.
-
-## The foundation
-
-`CORE-6` is closed: measured 2026-09-19, `node:sqlite` works on Node 22.23.2 with no flag and a
-write-then-read round trip returns what it stored. It prints an experimental warning to stderr
-there, which `NEED-59` leaves alone.
-
-
-- **CORE-5** · ⏸️ P2 · Move `braze-cli` onto the extracted `cli-core` rather than leaving it on its
-  own copy — the whole point of extracting rather than copying. Another repository, so it is its
-  own change, and it does not block anything here. **Deferred by the owner 2026-09-20 until after
-  the first release** (`OPS-4`): it improves a repository that is already working, while nothing of
-  this one is installable yet.
-
-## The protocol
-
-- **RES-7** · P3 · Capture what a real MAX client sends as opcode 36's payload. Measured
-  2026-09-20 (`pnpm probe:contacts`): the opcode exists and validates its arguments — `{}` and
-  `{marker}` are refused `proto.payload`, `{marker, count}` closes the connection — so the shape
-  cannot be guessed, only watched. It is the only route to contacts who are in no chat; `MAX-10`
-  no longer waits on it. Replaces `RES-6`, which is closed: the probe it asked for ran on 2026-09-20.
-- **SPEC-3** · P2 · Sanitized protocol fixtures under `fixtures/protocol/`, synthetic values only
-  — never a real phone number, token, chat id or message (§24). The seed exists: response shapes
-  are already exercised against made-up payloads in `src/spec/`.
-- **RES-8** · P3 · **Does `MSG_SEND` carry a reply, and what is `elements`?** Two of the ordinary
-  send options cannot be specified without knowing: a reply to a message, and text markup. Our
-  request declares `elements` and we always send it empty (`src/spec/operations/messages.ts:22`);
-  that it encodes markup the way Telegram's entities do is a guess from its name, and no frame with
-  a non-empty one has been seen. Nothing here is estimable until a real client is watched sending
-  both. Blocks the rest of `CLI-11`'s siblings; from the `tgcli` comparison (`NEED-112`).
-- **SPEC-4** · P3 · A generated coverage document: which documented operations are implemented
-  (§8, §30). Deferred on purpose — counting what MAX has that we do not means maintaining a list
-  of MAX's whole surface, which is the research database §10 warns against.
-
-## MAX
-
-**`MAX-7` and `MAX-10` are closed.** The SQLite cache is behind a driver seam, with `--offline` and
-`max cache clear`. The login now carries the stored marker in all four fields, so only a profile's
-first login fetches everything, and the delta, the memberships and the marker go in on one
-transaction. `contacts` became `people` with `chat_members` beside it, everybody in a group is
-named rather than only the other half of a dialog, and `max contacts sync` forgets the marker when
-a store needs re-taking. [`ARCHITECTURE.md`](ARCHITECTURE.md) §7 and §15.
-
-- **MAX-4** · 🟡 P2 · Chat addressing: names work now, and what is left is the parts nobody has
-  needed yet — a `@username`, a phone number, a chat you are not in.
-**`MAX-11` is closed.** The login's `token` is now declared, measured and kept
-([`ARCHITECTURE.md`](ARCHITECTURE.md) §7). It is written after the account check, it never fails
-the command, and `session start` no longer writes the pasted token over the fresher one.
-
-The premise was worth measuring twice: the specification declared no such field, `NEED-8` had
-asserted the rotation from somebody else's client, and the first measurement supported "a new token
-every login" — which a second run disproved. MAX replaces a credential that has aged, once, and
-then repeats it. `pnpm probe:token` re-runs the first half and prints no value.
-
-- **MAX-12** · ✅ Closed 2026-09-21 — the token reaches the keyring only after MAX accepts it
-  (`src/session/adopt.ts`), and a profile refuses a token belonging to another account. Verified on
-  the real account, all three halves ([`ARCHITECTURE.md`](ARCHITECTURE.md) §7).
-  ⚠ **This line said "P1, not started" until 2026-09-23, two days after it shipped.** Corrected in
-  place; the work was never missing, only the record of it.
-
-- **MAX-13** · ✅ Closed 2026-09-22 — `max messages search`, over the same index. It is the one
-  read that never connects, because MAX has no search operation we know of, so it finds what has
-  been read rather than what exists and says so ([`ARCHITECTURE.md`](ARCHITECTURE.md) §16).
-
-- **MAX-8** · P3 · Telemetry as other clients send it — a later phase, and only once our own
-  traffic is understood (`NEED-16`).
-- **MAX-9** · P3 · The rest of the messenger surface, in the order of §35: attachments and
-  reactions when reading, then uploads, reactions, edits and group administration when writing.
-  Stories and calls last.
-
-## The command
-
-**`CLI-4`, `CLI-6` and `CLI-7` are closed.** The configuration file, the order a setting is decided
-in, the profile as the first word, `--quiet` over the protocol note, and `--verbose` with the run
-log are all built; `"record": true` and `keepRunsForDays` now reach `src/runs/recording.ts` through
-`resolveSettings` (`src/commands/context.ts`). How it works is
-[`ARCHITECTURE.md`](ARCHITECTURE.md) §13 and §14.
-
-`CLI-7` is the paging work: `--limit`, `--page` and `--all` on every listing, resolved once and
-pushed into SQL; `contacts list` ordered by who was last messaged and taking `--order`;
-`messages list` paging by `--before` instead; and a machine-mode listing answering
-`{items, page, limit, hasMore}` rather than an array, with `README.md`,
-[`ARCHITECTURE.md`](ARCHITECTURE.md) §10 and §14 and `scripts/verify-commands.ts` moved with it
-(`NEED-81`, `NEED-86`).
-
-⚠ **Paging was `CLI-6` in the plan and is `CLI-7` here.** `fd023bc` gave it the new number because
-`CLI-6` already meant the run-log settings, and left the old copy behind; the plan and its handoff
-were written before that and name the number that was taken (`FIND-35`). A number keeps its
-meaning: `CLI-6` is the settings item.
-
-
-- **CLI-8** · ✅ Closed 2026-09-22 — `--silent` on `messages send`, sending `notify: false`.
-  ⚠ Only the `true` side is measured; what MAX does with `false` has never been observed, because
-  observing it means sending a message to somebody ([`ARCHITECTURE.md`](ARCHITECTURE.md) §6).
-  ⚠ **This line said "not started" until 2026-09-23.** Corrected in place.
-
-- **CLI-9** · ✅ Closed 2026-09-22 — `--search` and `--kind` on `chats list`, `--search` on
-  `contacts list`, all three backed by FTS5 with the `trigram` tokenizer. Why it is an index and
-  not a `WHERE`: [`ARCHITECTURE.md`](ARCHITECTURE.md) §16.
-
-- **CLI-10** · ✅ Closed 2026-09-22 — `--timeout <duration>` bounds the whole command and closes
-  the sockets when it fires; `MAX_TIMEOUT` joins `MAX_PROFILE` as the only settings with an
-  environment layer (`NEED-119`). It is not `timeoutMs`, which stays one request's wait
-  ([`configuration.md`](configuration.md)).
-- **CLI-11** · ✅ Closed 2026-09-23 — the body reads from stdin when the argument is left off, so a
-  multiline message is writable at all and the text stays out of `ps` and shell history. Omission
-  is the signal rather than a `--stdin` flag, because `session start` already reads a piped token
-  that way. A terminal is refused, never waited at.
-- **CLI-14** · ✅ Closed 2026-09-23 — `max config show`: the profile and what chose it, **every
-  profile including those known only from the state directory**, the configuration file, and each
-  setting with where it came from. It warns when `MAX_CONFIG_DIR` and friends have moved the
-  keyring entry. Files only — no keyring, no cache, no MAX; tokens stay with `CLI-12`.
-
-- **CLI-15** · ✅ Closed 2026-09-23 — `run(argv, { streams, tty, store, connection })` hands its
-  environment to the program, and `forCommand(command)` builds the renderer, the session store and
-  the client's connection from it. `runWith` in `program.test.ts` now sees what a command prints,
-  including against a scripted MAX; the mock socket opens when it is created, not when the mock is.
-- **CORE-7** · ✅ Closed 2026-09-23 — a run log whose file cannot be opened or written no longer
-  kills the command. `createFileLogger` in `@leemour/cli-core@0.1.1` always listens for the
-  stream's `error` and reports it once through `onError`; `startRun` passes a handler that warns
-  "this run is not recorded past this point" on the diagnostic stream, `--quiet` included, and the
-  command's answer and exit code stay as they were (`NEED-133`: a failure after the operation
-  invites a retry that sends twice). The test removes the run directory in the same tick the run
-  starts (`src/runs/recording.test.ts`). `braze-cli` keeps its own copy until `CORE-5`.
-- **CLI-12** · ✅ Closed 2026-09-23 — `max doctor` prints what a command depends on without
-  contacting MAX: the token and its source, the keyring entry **and whether the environment moved
-  it**, the login count and the last login, the profiles that have logged in, the cache file with
-  its schema version against the one this build speaks, and the run directory. It answers when
-  everything is broken, which is the only time it is run — no session is a field, not an error, and
-  the exit code stays `0`. The gathering lives in `src/diagnose.ts` rather than in the command,
-  because a command's output cannot be asserted on until `CLI-15` lands. It never prints the token
-  and it does not create the state file it reports on.
-- **CLI-13** · ✅ Closed 2026-09-22 — `messages show <chat> <id>` and `messages context <chat> <id>
-  --before N --after N` (`NEED-130`, `NEED-131`). A message's time is its id shifted right by 16
-  bits, measured, so neither needs a stored copy, and `--before <id>` on `list` no longer does
-  either ([`ARCHITECTURE.md`](ARCHITECTURE.md) §10).
-- **CLI-5** · P3 · The debug escape hatch — `max raw` / `max protocol invoke` — spec-validated,
-  explicitly advanced, never arbitrary packet injection (§22).
-
-## Risks carried
-
-- **RISK-2** · P2 · A login per command may exhaust the session token. One reverse-engineering
-  document reports a reset after ~30–50 logins "in a short interval" and defines neither the
-  interval nor a symptom beyond "the connection closes right after INIT"; no other source mentions
-  it. Proposal §11.1: persist the rotated token the login response returns, name the symptom in an
-  error message, count logins — and do not refuse on a ceiling nobody has measured (`NEED-8`).
-  **First number of our own, 2026-09-21: 65 logins accumulated on the real account with nothing
-  broken** — `max doctor` (`CLI-12`) is what would make that readable without opening a file.
-
-## Known unknowns
-
-- **PROTO-1** · 🟡 P2 · What opcode 36 actually returns. tsmax and PyMax call it `CONTACT_LIST`,
-  the protocol documentation calls it `GET_BLOCKED`. Sent once on 2026-09-20 with the owner's
-  permission: **it exists and validates its payload**, but none of `{}`, `{marker}` or
-  `{marker, count}` is right and the last closed the connection. What is left is a traffic
-  capture — `RES-7`.
-- **PROTO-2** · P2 · How long MAX remembers a `cid`. The retry rule rests on deduplication measured
-  seconds apart; a retry minutes later is unproven.
-- **PROTO-3** · P3 · The upper bound on `chatsCount` in `LOGIN`. 100 works, 200 is refused as "out
-  of range"; the boundary is somewhere between. The specification caps it at 100 meanwhile.
-- **PROTO-6** · P3 · What `messages` in the `LOGIN` answer actually holds. Measured 2026-09-20: it
-  is an **object**, not the array the specification declared, and nothing in the code reads it —
-  `src/spec/operations/session.ts` now says `unknown` rather than guessing. **`pnpm probe:ids`
-  reports its type and key count**, so one run on the account closes this; it prints the shape,
-  never the contents.
-- **PROTO-5** · P3 · How long a message id can get, and whether a chat id ever crosses 2⁵³.
-  Measured 2026-09-19 over 25 chats and 6 contacts: chat ids reach 14 digits, contact ids 9, none
-  past 2⁵³. The login carried no messages that run, so the 18-digit message id remains a single
-  earlier observation — and message ids are only ever read, never sent.
+- **CORE-5** · ⏸️ P3 · Move `braze-cli` onto `@leemour/cli-core` instead of its own copy. Deferred by
+  the owner.
+- **OPS-13** · 🚩 P3 · A manual run from any worktree uses the owner's real cache file. A build with a
+  newer cache schema migrates it and drops the read history. A per-worktree cache directory would
+  also move the keyring entry (`pathsAreOverridden` in `cli-core`), so every worktree would need
+  its own `session start`. Owner's call.
+- **RISK-2** · P3 · A login per command may exhaust the session. One source claims a reset after
+  30–50 logins; 65 on the real account broke nothing (2026-09-21). `max doctor` shows the count.

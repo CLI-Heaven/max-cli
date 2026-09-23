@@ -11,19 +11,14 @@ and create `docs_ai/` as you go.
 
 Then the one reference that covers what you are about to touch —
 [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) for how code and documents are written here, and
-`docs/ARCHITECTURE.md` for the seams once it exists.
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the seams.
 
-## Where this project actually is
+## Where this project is
 
-**Nothing is built.** There is a brief, a backlog and these rules. The next piece of work is the
-architecture proposal the brief asks for ([`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) §31), and
-it has to be written against **real code** — `../braze-cli` and the current source of the MAX
-client candidates — not against their READMEs and not from memory.
-
-Do not start implementing the CLI before that proposal is accepted. Do not create
-`docs/ARCHITECTURE.md` before it either: a document describing how something is built, written
-before it is built, is the one kind of doc that cannot be corrected later because nobody knows it
-is wrong.
+Published as `@leemour/max-cli` and working against the real MAX. The commands are listed in
+[`docs/commands.md`](docs/commands.md) (generated); how they are built is
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); what is left is
+[`docs/BACKLOG.md`](docs/BACKLOG.md).
 
 ## The constraints that shape everything
 
@@ -104,6 +99,5 @@ kill that PID.
 
 ## Committing
 
-Conventional commits. Run the relevant checks before committing — once there are any. Work on a
-branch off `main` and open a pull request; the scaffold commit is the one exception, because
-there is no `main` to branch from yet.
+Conventional commits. Run `pnpm lint && pnpm typecheck && pnpm test` before committing. Work on a
+branch off `main`, in a worktree, and open a pull request.
