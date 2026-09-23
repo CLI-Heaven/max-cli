@@ -41,6 +41,7 @@
     "secrets:scan": "gitleaks git --no-banner --redact .",
     "prepublishOnly": "pnpm build",
     "probe:contacts": "pnpm build && node --experimental-strip-types scripts/probe-contacts.ts",
+    "probe:reactions": "pnpm build && node --experimental-strip-types scripts/probe-reactions.ts",
     "probe:token": "pnpm build && node --experimental-strip-types scripts/probe-token.ts"
   },
   "dependencies": {
