@@ -8,9 +8,8 @@ superseded paragraph below is marked, never deleted.
 Section numbers are permanent addresses — other documents cite `REQUIREMENTS.md §11`. A section
 added later is appended, never inserted.
 
-How the work is cut up: [`BACKLOG.md`](BACKLOG.md). What exists today: nothing but these
-documents, which is why there is no `ARCHITECTURE.md` yet — it is written once §31 has been
-answered and the first code lands.
+How the work is cut up: [`BACKLOG.md`](BACKLOG.md). How it is built:
+[`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ---
 

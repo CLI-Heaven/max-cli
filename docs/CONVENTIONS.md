@@ -116,8 +116,8 @@ name was chosen is not useful; what it *is*, is. `<your-chat-id>` gets read as a
 real value from a real run.
 
 **Leave a section out rather than filling it with placeholder prose.** An empty heading is honest;
-invented content is not. This is why there is no `ARCHITECTURE.md` in this repository yet: nothing
-has been built, and a document describing how it is built would be fiction.
+invented content is not. For the same reason `ARCHITECTURE.md` was written only after the code
+existed: a description of something not yet built is fiction.
 
 **A command you hand someone is a snapshot, not a template.** Never put a placeholder inside a
 runnable command — in `braze-cli` a placeholder endpoint was pasted verbatim into a real config.
