@@ -11,7 +11,7 @@ only the event lines.
 "Brief §N" is [`REQUIREMENTS.md`](REQUIREMENTS.md); rulings (`NEED-nn`) are in
 [`DECISIONS.md`](DECISIONS.md). Long detail lives in companions under `architecture/`:
 [`session.md`](architecture/session.md) (§7), [`messages.md`](architecture/messages.md) (§10),
-[`settings.md`](architecture/settings.md) (§14), [`store.md`](architecture/store.md) (§15, §16).
+[`store.md`](architecture/store.md) (§15, §16).
 
 ---
 
@@ -333,10 +333,28 @@ paging for users: [`usage.md`](usage.md). The profile follows the same order: th
 
 ### The file and paging
 
-- [The file](architecture/settings.md#the-file): `~/.config/max-cli/config.json`, mode `0644`,
-  `strictObject` (an unknown key is an error naming it); no field can hold a secret.
-- [Paging](architecture/settings.md#paging-identical-on-every-listing): `--limit`, `--page`, `--all`
-  on every listing, done in SQL; `messages list` pages with `--before`; a bare integer is always an id.
+What a user sets and how: [`configuration.md`](configuration.md), [`usage.md`](usage.md). The rules
+behind it:
+
+- `~/.config/max-cli/config.json`, mode `0644`, read by `cli-core`'s `loadConfigFile`. A missing
+  file is not an error; a malformed one is, in every output mode, naming the field.
+- The schema is `strictObject`: `"limitt"` is reported as `profiles.default.limitt`, where plain
+  `object()` would drop it silently. The **opposite** of MAX answers, whose unknown fields are kept
+  (`NEED-35`).
+- **No field can hold a secret** (token, phone, chat id). Having nowhere to put one beats a rule.
+- `timeoutMs` unset is the transport's 30 s (`src/protocol/connection.ts`); `color` unset means
+  decide from the terminal.
+- `--limit`, `--page` (1-based), `--all` on every listing, resolved once in `resolveSettings`;
+  `--page` with `--all` is a `validation_error`. Neither `--page` nor `--all` has a config field — a
+  page number in a file is nobody's setting. Paging is SQL `LIMIT ? OFFSET ?` over the store.
+- ⚠ **A page number over a live list can repeat or skip a row** (newest first; a new message shifts
+  the boundary). Documented in `--help`, not engineered away.
+- `messages list` pages with `--before` instead, anchored in time (`chats.history` takes `from`), so
+  it is exact. It takes a message id, or an ISO 8601 time when the id is gone.
+- ⚠ **A bare integer is always an id.** Ids have 18 digits, ms timestamps 13; telling them apart by
+  size breaks when either changes.
+- `contacts list --order recent|name` has no config field: a second spelling of a flag is how
+  `--profile` came to be deleted.
 
 ### Two things that jump the queue
 
