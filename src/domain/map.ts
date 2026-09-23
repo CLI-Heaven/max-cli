@@ -148,7 +148,8 @@ const phone = (value: unknown): string | null => {
 
 /**
  * What an attachment is and where it lives — never its bytes. The link fields are the ones
- * `pnpm probe:attachments` measured on 2026-09-22: `baseUrl` on a photo, `url` on a share.
+ * `pnpm probe:attachments` measured on 2026-09-22: `baseUrl` on a photo, `url` on a share. A file
+ * and a video have no link, only `fileId` and `videoId` (measured 2026-09-23).
  */
 const attachments = (value: unknown): Attachment[] => {
   if (!Array.isArray(value)) return []
@@ -162,6 +163,8 @@ const attachments = (value: unknown): Attachment[] => {
       const title = text(entry.title)
       const name = text(entry.name)
       const size = count(entry.size)
+      const fileId = asId(entry.fileId)
+      const videoId = asId(entry.videoId)
       return {
         kind: typeof entry._type === "string" ? entry._type.toLowerCase() : "unknown",
         ...(url ? { url } : {}),
@@ -170,6 +173,8 @@ const attachments = (value: unknown): Attachment[] => {
         ...(title ? { title } : {}),
         ...(name ? { name } : {}),
         ...(size !== null ? { size } : {}),
+        ...(fileId ? { fileId } : {}),
+        ...(videoId ? { videoId } : {}),
       }
     })
 }

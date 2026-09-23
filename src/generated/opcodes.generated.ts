@@ -41,6 +41,8 @@ export const Opcode = {
    * in order to tidy up after a test, is a poor trade (`NEED-32`).
    */
   MSG_DELETE: 66,
+  VIDEO_PLAY: 83,
+  FILE_DOWNLOAD: 88,
 } as const
 
 export type Opcode = (typeof Opcode)[keyof typeof Opcode]

@@ -2,6 +2,7 @@ import { CliError } from "@leemour/cli-core"
 import type { CacheStore, PersonOrder, SyncSummary } from "./cache/store.js"
 import { namesFrom, toChat, toContact, toMessage, toProfile } from "./domain/map.js"
 import {
+  type AttachmentLink,
   type Chat,
   type ChatCard,
   type ChatKind,
@@ -384,6 +385,42 @@ export class MaxClient {
         throw new CliError("not_found", `no message ${messageId} in chat ${chatId} — deleted, or in another chat`)
       }
       return found.map((message) => (message.id === messageId ? { ...message, anchor: true } : message))
+    },
+
+    /**
+     * **Where each attachment of one message can be downloaded from.** A photo and an audio carry
+     * their link; a file and a video carry only an id, and MAX answers the link for it (measured
+     * 2026-09-23). A video is taken as its largest MP4 — the streaming renditions are playlists,
+     * not a file. An attachment with no link to give is left out and named in `skipped`.
+     */
+    links: async (chatId: Id, messageId: Id): Promise<{ links: AttachmentLink[]; skipped: string[] }> => {
+      if (this.#offline)
+        throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot download")
+      const [message] = await this.messages.around(chatId, messageId)
+      if (!message) throw new CliError("not_found", `no message ${messageId} in chat ${chatId}`)
+
+      const links: AttachmentLink[] = []
+      const skipped: string[] = []
+      for (const attachment of message.attachments) {
+        const { kind, name } = attachment
+        if (attachment.fileId) {
+          const answer = await this.#wire.attachments.file({ chatId, messageId, fileId: attachment.fileId })
+          const url = typeof answer.url === "string" ? answer.url : undefined
+          if (url)
+            links.push({ kind, url, ...(name ? { name } : {}), ...(answer.unsafe === true ? { unsafe: true } : {}) })
+          else skipped.push(kind)
+        } else if (attachment.videoId) {
+          const answer = await this.#wire.attachments.video({ chatId, messageId, videoId: attachment.videoId })
+          const url = largestMp4(answer)
+          if (url) links.push({ kind, url })
+          else skipped.push(kind)
+        } else if (attachment.url && (kind === "photo" || kind === "audio")) {
+          links.push({ kind, url: attachment.url })
+        } else {
+          skipped.push(kind)
+        }
+      }
+      return { links, skipped }
     },
 
     /**
@@ -853,6 +890,15 @@ export class MaxClient {
     return this.#login
   }
 }
+
+const largestMp4 = (answer: Payload): string | undefined =>
+  Object.entries(answer)
+    .map(([key, value]) => ({ height: /^MP4_(\d+)$/.exec(key)?.[1], value }))
+    .filter(
+      (entry): entry is { height: string; value: string } =>
+        entry.height !== undefined && typeof entry.value === "string",
+    )
+    .sort((a, b) => Number(b.height) - Number(a.height))[0]?.value
 
 /** What every listing takes. Absent means "the caller did not say", never a number chosen here. */
 export interface PageRequest {
