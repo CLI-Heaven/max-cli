@@ -97,6 +97,7 @@ export const forCommand = (command: Command): CommandContext => {
         store,
         timeoutMs: settings.timeoutMs,
         warn: renderer.note,
+        offline: command.optsWithGlobals().offline === true,
         ...(environment.connection ? { connection: environment.connection() } : {}),
         ...extra,
       })

@@ -45,6 +45,26 @@ export const contactsCommand = (): Command => {
       })
     })
 
+  command
+    .command("show")
+    .argument("<person>", "person id, @username, or part of a name")
+    .description("one person and the chats you share with them")
+    .action(async function (this: Command, person: string) {
+      const { renderer, settings, createClient, run } = forCommand(this)
+      const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
+
+      await run("contacts show", async (events) => {
+        const client = createClient({ events, ...(cache ? { cache } : {}) })
+
+        try {
+          renderer.result(await client.contacts.show(person))
+        } finally {
+          await client.close()
+          cache?.close()
+        }
+      })
+    })
+
   /**
    * The repair tool of the contact store, and **not how contacts normally arrive**: every command
    * logs in, and every login carries the delta, so the store is already current. This is for a

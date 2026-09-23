@@ -3,12 +3,14 @@ import type { CacheStore, PersonOrder, SyncSummary } from "./cache/store.js"
 import { namesFrom, toChat, toContact, toMessage, toProfile } from "./domain/map.js"
 import {
   type Chat,
+  type ChatCard,
   type ChatKind,
   type Contact,
   type Id,
   type Message,
   type MessageHit,
   type Page,
+  type PersonCard,
   type Profile,
   type QuotedMessage,
   timeOfMessageId,
@@ -100,7 +102,7 @@ export class MaxClient {
      * exactly the chats a person recognises by name.
      */
     list: async (options: PageRequest = {}): Promise<Page<Chat>> => {
-      const { limit, offset = 0, kind } = options
+      const { limit, offset = 0, kind, unread } = options
       const query = checkedQuery(options.query)
 
       if (this.#offline) {
@@ -108,8 +110,8 @@ export class MaxClient {
         if (!recorded) this.#recorded(undefined, "chats")
         const store = recorded as CacheStore
         if (store.chats.count() === 0) this.#recorded(undefined, "chats")
-        const items = store.chats.page({ limit: limit ?? Number.MAX_SAFE_INTEGER, offset, query, kind })
-        return { items, hasMore: offset + items.length < store.chats.count({ query, kind }) }
+        const items = store.chats.page({ limit: limit ?? Number.MAX_SAFE_INTEGER, offset, query, kind, unread })
+        return { items, hasMore: offset + items.length < store.chats.count({ query, kind, unread }) }
       }
 
       await this.#connectOnce()
@@ -129,14 +131,14 @@ export class MaxClient {
       })
 
       const cache = this.#cache
-      if (!cache) return paged(matching(chats, query, kind), limit, offset)
+      if (!cache) return paged(matching(chats, { query, kind, unread }), limit, offset)
 
       // Written first, then read back: the titles just resolved have to be in the store before it
       // is asked to order and page over them, and the delta this login carried is only a slice of
       // what it now holds.
       cache.chats.write(chats)
-      const items = cache.chats.page({ limit: limit ?? Number.MAX_SAFE_INTEGER, offset, query, kind })
-      return { items, hasMore: offset + items.length < cache.chats.count({ query, kind }) }
+      const items = cache.chats.page({ limit: limit ?? Number.MAX_SAFE_INTEGER, offset, query, kind, unread })
+      return { items, hasMore: offset + items.length < cache.chats.count({ query, kind, unread }) }
     },
 
     /**
@@ -147,26 +149,23 @@ export class MaxClient {
      * conversation is not undoable, so the caller is shown the candidates and asked to be specific.
      */
     resolve: async (reference: string): Promise<Id> => {
-      if (/^-?\d+$/.test(reference.trim())) return reference.trim()
+      if (isId(reference)) return reference.trim()
+      return pickChat(reference, (await this.chats.list()).items).id
+    },
 
-      const { items: chats } = await this.chats.list()
-      const wanted = reference.trim().toLowerCase()
-      const titled = chats.filter((chat) => chat.title !== null)
+    /**
+     * One chat and who is in it, from the list the login just refreshed.
+     *
+     * ⚠ **An id is checked here, where `resolve` lets any number through** — for a read that is
+     * the difference between an answer and a card of nulls for a chat that does not exist.
+     */
+    show: async (reference: string): Promise<ChatCard> => {
+      const { items } = await this.chats.list()
+      const chat = isId(reference) ? items.find((one) => one.id === reference.trim()) : pickChat(reference, items)
+      if (!chat) throw new CliError("not_found", `no chat ${reference.trim()} among this account's chats`)
 
-      const exact = titled.filter((chat) => chat.title?.toLowerCase() === wanted)
-      const matches = exact.length > 0 ? exact : titled.filter((chat) => chat.title?.toLowerCase().includes(wanted))
-
-      if (matches.length === 1 && matches[0]) return matches[0].id
-      if (matches.length === 0) throw new CliError("not_found", `no chat matches "${reference}"`)
-
-      const candidates = matches.map((chat) => ({ id: chat.id, title: chat.title }))
-      const width = Math.max(...candidates.map(({ id }) => id.length))
-      const lines = candidates.map(({ id, title }) => `  ${id.padEnd(width)}  ${title}`).join("\n")
-      throw new CliError(
-        "validation_error",
-        `"${reference}" matches ${matches.length} chats — name one by its id:\n${lines}`,
-        { candidates },
-      )
+      const cache = this.#cache
+      return { ...chat, members: chat.kind === "channel" || !cache ? null : cache.chats.members(chat.id) }
     },
   }
 
@@ -224,6 +223,35 @@ export class MaxClient {
      * It is also the only thing that could ever prune somebody MAX has stopped returning, which is
      * the second reason it exists.
      */
+    /**
+     * One person and the chats we share, **whoever they are** — a group member is as findable as
+     * a contact. `NEED-105` decides who `list` lists, not who can be looked up.
+     *
+     * Only from the store: the shared chats are its `chat_members`, which nothing else holds.
+     */
+    show: async (reference: string): Promise<PersonCard> => {
+      const cache = this.#cache
+      if (!cache) {
+        throw new CliError(
+          "configuration_error",
+          `there is no local store for profile "${this.#store.profile}" to look people up in — the note above says why`,
+        )
+      }
+
+      if (this.#offline) {
+        if (cache.people.count() === 0) this.#recorded(undefined, "people")
+      } else {
+        await this.#connectOnce()
+        await this.#peopleFor(asArray(this.#session().chats))
+      }
+
+      const person = pickPerson(reference, cache)
+      const chats = cache.people
+        .sharedChats(person.id)
+        .map(({ id, title, kind, lastMessageAt }) => ({ id, title, kind, lastMessageAt }))
+      return { ...person, chats }
+    },
+
     sync: async (): Promise<SyncSummary & { full: true }> => {
       if (this.#offline) {
         throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot sync")
@@ -291,18 +319,40 @@ export class MaxClient {
      * it takes a moment and answers with what came before it — so `--before` is exact where a page
      * number over a live conversation would repeat and skip rows.
      *
+     * `after` reads the other way and **leaves the anchor out**, so the next page's hint does not
+     * repeat a row. MAX puts it in — measured 2026-09-23, `forward: n` with `backward: 0` starts
+     * with the message it was given — so one more is asked for and anything not later is dropped.
+     * `before` keeps the anchor, as it always has.
+     *
      * `hasMore` here is a claim about the copy we hold, never about the chat: a full page back is
      * the only evidence there is that another page exists.
      */
-    list: async (chatId: Id, options: { limit?: number; before?: number } = {}): Promise<Page<Message>> => {
+    list: async (
+      chatId: Id,
+      options: { limit?: number; before?: number; after?: number } = {},
+    ): Promise<Page<Message>> => {
       const limit = options.limit ?? 20
+      const { before, after } = options
 
-      if (this.#offline) {
-        const stored = this.#recorded(this.#cache?.messages.read(chatId, limit, ANY_AGE), "messages")
-        return { items: stored, hasMore: stored.length >= limit }
+      if (after !== undefined) {
+        const found = this.#offline
+          ? this.#recorded(this.#cache?.messages.window(chatId, after, 0, limit + 1), "messages")
+          : await this.#history(chatId, { from: after, backward: 0, forward: limit + 1 })
+        const later = found.filter((message) => Date.parse(message.timestamp) > after)
+        return { items: later.slice(0, limit), hasMore: later.length > limit }
       }
 
-      const messages = await this.#history(chatId, { from: options.before ?? Date.now(), backward: limit, forward: 0 })
+      if (this.#offline) {
+        const cache = this.#cache
+        const stored =
+          before === undefined
+            ? cache?.messages.read(chatId, limit, ANY_AGE)
+            : cache?.messages.window(chatId, before, limit, 0)
+        const items = this.#recorded(stored, "messages")
+        return { items, hasMore: items.length >= limit }
+      }
+
+      const messages = await this.#history(chatId, { from: before ?? Date.now(), backward: limit, forward: 0 })
       return { items: messages, hasMore: messages.length >= limit }
     },
 
@@ -312,6 +362,8 @@ export class MaxClient {
      *
      * Measured 2026-09-22: from a message's own time, `backward: n` answers n messages ending with
      * it and `forward: n` the n after it. Its time comes from its id, so no stored copy is needed.
+     * Correction 2026-09-23: that holds with `backward` above zero; with `backward: 0`, `forward`
+     * starts with the message itself (`messages.list` with `after` depends on the difference).
      *
      * ⚠ **A message that is gone is refused, not replaced by its neighbour** — MAX answers with
      * whatever is nearest, and showing that as the message asked for would be a quiet lie.
@@ -335,17 +387,17 @@ export class MaxClient {
     },
 
     /**
-     * Turns what `--before` was given into a moment.
+     * Turns what `--before` or `--after` was given into a moment.
      *
      * **ISO 8601 is a time; a bare integer is a message id**, and a message id carries its own time
      * (`timeOfMessageId`). Deciding between the two by length would be a trap that fires the first
      * time either changes size, so the rule is what the string looks like.
      */
-    before: (reference: string): number => {
+    moment: (reference: string, flag = "--before"): number => {
       const wanted = reference.trim()
       const time = /^\d+$/.test(wanted) ? timeOfMessageId(wanted) : Date.parse(wanted)
       if (time === undefined || Number.isNaN(time)) {
-        throw new CliError("validation_error", `--before takes a message id or an ISO 8601 time, not "${wanted}"`)
+        throw new CliError("validation_error", `${flag} takes a message id or an ISO 8601 time, not "${wanted}"`)
       }
       return time
     },
@@ -810,6 +862,8 @@ export interface PageRequest {
   /** Part of a name. Refused below three characters — see `checkedQuery`. */
   query?: string
   kind?: ChatKind
+  /** Only chats MAX counts unread messages in; a chat where it did not say is not one of them. */
+  unread?: boolean
 }
 
 /**
@@ -822,6 +876,75 @@ export interface PageRequest {
  * on something the person never asked about.
  */
 const MIN_QUERY = 3
+
+const isId = (reference: string): boolean => /^-?\d+$/.test(reference.trim())
+
+/**
+ * A name matched exactly first, then as a fragment — and **an ambiguous one is an error, not a
+ * guess**: sending to the wrong conversation is not undoable, so the caller is shown the
+ * candidates and asked to be specific.
+ */
+const pickChat = (reference: string, chats: Chat[]): Chat => {
+  const wanted = reference.trim().toLowerCase()
+  const titled = chats.filter((chat) => chat.title !== null)
+
+  const exact = titled.filter((chat) => chat.title?.toLowerCase() === wanted)
+  const matches = exact.length > 0 ? exact : titled.filter((chat) => chat.title?.toLowerCase().includes(wanted))
+
+  if (matches.length === 1 && matches[0]) return matches[0]
+  if (matches.length === 0) throw new CliError("not_found", `no chat matches "${reference}"`)
+  throw ambiguous(
+    reference,
+    "chats",
+    matches.map((chat) => ({ id: chat.id, title: chat.title })),
+    ({ title }) => String(title),
+  )
+}
+
+/**
+ * As `pickChat`, over names and @usernames. Matched here rather than in SQL because SQLite's
+ * `lower()` folds ASCII only, and most of these names are Cyrillic.
+ */
+const pickPerson = (reference: string, cache: CacheStore): Contact => {
+  const trimmed = reference.trim()
+  if (isId(trimmed)) {
+    const known = cache.people.get(trimmed)
+    if (!known) throw new CliError("not_found", `no person ${trimmed} in what this account has seen`)
+    return known
+  }
+
+  const wanted = trimmed.replace(/^@/, "").toLowerCase()
+  const everyone = cache.people.page({ order: "name", limit: Number.MAX_SAFE_INTEGER, offset: 0 })
+  const fields = (person: Contact) => [person.name, person.username].filter(isPresent).map((one) => one.toLowerCase())
+
+  const exact = everyone.filter((person) => fields(person).includes(wanted))
+  const matches =
+    exact.length > 0 ? exact : everyone.filter((person) => fields(person).some((one) => one.includes(wanted)))
+
+  if (matches.length === 1 && matches[0]) return matches[0]
+  if (matches.length === 0) throw new CliError("not_found", `nobody matches "${reference}"`)
+  throw ambiguous(
+    reference,
+    "people",
+    matches.map(({ id, name, username }) => ({ id, name, username })),
+    ({ name, username }) => [name, username && `@${username}`].filter(isPresent).join("  "),
+  )
+}
+
+const ambiguous = <T extends { id: Id }>(
+  reference: string,
+  what: string,
+  candidates: T[],
+  label: (candidate: T) => string,
+): CliError => {
+  const width = Math.max(...candidates.map(({ id }) => id.length))
+  const lines = candidates.map((candidate) => `  ${candidate.id.padEnd(width)}  ${label(candidate)}`).join("\n")
+  return new CliError(
+    "validation_error",
+    `"${reference}" matches ${candidates.length} ${what} — name one by its id:\n${lines}`,
+    { candidates },
+  )
+}
 
 const checkedQuery = (query: string | undefined): string | undefined => {
   if (query === undefined) return undefined
@@ -868,11 +991,12 @@ const batched = <T>(items: T[], size: number): T[][] => {
  * The alternative was to let a filter only work when a cache happened to exist, which makes the
  * answer depend on something the person never asked about.
  */
-const matching = (chats: Chat[], query: string | undefined, kind: ChatKind | undefined): Chat[] => {
+const matching = (chats: Chat[], { query, kind, unread }: Pick<PageRequest, "query" | "kind" | "unread">): Chat[] => {
   const needle = query?.toLocaleLowerCase()
   return chats.filter(
     (chat) =>
       (kind === undefined || chat.kind === kind) &&
+      (!unread || (chat.unreadCount ?? 0) > 0) &&
       (needle === undefined || (chat.title ?? "").toLocaleLowerCase().includes(needle)),
   )
 }

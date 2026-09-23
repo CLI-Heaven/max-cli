@@ -1,4 +1,4 @@
-import type { Chat, ChatKind, Contact, Id, Message, MessageHit } from "../domain/models.js"
+import type { Chat, ChatKind, Contact, Id, Member, Message, MessageHit } from "../domain/models.js"
 import type { CacheDatabase } from "./driver.js"
 import { migrate } from "./schema.js"
 
@@ -15,11 +15,15 @@ export interface PageOptions {
   query?: string
 }
 
-export interface ChatPageOptions {
-  limit: number
-  offset: number
+export interface ChatFilter {
   query?: string
   kind?: ChatKind
+  unread?: boolean
+}
+
+export interface ChatPageOptions extends ChatFilter {
+  limit: number
+  offset: number
 }
 
 export interface MessageSearch {
@@ -74,7 +78,10 @@ export interface CacheStore {
     /** One page, newest first, in SQL rather than by building the whole list and slicing it. */
     page(options: ChatPageOptions): Chat[]
     /** ⚠ Takes the same filter as `page`, or the two disagree about whether a next page exists. */
-    count(options?: { query?: string; kind?: ChatKind }): number
+    count(options?: ChatFilter): number
+    get(chatId: Id): Chat | undefined
+    /** Everyone we hold in this chat except ourselves, by name. Channels have no rows here. */
+    members(chatId: Id): Member[]
   }
   people: {
     /**
@@ -95,6 +102,9 @@ export interface CacheStore {
     upsert(people: Contact[], source: PersonSource): void
     /** The chats this person is in — which, every chat here being one we are in, is the shared set. */
     chatsWith(personId: Id): Id[]
+    /** As `chatsWith`, but the chats themselves, newest first. */
+    sharedChats(personId: Id): Chat[]
+    get(personId: Id): Contact | undefined
     /** The names we hold for these people; anyone unnamed or unknown is absent from the map. */
     names(ids: Id[]): Map<Id, string>
     /**
@@ -159,7 +169,7 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
    * ⚠ They have to come from the same function. A page that filters and a count that does not is
    * a `hasMore` that lies, and it lies quietly — the reader simply never sees the last page.
    */
-  const chatWhere = ({ query, kind }: { query?: string; kind?: ChatKind }) => {
+  const chatWhere = ({ query, kind, unread }: ChatFilter) => {
     const clauses: string[] = []
     const values: (string | number)[] = []
 
@@ -171,6 +181,7 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
       clauses.push("c.kind = ?")
       values.push(kind)
     }
+    if (unread) clauses.push("c.unread_count > 0")
 
     return { sql: clauses.length === 0 ? "" : ` WHERE ${clauses.join(" AND ")}`, values }
   }
@@ -342,19 +353,37 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
         if (!isFresh("chats", freshForMs)) return undefined
         return database.prepare("SELECT * FROM chats ORDER BY last_message_at DESC").all().map(toChat)
       },
-      page: ({ limit, offset, query, kind }) => {
-        const where = chatWhere({ query, kind })
+      page: ({ limit, offset, ...filter }) => {
+        const where = chatWhere(filter)
         return database
           .prepare(`SELECT c.* FROM chats c${where.sql} ORDER BY c.last_message_at DESC LIMIT ? OFFSET ?`)
           .all(...where.values, limit, offset)
           .map(toChat)
       },
 
-      count: ({ query, kind } = {}) => {
-        const where = chatWhere({ query, kind })
+      count: (filter = {}) => {
+        const where = chatWhere(filter)
         const row = database.prepare(`SELECT COUNT(*) AS n FROM chats c${where.sql}`).get(...where.values)
         return Number((row as { n?: number })?.n ?? 0)
       },
+
+      get: (chatId) => {
+        const row = database.prepare("SELECT * FROM chats WHERE id = ?").get(chatId)
+        return row ? toChat(row) : undefined
+      },
+
+      members: (chatId) =>
+        database
+          .prepare(
+            `SELECT p.id, p.name, p.username FROM chat_members m JOIN people p ON p.id = m.person_id
+              WHERE m.chat_id = ? ORDER BY p.name IS NULL, p.name`,
+          )
+          .all(chatId)
+          .map((row) => ({
+            id: String(row.id),
+            name: row.name === null ? null : String(row.name),
+            username: row.username === null ? null : String(row.username),
+          })),
 
       write: (chats) => {
         const at = now()
@@ -407,6 +436,20 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
           .prepare("SELECT chat_id FROM chat_members WHERE person_id = ?")
           .all(personId)
           .map((row) => String(row.chat_id)),
+
+      sharedChats: (personId) =>
+        database
+          .prepare(
+            `SELECT c.* FROM chat_members m JOIN chats c ON c.id = m.chat_id
+              WHERE m.person_id = ? ORDER BY c.last_message_at DESC`,
+          )
+          .all(personId)
+          .map(toChat),
+
+      get: (personId) => {
+        const row = database.prepare("SELECT * FROM people WHERE id = ?").get(personId)
+        return row ? toContact(row) : undefined
+      },
 
       names: (ids) => {
         const named = new Map<Id, string>()

@@ -42,6 +42,59 @@ const scriptedMax = ({ token = true } = {}) => {
   }
 }
 
+/**
+ * A login that carries a `time`, so the store takes its memberships, and a group and a dialog to
+ * look into. Each test names its own profile: they share one sandboxed cache directory.
+ */
+const acquaintedMax = () => {
+  const max = mockMax({
+    answers: {
+      [Opcode.SESSION_INIT]: {},
+      [Opcode.LOGIN]: {
+        time: 1789776000000,
+        profile: { contact: { id: 10000001, names: [{ name: "Test Person", type: "FULL_NAME" }] } },
+        chats: [
+          {
+            id: 111,
+            title: "First",
+            type: "CHAT",
+            newMessages: 2,
+            lastEventTime: 1789776000000,
+            participants: { 10000001: 1, 10000002: 1, 10000003: 1 },
+          },
+          {
+            id: 222,
+            type: "DIALOG",
+            newMessages: 0,
+            lastEventTime: 1789775000000,
+            participants: { 10000001: 1, 10000002: 1 },
+          },
+        ],
+        contacts: [{ id: 10000002, link: "someone", names: [{ name: "Someone Else", type: "FULL_NAME" }] }],
+      },
+      [Opcode.CONTACT_INFO]: { contacts: [{ id: 10000003, names: [{ name: "Another Person", type: "FULL_NAME" }] }] },
+      // As MAX answers a forward read: starting with the message it was given, whose id holds its time.
+      [Opcode.CHAT_HISTORY]: {
+        messages: [
+          { id: 116762160362694583n, time: 1781649175456, sender: 10000002, text: "anchor", attaches: [] },
+          { id: 116762160362694584n, time: 1781649175457, sender: 10000002, text: "later", attaches: [] },
+          { id: 116762160362694585n, time: 1781649175458, sender: 10000002, text: "latest", attaches: [] },
+        ],
+      },
+    },
+  })
+  const keyring = memoryKeyring()
+  const environment: Environment = {
+    store: (profile: string) => {
+      const store = new SessionStore({ profile, keyring })
+      store.writeToken("a-token")
+      return store
+    },
+    connection: () => new Connection({ createSocket: max.createSocket, timeoutMs: 50 }),
+  }
+  return { max, environment }
+}
+
 const runWith = async (argv: string[], environment: Environment = {}) => {
   const streams = captureStreams()
   const code = await run(argv, { ...environment, streams, tty: false })
@@ -259,6 +312,109 @@ describe("the program", () => {
       expect(stdout).toBe("")
       expect(JSON.parse(stderr).error.code).toBe("authentication_error")
       expect(code).toBe(4)
+    })
+  })
+
+  describe("reading without sending anything", () => {
+    it("`chats list --unread` answers only the chats with something unread", async () => {
+      const { max, environment } = acquaintedMax()
+      const { stdout, code } = await runWith(["t-unread", "chats", "list", "--unread", "--json"], environment)
+
+      expect(max.unexpected).toEqual([])
+      expect(code).toBe(0)
+      expect(JSON.parse(stdout)).toMatchObject({ items: [{ id: "111", unreadCount: 2 }], hasMore: false })
+    })
+
+    it("`messages list --after` reads forward from the message, leaves it out, and names the next page", async () => {
+      const { max, environment } = acquaintedMax()
+      const { stdout, stderr, code } = await runWith(
+        ["t-after", "messages", "list", "111", "--after", "116762160362694583", "--limit", "1", "--jsonl"],
+        environment,
+      )
+
+      expect(max.unexpected).toEqual([])
+      expect(code).toBe(0)
+      expect(JSON.parse(stdout).id).toBe("116762160362694584")
+      expect(stderr).toContain("--after 116762160362694584")
+
+      const history = max.sent.find((call) => call.opcode === Opcode.CHAT_HISTORY)?.payload
+      expect(history).toMatchObject({ from: Number(116762160362694583n >> 16n), forward: 2, backward: 0 })
+      expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.CHAT_MARK)
+    })
+
+    it("**refuses `--after` with `--before`** before connecting to anything", async () => {
+      const { max, environment } = acquaintedMax()
+      const { code, stderr } = await runWith(
+        ["t-both", "messages", "list", "111", "--after", "2026-09-20T00:00:00Z", "--before", "2026-09-21T00:00:00Z"],
+        environment,
+      )
+
+      expect(code).toBe(2)
+      expect(stderr).toContain("two directions")
+      expect(max.sent).toEqual([])
+    })
+
+    it("blames `--after` for a value that is neither an id nor a time", async () => {
+      const { environment } = acquaintedMax()
+      const { code, stderr } = await runWith(["t-bad", "messages", "list", "111", "--after", "tuesday"], environment)
+
+      expect(code).toBe(2)
+      expect(stderr).toContain("--after takes a message id")
+    })
+
+    it("`chats show` answers one chat with its members, and refuses an id that is not a chat", async () => {
+      const { max, environment } = acquaintedMax()
+      const shown = await runWith(["t-show", "chats", "show", "First", "--json"], environment)
+
+      expect(max.unexpected).toEqual([])
+      expect(shown.code).toBe(0)
+      expect(JSON.parse(shown.stdout)).toMatchObject({
+        id: "111",
+        kind: "group",
+        unreadCount: 2,
+        members: [{ name: "Another Person" }, { name: "Someone Else", username: "someone" }],
+      })
+
+      const missing = await runWith(["t-show", "chats", "show", "999", "--json"], environment)
+      expect(JSON.parse(missing.stderr).error.code).toBe("not_found")
+      expect(missing.stdout).toBe("")
+    })
+
+    it("`contacts show` finds a person by @username, with every chat shared, and refuses an ambiguous name", async () => {
+      const { max, environment } = acquaintedMax()
+      const shown = await runWith(["t-person", "contacts", "show", "@someone", "--json"], environment)
+
+      expect(max.unexpected).toEqual([])
+      expect(shown.code).toBe(0)
+      expect(JSON.parse(shown.stdout)).toMatchObject({
+        id: "10000002",
+        name: "Someone Else",
+        chats: [
+          { id: "111", kind: "group" },
+          { id: "222", kind: "dialog" },
+        ],
+      })
+
+      const group = await runWith(["t-person", "contacts", "show", "another", "--json"], environment)
+      expect(JSON.parse(group.stdout)).toMatchObject({ id: "10000003", chats: [{ id: "111" }] })
+
+      const ambiguous = await runWith(["t-person", "contacts", "show", "on", "--json"], environment)
+      expect(ambiguous.code).toBe(2)
+      expect(JSON.parse(ambiguous.stderr).error.candidates).toHaveLength(2)
+    })
+
+    it("**`--offline` reaches the command**: it answers from the record and never connects", async () => {
+      const { environment } = acquaintedMax()
+      await runWith(["t-offline", "chats", "list", "--json"], environment)
+
+      const silent = acquaintedMax()
+      const offline = await runWith(["t-offline", "chats", "show", "First", "--offline", "--json"], silent.environment)
+      expect(offline.code).toBe(0)
+      expect(JSON.parse(offline.stdout)).toMatchObject({ id: "111" })
+
+      const send = await runWith(["t-offline", "messages", "send", "111", "hi", "--offline"], silent.environment)
+      expect(send.code).not.toBe(0)
+      expect(silent.max.sent).toEqual([])
     })
   })
 

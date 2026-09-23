@@ -101,6 +101,19 @@ export interface Contact {
   lastMessagedAt: string | null
 }
 
+/** Somebody in a chat, as much of them as a chat card shows. */
+export type Member = Pick<Contact, "id" | "name" | "username">
+
+/** One chat and who is in it. `members` is `null` where nobody recorded that — a channel, always. */
+export interface ChatCard extends Chat {
+  members: Member[] | null
+}
+
+/** One person and the chats this account shares with them, newest first. */
+export interface PersonCard extends Contact {
+  chats: Pick<Chat, "id" | "title" | "kind" | "lastMessageAt">[]
+}
+
 /**
  * One page of a listing, and **the same shape whether it came from MAX or from the store** — where
  * rows come from is the exit code's business and the diagnostics', never the answer's.
