@@ -20,13 +20,6 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   built the same command on 2026-09-23 because an open PR was the only signal.
 - **Close in the PR that ships the work:** move the line to `BACKLOG_DONE.md` in the same PR.
 
-## Quick wins — local code, hours each
-
-- **MAX-15** · 🚩 P2 · Show reactions when reading. **Correction 2026-09-23:** this line said MAX sends
-  `reactionInfo` on each message; that came from made-up test data (`src/domain/map.test.ts:83`).
-  Measured with `pnpm probe:reactions` (PR #50): 1,101 history messages from 25 chats carried no
-  reaction field at all. Either nobody reacted in the sample, or reactions come by another request.
-  Next: the owner reacts to a message in Saved messages, then the probe runs again.
 ## Features
 
 - **MAX-9** · 🟡 P2 · The rest of the messenger surface, in the order of REQUIREMENTS §35.
@@ -51,6 +44,11 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 
 ## Research and protocol unknowns
 
+- **MAX-15** · P3 · Show reactions when reading. History does not carry them: after the owner
+  reacted in Saved messages, 653 messages from 25 chats (Saved included) had no reaction field
+  (`pnpm probe:reactions`, 2026-09-23). Next: find the request that reads reactions in the other
+  clients' current source, then measure it read-only. Never try a number blind — it may be the one
+  that adds a reaction. Correction: an earlier line here took `reactionInfo` from test data.
 - **RES-5** · 🟡 P2 · Does `LOGIN` move presence or read state? Reading history does not (no
   `CHAT_MARK`, tested). The login flag `interactive` is unexplained (`ARCHITECTURE.md` §4). Needs a
   second device watching.
