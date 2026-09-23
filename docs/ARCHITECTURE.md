@@ -380,6 +380,9 @@ The cache database (`<cache dir>/<profile>.db`, mode `0600`, `SCHEMA_VERSION` 2)
 an offline source, never a way to skip a request**. Every read still asks MAX, since the login
 returns chats, contacts and recent messages anyway; `--offline` alone answers from the record
 without connecting. No freshness window: a stored person is valid until told otherwise.
+`--offline` reaches the client in one place (`createClient` in `src/commands/context.ts`), and a
+send under it is refused — until 2026-09-23 the flag reached no command, so `--offline messages
+send` would have sent.
 
 In [`architecture/store.md`](architecture/store.md):
 

@@ -69,6 +69,10 @@ what exists now, and where it is described. The numbers stay reserved — commit
 - **CLI-14** — `max config show`: every setting and where it came from.
 - **CLI-15** — `run(argv, { streams, tty, store, connection })`; tests read what a command prints.
 - **CLI-21** — a broken config file names the field, what is wrong and what is allowed (`src/config.ts`).
+- **CLI-16** — `messages list --after <id|time>` reads forward; refused together with `--before`. §10.
+- **CLI-17** — `chats show <chat>`: one chat with its members (`null` for a channel).
+- **CLI-18** — `contacts show <person>` by id, `@username` or name fragment; the chats shared.
+- **CLI-20** — `chats list --unread`: only chats MAX counts unread messages in, filtered in SQL.
 
 ## Documentation
 
