@@ -83,6 +83,19 @@ max chats list [options]
 | `--all` | every row, no paging |
 | `--search <text>` | only chats whose name contains this; at least 3 characters |
 | `--kind <dialog\|group\|channel>` | only chats of this kind |
+| `--unread` | only chats with unread messages |
+
+### `max chats show`
+
+one chat: its kind, unread count, last message time and who is in it
+
+```sh
+max chats show [options] <chat>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
 
 ## `max contacts`
 
@@ -102,6 +115,18 @@ max contacts list [options]
 | `--all` | every row, no paging |
 | `--order <recent\|name>` | newest conversation first, or alphabetical |
 | `--search <text>` | only people whose name or @username contains this; at least 3 characters |
+
+### `max contacts show`
+
+one person and the chats you share with them
+
+```sh
+max contacts show [options] <person>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `person` | обязательный | person id, @username, or part of a name |
 
 ### `max contacts sync`
 
@@ -130,6 +155,7 @@ max messages list [options] <chat>
 |---|---|
 | `--limit <n>` | how many to read |
 | `--before <id-or-time>` | read what came before this message id, or this ISO 8601 time |
+| `--after <id-or-time>` | read what came after this message id, or this ISO 8601 time; not with --before |
 
 ### `max messages search`
 
