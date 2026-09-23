@@ -34,11 +34,11 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   `max messages list`). Remembers the last check in the profile on its own, so a scheduled run
   shows only what is new; `--since <time>` overrides it for a one-off look (`NEED-162`). Must not mark anything read (REQUIREMENTS §19). The one
   feature both target users need (`NEED-143`).
-- **MAX-9** · 🟡 P2 · The rest of the messenger surface, in the order of REQUIREMENTS §35.
+- **MAX-9** · 🟡 🚧 `reply-and-reactions` (sending a reaction) · P2 · The rest of the messenger surface, in the order of REQUIREMENTS §35.
   Done: attachments, replies and forwards when reading (`src/domain/models.ts:23-75`). Left:
   reactions when reading (`MAX-15`, needs its own request), then uploads, sending reactions, edits; group administration
   last. Each writing operation needs its request shape measured first.
-- **RES-8** · P2 · Does `MSG_SEND` take a reply and markup? `elements` is always sent empty
+- **RES-8** · 🚧 `reply-and-reactions` · P2 · Does `MSG_SEND` take a reply and markup? `elements` is always sent empty
   (`src/spec/operations/messages.ts:19`); its meaning is a guess from the name. Needs a frame from
   the real web client sending a reply and bold text — the owner captures it in the browser's
   network tab. Unblocks `--reply-to` and markup.
