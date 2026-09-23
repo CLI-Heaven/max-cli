@@ -33,6 +33,11 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   Done: attachments, replies and forwards when reading (`src/domain/models.ts:23-75`); sending a
   reaction (`max reactions add`, `NEED-141`). Left: uploads, edits; group administration
   last. Each writing operation needs its request shape measured first.
+- **MAX-16** · 🚧 `qr-login` · P2 · Log in by QR code: `max session start --qr` shows a code on the
+  terminal, the owner scans it with the MAX app on the phone, and the token goes to the keyring
+  without copying it out of a browser. Opcodes 288/289/291 and the second-factor step 115 are from
+  PyMax 2.4.1's source, not yet measured. Plan: `docs_ai/plans/2026-09-23-qr-login.md`. SMS login is
+  not in this item: PyMax does it only over the mobile TCP transport (`NEED-17`).
 - **MAX-4** · 🟡 P3 · Chat addressing. Done: an id, or a title matched exactly then as a fragment,
   an ambiguous one refused (`src/client.ts:149`). Left: `@username`, a phone number, a chat the
   account is not in.
