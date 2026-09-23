@@ -189,6 +189,25 @@ describe("the configuration file", () => {
     expect(() => settings()).toThrowError(/profiles\.default\.limit/)
   })
 
+  it("**says in plain words what is wrong and what is allowed**, not the validation library's", () => {
+    withConfig(JSON.stringify({ profiles: { default: { limitt: 5 } } }))
+    expect(() => settings()).toThrowError(
+      "profiles.default.limitt: unknown setting — the known ones are limit, timeoutMs, color, senderColors, record, " +
+        "keepRunsForDays",
+    )
+
+    withConfig(JSON.stringify({ profiles: { default: { limit: 0, color: "yes" } } }))
+    expect(() => settings()).toThrowError("profiles.default.limit: has to be a whole number, 1 or more, not 0")
+    expect(() => settings()).toThrowError('profiles.default.color: has to be true or false, not "yes"')
+
+    withConfig(JSON.stringify({ profiles: { default: { limit: 2.5 } }, defaultProfil: "x" }))
+    expect(() => settings()).toThrowError("limit: has to be a whole number, 1 or more, not 2.5")
+    expect(() => settings()).toThrowError(
+      "defaultProfil: unknown setting — the known ones are defaultProfile, profiles",
+    )
+    expect(() => settings()).not.toThrowError(/Expected|Invalid/)
+  })
+
   it("says the file is not JSON rather than reporting a missing setting", () => {
     withConfig("{ this is not json }")
     expect(() => settings()).toThrowError(/not valid JSON/)

@@ -7,7 +7,21 @@ const APP = "max-cli"
 const DEFAULT_LIMIT = 20
 const DEFAULT_KEEP_RUNS_FOR_DAYS = 30
 
-const count = v.pipe(v.number(), v.integer(), v.minValue(1))
+const plain =
+  (rule: string) =>
+  (issue: v.BaseIssue<unknown>): string =>
+    `${rule}, not ${issue.received}`
+const wholeNumber = plain("has to be a whole number, 1 or more")
+const count = v.pipe(v.number(wholeNumber), v.integer(wholeNumber), v.minValue(1, wholeNumber))
+const flag = v.boolean(plain("has to be true or false"))
+
+/** valibot's own words ("Expected never but received …") mean nothing to someone editing a file. */
+const objectMessage =
+  (known: string[]): v.ErrorMessage<v.StrictObjectIssue> =>
+  (issue) =>
+    issue.expected === "never"
+      ? `unknown setting — the known ones are ${known.join(", ")}`
+      : "has to be an object, in braces"
 
 /**
  * ⚠ `strictObject`, not `object`: an unknown key is an error here.
@@ -20,20 +34,22 @@ const count = v.pipe(v.number(), v.integer(), v.minValue(1))
  * **No field here can hold a secret.** No token, no phone number, no chat id: a schema with
  * nowhere to put one is stronger than a rule saying do not put one there.
  */
-const profileSettings = v.strictObject({
+const profileEntries = {
   limit: v.optional(count),
   timeoutMs: v.optional(count),
-  color: v.optional(v.boolean()),
-  senderColors: v.optional(v.boolean()),
+  color: v.optional(flag),
+  senderColors: v.optional(flag),
   /** The run log reads these two; nothing records anything until it exists. */
-  record: v.optional(v.boolean()),
+  record: v.optional(flag),
   keepRunsForDays: v.optional(count),
-})
+}
+const profileSettings = v.strictObject(profileEntries, objectMessage(Object.keys(profileEntries)))
 
-export const configSchema = v.strictObject({
-  defaultProfile: v.optional(v.string()),
-  profiles: v.optional(v.record(v.string(), profileSettings), {}),
-})
+const configEntries = {
+  defaultProfile: v.optional(v.string(plain("has to be a profile name, in quotes"))),
+  profiles: v.optional(v.record(v.string(), profileSettings, "has to be an object of profiles, by name"), {}),
+}
+export const configSchema = v.strictObject(configEntries, objectMessage(Object.keys(configEntries)))
 
 export type Config = v.InferOutput<typeof configSchema>
 

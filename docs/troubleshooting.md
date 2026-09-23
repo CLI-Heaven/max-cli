@@ -53,7 +53,7 @@ max personal chats list    # или назвать профиль, в котор
 ## «is not a valid config»
 
 ```json
-{"error":{"code":"configuration_error","message":"…/config.json is not a valid config:\n  profiles.default.limitt: Invalid key: Expected never but received \"limitt\""}}
+{"error":{"code":"configuration_error","message":"…/config.json is not a valid config:\n  profiles.default.limitt: unknown setting — the known ones are limit, timeoutMs, color, senderColors, record, keepRunsForDays"}}
 ```
 
 Код `3`. В файле настроек поле, которого нет в схеме — почти всегда опечатка, и сообщение
