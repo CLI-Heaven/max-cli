@@ -424,18 +424,20 @@ describe("MaxClient", () => {
   })
 
   it("**never turns a lost answer into a claim either way**", async () => {
-    const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
+    // MSG_SEND is answered with silence: the request leaves and nothing comes back, which is
+    // exactly the case where the message may already have been delivered.
+    const max = mockMax({
+      answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer, [Opcode.MSG_SEND]: () => undefined },
+    })
     const { client } = clientWith(max)
 
     await client.connect()
-    // MSG_SEND has no scripted answer: the request leaves and nothing comes back, which is exactly
-    // the case where the message may already have been delivered.
     const failure = await client.messages.send("111", "hello").catch((error: Error) => error)
     await client.close()
 
     expect(failure).toMatchObject({ code: "outcome_unknown" })
     expect(String(failure)).toContain("--cid")
-    expect(max.unexpected).toContain(Opcode.MSG_SEND)
+    expect(max.sent.map((call) => call.opcode)).toContain(Opcode.MSG_SEND)
   })
 
   it("closes the socket, so the process can exit", async () => {
