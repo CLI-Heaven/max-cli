@@ -43,6 +43,7 @@ export const Opcode = {
   MSG_DELETE: 66,
   VIDEO_PLAY: 83,
   FILE_DOWNLOAD: 88,
+  MSG_REACTION: 178,
 } as const
 
 export type Opcode = (typeof Opcode)[keyof typeof Opcode]

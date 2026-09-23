@@ -3,7 +3,7 @@
 import { attachmentsFile, attachmentsVideo } from "../spec/operations/attachments.js"
 import { chatsHistory, chatsList } from "../spec/operations/chats.js"
 import { contactsInfo } from "../spec/operations/contacts.js"
-import { messagesSend } from "../spec/operations/messages.js"
+import { messagesReact, messagesSend } from "../spec/operations/messages.js"
 import { sessionInit, sessionLogin } from "../spec/operations/session.js"
 
 /** Every operation that may be sent, by the name the client calls it. */
@@ -14,6 +14,7 @@ export const OPERATIONS = {
   "chats.history": chatsHistory,
   "chats.list": chatsList,
   "messages.send": messagesSend,
+  "messages.react": messagesReact,
   "attachments.video": attachmentsVideo,
   "attachments.file": attachmentsFile,
 } as const

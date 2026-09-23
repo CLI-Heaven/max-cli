@@ -584,6 +584,14 @@ before the command does anything. Once the operation has happened or is under wa
 command tells a script it did not — and a script retries, and a retried send is a second message to
 a person. The warning is the loud part.
 
+**NEED-141 · Which write action comes first after sending text?** **Sending a reaction.** «2 A». It
+is reversible and seen by one person. `max reactions add`; removing one (`MSG_CANCEL_REACTION`, 179)
+is not built.
+
+**NEED-150 · How are the reply, markup and reaction shapes measured?** **By the CLI itself, in Saved
+messages (chat 0).** «1 A». The shapes come from tsmax and PyMax; sending them to the owner's own
+dialog and reading them back is the measurement (`pnpm probe:reply`). It replaced recording a frame
+from the web client by hand (`NEED-140`), which the owner found too heavy.
 
 ## 2026-09-24
 

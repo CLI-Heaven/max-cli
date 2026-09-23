@@ -188,6 +188,7 @@ export const messagesCommand = (): Command => {
     // whose absence is felt at the other end rather than here: a script posting at 3am wakes
     // somebody up, and there was no way to say otherwise.
     .option("--silent", "deliver without a notification")
+    .option("--reply-to <message>", "answer this message id in the same chat")
     .action(async function (this: Command, chat: string, text: string | undefined) {
       const options = this.optsWithGlobals()
       const { renderer, settings, createClient, run } = forCommand(this)
@@ -206,6 +207,7 @@ export const messagesCommand = (): Command => {
           const sent = await client.messages.send(chatId, body, {
             ...(options.cid === undefined ? {} : { cid: options.cid }),
             ...(options.silent === true ? { notify: false } : {}),
+            ...(options.replyTo === undefined ? {} : { replyTo: String(options.replyTo).trim() }),
           })
           renderer.result(sent)
         } finally {

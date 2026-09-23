@@ -1,5 +1,5 @@
 import { asId, type Payload } from "../protocol/frame.js"
-import type { Attachment, Chat, ChatKind, Contact, Id, Message, Profile, QuotedMessage } from "./models.js"
+import type { Attachment, Chat, ChatKind, Contact, Id, Message, Profile, QuotedMessage, Reactions } from "./models.js"
 
 /**
  * Wire shapes into our own types.
@@ -144,6 +144,15 @@ const phone = (value: unknown): string | null => {
   const first = asRecord(value[0])
   const number = first?.number
   return text(number) ?? (typeof number === "number" || typeof number === "bigint" ? `+${number}` : null)
+}
+
+/** `reactionInfo` as the reaction request answers it (measured 2026-09-23). */
+export const toReactions = (raw: Payload): Reactions => {
+  const counts = (Array.isArray(raw.counters) ? raw.counters : [])
+    .map(asRecord)
+    .filter((entry): entry is Payload => entry !== undefined)
+    .map((entry) => ({ reaction: text(entry.reaction) ?? "", count: count(entry.count) ?? 0 }))
+  return { counts, mine: text(raw.yourReaction), total: count(raw.totalCount) ?? 0 }
 }
 
 /**

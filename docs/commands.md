@@ -239,6 +239,24 @@ max messages send [options] <chat> [text]
 |---|---|
 | `--cid <n>` | reuse a client id from an earlier ambiguous send; MAX collapses the duplicate |
 | `--silent` | deliver without a notification |
+| `--reply-to <message>` | answer this message id in the same chat |
+
+## `max reactions`
+
+react to messages
+### `max reactions add`
+
+put your reaction on a message; it replaces the one you had
+
+```sh
+max reactions add [options] <chat> <message> <emoji>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+| `message` | обязательный | message id |
+| `emoji` | обязательный | one emoji, for example 👍 |
 
 ## `max config`
 

@@ -49,6 +49,14 @@ export interface AttachmentLink {
   unsafe?: boolean
 }
 
+/** The reactions on one message, as MAX counts them. */
+export interface Reactions {
+  counts: { reaction: string; count: number }[]
+  /** This account's own reaction, or `null`. */
+  mine: string | null
+  total: number
+}
+
 /** The message a reply answers or a forward carries — MAX sends it whole, inside the one that links to it. */
 export interface QuotedMessage {
   id: Id

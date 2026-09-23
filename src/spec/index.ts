@@ -2,7 +2,7 @@ import type { Entry, Operation, Reservation } from "./define.js"
 import { attachmentsFile, attachmentsVideo } from "./operations/attachments.js"
 import { chatMark, chatsHistory, chatsList } from "./operations/chats.js"
 import { contactsInfo, profile, unidentified36 } from "./operations/contacts.js"
-import { messageDelete, messagesSend } from "./operations/messages.js"
+import { messageDelete, messagesReact, messagesSend } from "./operations/messages.js"
 import { logout, sessionInit, sessionLogin } from "./operations/session.js"
 
 export { checkResponse } from "./check.js"
@@ -27,6 +27,7 @@ export const spec: readonly Entry[] = [
   chatMark,
   chatsList,
   messagesSend,
+  messagesReact,
   messageDelete,
   attachmentsVideo,
   attachmentsFile,
