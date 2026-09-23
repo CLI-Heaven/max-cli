@@ -148,7 +148,7 @@ export interface ResolveOptions {
  * Two things already jump this queue and are documented rather than re-litigated here:
  * `MAX_TOKEN` outranks the keyring (`cli-core`'s `Credentials.read`), and `MAX_CONFIG_DIR`,
  * `MAX_STATE_DIR` or `MAX_CACHE_DIR` move the whole installation — including which keyring entry
- * a profile means (`ARCHITECTURE.md` §13).
+ * a profile means (`ARCHITECTURE.md` §14).
  */
 export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, configDir }: ResolveOptions = {}) => {
   const paths = resolvePaths({ appName: APP, prefix: "MAX", env })
