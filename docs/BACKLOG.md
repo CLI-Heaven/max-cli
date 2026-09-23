@@ -24,7 +24,7 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 
 - **MAX-9** · 🟡 P2 · The rest of the messenger surface, in the order of REQUIREMENTS §35.
   Done: attachments, replies and forwards when reading (`src/domain/models.ts:23-75`). Left:
-  reactions when reading (`MAX-15`, not measured yet), then uploads, sending reactions, edits; group administration
+  reactions when reading (`MAX-15`, needs its own request), then uploads, sending reactions, edits; group administration
   last. Each writing operation needs its request shape measured first.
 - **MAX-14** · 🚧 `attachment-download` · P2 · Download an attachment: `messages download <chat> <id> [--output <dir>]`. A photo
   link opens without a cookie or a token (`src/domain/models.ts:26-29`); files are not measured yet.
