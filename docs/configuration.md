@@ -95,8 +95,11 @@ max config show --json     # то же одним объектом
 Неизвестное поле отвергается с именем поля и кодом `configuration_error` (возврат `3`):
 
 ```json
-{"error":{"code":"configuration_error","message":"/home/you/.config/max-cli/config.json is not a valid config:\n  profiles.default.limitt: Invalid key: Expected never but received \"limitt\""}}
+{"error":{"code":"configuration_error","message":"/home/you/.config/max-cli/config.json is not a valid config:\n  profiles.default.limitt: unknown setting — the known ones are limit, timeoutMs, color, senderColors, record, keepRunsForDays"}}
 ```
+
+Значение не того вида называет поле и то, что допустимо: `profiles.default.limit: has to be a
+whole number, 1 or more, not "20"`.
 
 Так сделано намеренно. Схема, которая молча выбрасывает непонятное поле, превращает опечатку в
 полдня недоумения: настройка «не работает», и никто не говорит почему.
