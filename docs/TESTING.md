@@ -49,8 +49,13 @@ expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.CHAT_MARK)  // 
 expect(sends.map((call) => call.payload.message.cid)).toEqual([4242, 4242])   // a retry reuses the cid
 ```
 
-An opcode with no scripted answer is recorded in `max.unexpected`, so a client that asks for
-something the test did not expect cannot pass for the wrong reason.
+**An opcode with no scripted answer fails the test that sent it**, naming the opcode. The mock
+records it in `max.unexpected`, and `src/testing/unscripted.ts` — a second `setupFiles` entry —
+checks every mock the test built once it ends. Before that the mock only stayed silent, the client
+timed out, and the test failed, if at all, on a symptom three steps downstream.
+
+A test that means a request to go unanswered says so by scripting silence, `() => undefined` —
+`src/client.test.ts` does it for a send whose answer is lost.
 
 ## No test touches the owner's own files
 

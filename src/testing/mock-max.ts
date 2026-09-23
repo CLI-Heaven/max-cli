@@ -3,8 +3,11 @@ import type { WebSocket } from "ws"
 import { Command, decodeFrame, encodeFrame, type Payload } from "../protocol/frame.js"
 
 export interface MockMaxOptions {
-  /** One answer per opcode. An opcode with no answer is an unexpected call, and the test fails. */
-  /** A function may return `undefined` to stay silent, which is how a timeout is scripted. */
+  /**
+   * One answer per opcode. An opcode with no answer is an unexpected call, and the test fails.
+   * A function may return `undefined` to stay silent, which is how a timeout is scripted — and
+   * the only way a test says it means a request to go unanswered.
+   */
   answers: Record<number, Payload | (() => Payload | undefined)>
   /** Opcodes to refuse, as MAX does: `cmd=3` with an `error` in the payload. */
   refuse?: Record<number, string>
@@ -14,10 +17,15 @@ export interface MockMax {
   createSocket: () => WebSocket
   /** Every request sent, in order — what the code under test actually asked MAX for. */
   sent: { opcode: number; payload: Payload }[]
-  /** Calls with no scripted answer. A test that ignores these can pass for the wrong reason. */
+  /** Calls with no scripted answer. Any left at the end of a test fail it (`unscripted.ts`). */
   unexpected: number[]
   closed: boolean
 }
+
+const built: MockMax[] = []
+
+/** Every mock built since the last call, and forgets them — so each test sees only its own. */
+export const takeBuiltMocks = (): MockMax[] => built.splice(0)
 
 /**
  * MAX, scripted. **No timers, no network, no waiting**: an answer is delivered on the next tick,
@@ -34,6 +42,7 @@ export const mockMax = ({ answers, refuse = {} }: MockMaxOptions): MockMax => {
     return socket as unknown as WebSocket
   }
   const state: MockMax = { createSocket, sent: [], unexpected: [], closed: false }
+  built.push(state)
 
   const socket = new (class extends EventEmitter {
     readyState = 1
