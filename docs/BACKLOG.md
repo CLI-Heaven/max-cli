@@ -26,8 +26,6 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   Done: attachments, replies and forwards when reading (`src/domain/models.ts:23-75`). Left:
   reactions when reading (`MAX-15`, needs its own request), then uploads, sending reactions, edits; group administration
   last. Each writing operation needs its request shape measured first.
-- **MAX-14** · 🚧 `attachment-download` · P2 · Download an attachment: `messages download <chat> <id> [--output <dir>]`. A photo
-  link opens without a cookie or a token (`src/domain/models.ts:26-29`); files are not measured yet.
 - **RES-8** · P2 · Does `MSG_SEND` take a reply and markup? `elements` is always sent empty
   (`src/spec/operations/messages.ts:19`); its meaning is a guess from the name. Needs a frame from
   the real web client sending a reply and bold text — the owner captures it in the browser's
