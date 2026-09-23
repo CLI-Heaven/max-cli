@@ -94,28 +94,30 @@ deduplication by `cid`, 18-digit message ids, `chatsCount` bounds, contact cover
 When you re-run one, update the sentence it supports. A measurement nobody can replay is a rumour,
 and a measurement that has quietly stopped being true is worse.
 
-To drive the CLI against a real account without touching your own config:
+**A manual run from a checkout goes through `bin/max`**, never `node dist/bin/max.js` directly:
 
 ```sh
-export MAX_CONFIG_DIR=/tmp/max-probe/config MAX_STATE_DIR=/tmp/max-probe/state
-MAX_TOKEN="$(cat /path/to/token)" node dist/bin/max.js session start --json
-node dist/bin/max.js chats list --json --limit 5
+pnpm build
+bin/max session start            # once per worktree; asks for the token, echoes nothing
+bin/max chats list --json --limit 5
 ```
 
-The token goes in a file and into the environment — never on a command line, where `ps` and shell
-history can see it.
+It runs the build with config, state and cache in `.max/` inside the worktree (gitignored). A
+build with a newer cache schema migrates whatever cache it opens and drops the read history, so a
+branch must never open the owner's real one.
 
-⚠ **Those directory variables also move the keyring entry** — `cli-core` makes the service
-`max-cli:<config dir>` when any of them is set, so a session stored with them is invisible to a
-command run without them, and the other way round. Export them for every command of the probe or
-for none ([`ARCHITECTURE.md`](ARCHITECTURE.md) §14).
+⚠ **Each worktree therefore has its own session.** The directory variables also move the keyring
+entry — `cli-core` makes the service `max-cli:<config dir>` when any of them is set
+([`ARCHITECTURE.md`](ARCHITECTURE.md) §14) — so a login in one worktree, or in the installed `max`,
+is invisible to another, and every command warns about it on stderr. The token is typed at the
+prompt; never on a command line or in a file.
 
 **The check no assertion replaces**: record a real run and read the directory.
 
 ```sh
-node dist/bin/max.js chats list --limit 3 --record
-node dist/bin/max.js runs list
-cat "$(node dist/bin/max.js runs path <id>)/events.jsonl"
+bin/max chats list --limit 3 --record
+bin/max runs list
+cat "$(bin/max runs path <id>)/events.jsonl"
 ```
 
 Done on 2026-09-20 against the owner's account: three requests, and the file carried opcodes,
@@ -140,8 +142,8 @@ keyring, not the state file.
 Run a listing **twice** against the real account:
 
 ```sh
-node dist/bin/max.js chats list --limit 3 --json
-node dist/bin/max.js chats list --limit 3 --json   # the second run receives a near-empty delta
+bin/max chats list --limit 3 --json
+bin/max chats list --limit 3 --json   # the second run receives a near-empty delta
 ```
 
 The second login answers with only what changed, which after a moment is nothing. Anything that
