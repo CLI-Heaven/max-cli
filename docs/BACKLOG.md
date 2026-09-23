@@ -28,9 +28,11 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 - **CLI-16** · 🚧 `reading-quick-wins` · P2 · `messages list --after <id|time>` — read forward from a point, the pair of
   `--before`. History already takes `forward` (`src/spec/operations/chats.ts:31`), and
   `messages context` uses it.
-- **MAX-15** · 🚧 `reactions` · P2 · Show reactions when reading. MAX sends `reactionInfo` on each message and we drop
-  it (`src/domain/map.ts`). Measure the shape first with a field-only probe like
-  `scripts/probe-attachments.ts`.
+- **MAX-15** · 🚩 P2 · Show reactions when reading. **Correction 2026-09-23:** this line said MAX sends
+  `reactionInfo` on each message; that came from made-up test data (`src/domain/map.test.ts:83`).
+  Measured with `pnpm probe:reactions` (PR #50): 1,101 history messages from 25 chats carried no
+  reaction field at all. Either nobody reacted in the sample, or reactions come by another request.
+  Next: the owner reacts to a message in Saved messages, then the probe runs again.
 - **OPS-11** · 🚧 `test-tooling` · P2 · The scripted MAX in tests fails the test on a request it has no answer for.
   Today it only records it (`src/testing/mock-max.ts:56`), two tests check the record, and every
   other test fails later as a timeout (`docs/TESTING.md:52` promises otherwise).
@@ -48,7 +50,7 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 
 - **MAX-9** · 🟡 P2 · The rest of the messenger surface, in the order of REQUIREMENTS §35.
   Done: attachments, replies and forwards when reading (`src/domain/models.ts:23-75`). Left:
-  reactions when reading (`MAX-15`), then uploads, sending reactions, edits; group administration
+  reactions when reading (`MAX-15`, not measured yet), then uploads, sending reactions, edits; group administration
   last. Each writing operation needs its request shape measured first.
 - **MAX-14** · 🚧 `attachment-download` · P2 · Download an attachment: `messages download <chat> <id> [--output <dir>]`. A photo
   link opens without a cookie or a token (`src/domain/models.ts:26-29`); files are not measured yet.
