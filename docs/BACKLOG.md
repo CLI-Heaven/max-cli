@@ -50,13 +50,13 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   Done: attachments, replies and forwards when reading (`src/domain/models.ts:23-75`). Left:
   reactions when reading (`MAX-15`), then uploads, sending reactions, edits; group administration
   last. Each writing operation needs its request shape measured first.
-- **MAX-14** · P2 · Download an attachment: `messages download <chat> <id> [--output <dir>]`. A photo
+- **MAX-14** · 🚧 `attachment-download` · P2 · Download an attachment: `messages download <chat> <id> [--output <dir>]`. A photo
   link opens without a cookie or a token (`src/domain/models.ts:26-29`); files are not measured yet.
 - **RES-8** · P2 · Does `MSG_SEND` take a reply and markup? `elements` is always sent empty
   (`src/spec/operations/messages.ts:19`); its meaning is a guess from the name. Needs a frame from
   the real web client sending a reply and bold text — the owner captures it in the browser's
   network tab. Unblocks `--reply-to` and markup.
-- **CLI-19** · P3 · `config set|unset <key> [value]`, and defaults shared by every profile. Today the
+- **CLI-19** · 🚧 `config-set` · P3 · `config set|unset <key> [value]`, and defaults shared by every profile. Today the
   file is edited by hand and settings exist only per profile (`src/config.ts:35`).
 - **MAX-4** · 🟡 P3 · Chat addressing. Done: an id, or a title matched exactly then as a fragment,
   an ambiguous one refused (`src/client.ts:149`). Left: `@username`, a phone number, a chat the
