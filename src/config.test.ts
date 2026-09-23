@@ -1,8 +1,8 @@
-import { mkdtempSync, writeFileSync } from "node:fs"
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { beforeEach, describe, expect, it } from "vitest"
-import { configuredProfiles, resolveSettings } from "./config.js"
+import { changeSetting, configuredProfiles, resolveSettings } from "./config.js"
 
 let configDir: string
 
@@ -250,5 +250,45 @@ describe("where each setting came from", () => {
     expect(settings({}, { MAX_PROFILE: "work" }).sources.profile).toBe("MAX_PROFILE")
     expect(settings().sources.profile).toBe("config file")
     expect(settings().configuredProfiles).toEqual(["home", "work"])
+  })
+})
+
+describe("defaults shared by every profile", () => {
+  it("sit between the profile's own setting and the built-in one", () => {
+    withConfig(JSON.stringify({ defaults: { limit: 50, record: true }, profiles: { work: { limit: 5 } } }))
+
+    expect(settings({ profile: "work" })).toMatchObject({ limit: 5, record: true })
+    expect(settings({ profile: "work" }).sources).toMatchObject({ limit: "config file", record: "config defaults" })
+    expect(settings({ limit: 7 }).limit).toBe(7)
+    expect(settings().sources.limit).toBe("config defaults")
+  })
+})
+
+describe("changing a setting", () => {
+  const path = () => join(configDir, "config.json")
+  const file = () => JSON.parse(readFileSync(path(), "utf8"))
+
+  it("writes a profile's setting as the type the file holds, and removes it again", () => {
+    expect(changeSetting(path(), { profile: "work", setting: "limit", value: "50" })).toBe(50)
+    changeSetting(path(), { profile: "work", setting: "record", value: "true" })
+    expect(file()).toEqual({ profiles: { work: { limit: 50, record: true } } })
+
+    changeSetting(path(), { profile: "work", setting: "limit", value: undefined })
+    changeSetting(path(), { profile: "work", setting: "record", value: undefined })
+    expect(file()).toEqual({ profiles: {} })
+  })
+
+  it("writes to `defaults` when no profile is named", () => {
+    changeSetting(path(), { profile: undefined, setting: "keepRunsForDays", value: "7" })
+    expect(file().defaults).toEqual({ keepRunsForDays: 7 })
+  })
+
+  it("**refuses a value the reader would refuse, and leaves the file as it was**", () => {
+    withConfig(JSON.stringify({ profiles: { work: { limit: 5 } } }))
+
+    expect(() => changeSetting(path(), { profile: "work", setting: "limit", value: "0" })).toThrow(/limit/)
+    expect(() => changeSetting(path(), { profile: "work", setting: "color", value: "blue" })).toThrow(/color/)
+    expect(() => changeSetting(path(), { profile: "work", setting: "limitt", value: "5" })).toThrow(/no setting/)
+    expect(file()).toEqual({ profiles: { work: { limit: 5 } } })
   })
 })

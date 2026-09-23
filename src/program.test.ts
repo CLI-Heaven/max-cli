@@ -276,6 +276,19 @@ describe("the program", () => {
       expect(JSON.parse(stdout)).toMatchObject({ profile: "default", configFound: false })
     })
 
+    it("`config set` saves a setting that `config show` then reports from the file", async () => {
+      const set = await runWith(["work", "config", "set", "limit", "30", "--json"])
+      expect(set.code).toBe(0)
+      expect(JSON.parse(set.stdout)).toMatchObject({ scope: "profiles.work", setting: "limit", value: 30 })
+
+      const { stdout } = await runWith(["work", "config", "show", "--json"])
+      expect(JSON.parse(stdout).settings).toContainEqual({ setting: "limit", value: 30, from: "config file" })
+
+      await runWith(["work", "config", "unset", "limit"])
+      const after = await runWith(["work", "config", "show", "--json"])
+      expect(JSON.parse(after.stdout).settings).toContainEqual({ setting: "limit", value: 20, from: "default" })
+    })
+
     it("`skill show` prints the skill file itself", async () => {
       const { stdout } = await runWith(["skill", "show"])
       expect(stdout.startsWith("---\nname: max-cli")).toBe(true)
