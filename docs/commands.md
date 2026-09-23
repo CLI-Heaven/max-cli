@@ -251,6 +251,39 @@ the profile, the profiles that exist, and each setting with where it came from
 max config show [options]
 ```
 
+### `max config set`
+
+save a setting to the configuration file
+
+```sh
+max config set [options] <setting> <value>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays |
+| `value` | обязательный | a number, true or false |
+
+| Опция | Что делает |
+|---|---|
+| `--defaults` | change what every profile gets, rather than this profile |
+
+### `max config unset`
+
+remove a setting from the configuration file
+
+```sh
+max config unset [options] <setting>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays |
+
+| Опция | Что делает |
+|---|---|
+| `--defaults` | change what every profile gets, rather than this profile |
+
 ## `max doctor`
 
 the state this installation is in, without contacting MAX

@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { pathsAreOverridden, resolvePaths } from "@leemour/cli-core"
 import { Command } from "commander"
-import type { SourcedSetting } from "../config.js"
+import { changeSetting, PROFILE_SETTINGS, type SourcedSetting } from "../config.js"
 import { forCommand } from "./context.js"
 
 const SHOWN: SourcedSetting[] = [
@@ -50,6 +50,33 @@ export const configCommand = (): Command => {
         )
       }
     })
+
+  for (const action of ["set", "unset"] as const) {
+    const sub = command
+      .command(action)
+      .argument("<setting>", `one of: ${PROFILE_SETTINGS.join(", ")}`)
+      .option("--defaults", "change what every profile gets, rather than this profile")
+    if (action === "set")
+      sub.argument("<value>", "a number, true or false").description("save a setting to the configuration file")
+    else sub.description("remove a setting from the configuration file")
+
+    sub.action(function (this: Command, setting: string, given: unknown) {
+      const value = action === "set" ? String(given) : undefined
+      const { settings, renderer } = forCommand(this)
+      const defaults = this.opts<{ defaults?: boolean }>().defaults === true
+      const saved = changeSetting(settings.configPath, {
+        profile: defaults ? undefined : settings.profile,
+        setting,
+        value,
+      })
+      renderer.result({
+        configFile: settings.configPath,
+        scope: defaults ? "defaults" : `profiles.${settings.profile}`,
+        setting,
+        value: saved,
+      })
+    })
+  }
 
   return command
 }

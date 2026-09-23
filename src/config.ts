@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs"
-import { CliError, configFilePath, loadConfigFile, resolvePaths } from "@leemour/cli-core"
+import { CliError, configFilePath, loadConfigFile, resolvePaths, saveConfigFile } from "@leemour/cli-core"
 import * as v from "valibot"
 import { DEFAULT_PROFILE, usableProfileName } from "./profile.js"
 
@@ -47,11 +47,16 @@ const profileSettings = v.strictObject(profileEntries, objectMessage(Object.keys
 
 const configEntries = {
   defaultProfile: v.optional(v.string(plain("has to be a profile name, in quotes"))),
+  /** What every profile gets unless it says otherwise. */
+  defaults: v.optional(profileSettings),
   profiles: v.optional(v.record(v.string(), profileSettings, "has to be an object of profiles, by name"), {}),
 }
 export const configSchema = v.strictObject(configEntries, objectMessage(Object.keys(configEntries)))
 
 export type Config = v.InferOutput<typeof configSchema>
+
+export type ProfileSetting = keyof v.InferOutput<typeof profileSettings>
+export const PROFILE_SETTINGS = Object.keys(profileSettings.entries) as ProfileSetting[]
 
 /** Whatever the command line carried. Everything is optional: absent means "not given here". */
 export interface GlobalFlags {
@@ -113,7 +118,14 @@ export interface Settings {
   sources: Record<SourcedSetting, Source>
 }
 
-export type Source = "first word" | "flag" | "MAX_PROFILE" | "MAX_TIMEOUT" | "config file" | "default"
+export type Source =
+  | "first word"
+  | "flag"
+  | "MAX_PROFILE"
+  | "MAX_TIMEOUT"
+  | "config file"
+  | "config defaults"
+  | "default"
 export type SourcedSetting =
   | "profile"
   | "limit"
@@ -164,25 +176,52 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
     DEFAULT_PROFILE,
   )
   const configured = config.profiles[usableProfileName(profile.value)] ?? {}
+  const shared = config.defaults ?? {}
 
   const limit = first<number>(
     [
       ["flag", flags.limit],
       ["config file", configured.limit],
+      ["config defaults", shared.limit],
     ],
     DEFAULT_LIMIT,
   )
-  const timeoutMs = first<number | undefined>([["config file", configured.timeoutMs]], undefined)
-  const color = first<boolean | undefined>([["config file", configured.color]], undefined)
-  const senderColors = first([["config file", configured.senderColors]], false)
+  const timeoutMs = first<number | undefined>(
+    [
+      ["config file", configured.timeoutMs],
+      ["config defaults", shared.timeoutMs],
+    ],
+    undefined,
+  )
+  const color = first<boolean | undefined>(
+    [
+      ["config file", configured.color],
+      ["config defaults", shared.color],
+    ],
+    undefined,
+  )
+  const senderColors = first(
+    [
+      ["config file", configured.senderColors],
+      ["config defaults", shared.senderColors],
+    ],
+    false,
+  )
   const record = first(
     [
       ["flag", flags.record],
       ["config file", configured.record],
+      ["config defaults", shared.record],
     ],
     false,
   )
-  const keepRunsForDays = first([["config file", configured.keepRunsForDays]], DEFAULT_KEEP_RUNS_FOR_DAYS)
+  const keepRunsForDays = first(
+    [
+      ["config file", configured.keepRunsForDays],
+      ["config defaults", shared.keepRunsForDays],
+    ],
+    DEFAULT_KEEP_RUNS_FOR_DAYS,
+  )
 
   /**
    * ⚠ **The only setting with no `config file` row, on purpose.** A budget for one command is
@@ -289,6 +328,52 @@ const durationMs = (value: string | undefined, from: Source): number | undefined
     throw new CliError("validation_error", `${source} has to be more than zero, and "${value}" is not`)
   }
   return ms
+}
+
+/**
+ * Sets or removes one setting of one profile, or of `defaults`, and writes the file back.
+ *
+ * **The value is checked by the same schema that reads the file**, on the whole result, before
+ * anything is written — so `config set` cannot produce a file the next command refuses to load.
+ */
+export const changeSetting = (
+  path: string,
+  { profile, setting, value }: { profile: string | undefined; setting: string; value: string | undefined },
+): unknown => {
+  if (!(PROFILE_SETTINGS as string[]).includes(setting)) {
+    throw new CliError("validation_error", `no setting called "${setting}" — one of: ${PROFILE_SETTINGS.join(", ")}`)
+  }
+
+  const config = readConfig(path)
+  const scope = { ...(profile === undefined ? config.defaults : config.profiles[profile]) } as Record<string, unknown>
+  if (value === undefined) delete scope[setting]
+  else scope[setting] = parseValue(value)
+
+  const changed =
+    profile === undefined
+      ? { ...config, defaults: scope }
+      : { ...config, profiles: { ...config.profiles, [profile]: scope } }
+  if (profile === undefined && Object.keys(scope).length === 0) delete changed.defaults
+  if (profile !== undefined && Object.keys(scope).length === 0) delete changed.profiles[profile]
+
+  const checked = v.safeParse(configSchema, changed)
+  if (!checked.success) {
+    throw new CliError(
+      "validation_error",
+      `${setting} cannot be "${value}": ${checked.issues[0]?.message ?? "invalid"}`,
+    )
+  }
+  saveConfigFile(path, checked.output)
+  return scope[setting] ?? null
+}
+
+/** `50` is a number and `true` a boolean, as they would be in the file; anything else stays text. */
+const parseValue = (value: string): unknown => {
+  try {
+    return JSON.parse(value)
+  } catch {
+    return value
+  }
 }
 
 /**
