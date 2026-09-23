@@ -16,16 +16,17 @@ and the traps behind them.
   schema is `strictObject`, so `"limitt"` reports `profiles.default.limitt`; plain `object()` would
   drop it silently. The **opposite** of MAX answers, where unknown fields are kept (`NEED-35`).
 - **No field can hold a secret** (token, phone, chat id). Nowhere to put one beats a rule.
-- `limit` applies to every command with `--limit`, including `contacts list`. `timeoutMs` unset is the
-  transport's 30 s (`src/protocol/connection.ts`); `color` unset means decide from the terminal.
+- `limit` applies to every command with `--limit`, including `contacts list`. `timeoutMs` unset is
+  the transport's 30 s (`src/protocol/connection.ts`); `color` unset means decide from the terminal.
 
 ## Paging, identical on every listing
 
 `--limit <n>` (default: `limit`, else 20), `--page <n>` (1-based), `--all` (no paging).
 
-- `--page` with `--all` is a `validation_error`. Both resolve in `resolveSettings`; **neither has a
-  config field** (a page number in a file is nobody's setting). Paging is SQL `LIMIT ? OFFSET ?` over
-  the store, not a slice of a full list.
+- `--page` with `--all` is a `validation_error`. Both resolve in `resolveSettings` beside `limit`,
+  so no command re-derives the offset; **neither has a config field** (a page number in a file is
+  nobody's setting). Paging is SQL `LIMIT ? OFFSET ?` over the store, not a slice of a full list —
+  slicing stops being acceptable once the store is the authoritative copy.
 - ⚠ **A page number over a live list can repeat or skip a row** (most-recent-first; a new message
   shifts the boundary). Documented in `--help`, not engineered away.
 - **`messages list` pages with `--before`** instead: history is anchored in time (`chats.history`
