@@ -18,6 +18,7 @@ before the rename (`NEED-48`), the cache (`MAX-7`) and the run log (`CLI-4`).
 | [CONVENTIONS.md](CONVENTIONS.md) | how code and documents are written here |
 | [TESTING.md](TESTING.md) | how to check it yourself, and what each check is for |
 | [BACKLOG.md](BACKLOG.md) | what is left |
+| [BACKLOG_DONE.md](BACKLOG_DONE.md) | what is closed, one line each |
 
 ## Reference — generated, never hand-written
 
