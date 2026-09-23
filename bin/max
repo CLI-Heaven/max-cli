@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+# Runs this worktree's build of `max` with its config, state and cache inside the worktree, in .max/.
+#
+#   pnpm build
+#   bin/max session start        # once per worktree; asks for the token
+#   bin/max chats list --limit 5
+#
+# A build with a newer cache schema migrates whatever cache it opens and drops the read history, so
+# a build from a worktree never opens the real one. The same variables scope the keyring entry
+# (`pathsAreOverridden` in cli-core), which is why each worktree needs its own `session start`.
+set -eu
+
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+[ -f "$root/dist/bin/max.js" ] || { echo "no build in $root — run pnpm build first" >&2; exit 1; }
+
+export MAX_CONFIG_DIR="$root/.max/config" MAX_STATE_DIR="$root/.max/state" MAX_CACHE_DIR="$root/.max/cache"
+exec node "$root/dist/bin/max.js" "$@"

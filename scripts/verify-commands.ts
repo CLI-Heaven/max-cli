@@ -1,7 +1,7 @@
 /**
  * Do the renamed commands still work against the real MAX? Run by hand, never by CI.
  *
- *   max session start                    # once, if there is no session yet
+ *   bin/max session start                # once per worktree, if there is no session yet
  *   pnpm verify:live                     # reads only
  *   pnpm verify:live --send-to-saved     # also sends one message to Saved messages
  *
@@ -19,9 +19,8 @@
 import { spawnSync } from "node:child_process"
 
 const failures: string[] = []
-const binary = "dist/bin/max.js"
-
-const run = (args: string[]) => spawnSync(process.execPath, [binary, ...args], { encoding: "utf8" })
+// Through bin/max, so a branch's build never opens and migrates the owner's real cache.
+const run = (args: string[]) => spawnSync("bin/max", args, { encoding: "utf8" })
 
 /** Field names of our own model are safe to show — they are in the documents. Values never are. */
 const shapeOf = (value: unknown): string => {
@@ -81,7 +80,7 @@ const check = (label: string, args: string[], { listing = false } = {}) => {
 
 const session = run(["account", "show", "--json"])
 if (session.status !== 0) {
-  console.error("no working session on this profile — run `max session start` first")
+  console.error("no working session on this profile — run `bin/max session start` first")
   console.error("(this script never logs in itself: a login it did not need is a login spent)")
   process.exit(2)
 }

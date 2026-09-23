@@ -15,6 +15,8 @@ coverage/
 /session/
 *.session
 /captures/
+# bin/max keeps a worktree's own config, state and cache here.
+/.max/
 
 # Plans, the session journal, the handoff and the cleanup list: the working trail, kept on the
 # machine doing the work. Everything that explains what this is and how it is built stays in
