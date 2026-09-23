@@ -31,6 +31,9 @@ what exists now, and where it is described. The numbers stay reserved — commit
 - **OPS-9** — `scripts/probe.ts` deleted: it never ran and it sent an update opcode. The working
   probes are `pnpm probe:*`.
 - **OPS-10** — [`commands.md`](commands.md) is generated from the command tree (`pnpm generate`).
+- **OPS-11** — a request the scripted MAX has no answer for fails the test that made it (`src/testing/unscripted.ts`); silence is scripted as `() => undefined`.
+- **OPS-12** — `bin/release` says it is waiting for npm before it polls.
+- **OPS-13** — `bin/max` runs a worktree build with config, state and cache in its own `.max/`; one `bin/max session start` per worktree (`NEED-136`).
 
 ## MAX
 
@@ -65,6 +68,7 @@ what exists now, and where it is described. The numbers stay reserved — commit
 - **CLI-13** — `messages show` and `messages context` (`NEED-130`, `NEED-131`). §10.
 - **CLI-14** — `max config show`: every setting and where it came from.
 - **CLI-15** — `run(argv, { streams, tty, store, connection })`; tests read what a command prints.
+- **CLI-21** — a broken config file names the field, what is wrong and what is allowed (`src/config.ts`).
 
 ## Documentation
 

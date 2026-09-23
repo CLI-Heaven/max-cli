@@ -33,19 +33,10 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   Measured with `pnpm probe:reactions` (PR #50): 1,101 history messages from 25 chats carried no
   reaction field at all. Either nobody reacted in the sample, or reactions come by another request.
   Next: the owner reacts to a message in Saved messages, then the probe runs again.
-- **OPS-11** · 🚧 `test-tooling` · P2 · The scripted MAX in tests fails the test on a request it has no answer for.
-  Today it only records it (`src/testing/mock-max.ts:56`), two tests check the record, and every
-  other test fails later as a timeout (`docs/TESTING.md:52` promises otherwise).
 - **CLI-17** · 🚧 `reading-quick-wins` · P3 · `chats show <chat>` — one chat: title, kind, members, unread, last message time.
   Everything is in the cache after a login; no new opcode.
 - **CLI-18** · 🚧 `reading-quick-wins` · P3 · `contacts show <person>` — one person from the cache: name, `@username`, the chats
   we share (`chat_members`).
-- **CLI-21** · 🚧 `test-tooling` · P3 · A broken config file names the field in plain words. Today the text is the
-  validation library's ("Expected never but received …"), from `loadConfigFile` in `cli-core`
-  (`src/config.ts:285`).
-- **OPS-12** · 🚧 `test-tooling` · P3 · `bin/release` prints "waiting for npm" before it polls, so the 3-minute wait does
-  not look like a hang (`bin/release:46`). Done the same way in `cli-core#3`.
-
 ## Features
 
 - **MAX-9** · 🟡 P2 · The rest of the messenger surface, in the order of REQUIREMENTS §35.
@@ -95,9 +86,5 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 
 - **CORE-5** · ⏸️ P3 · Move `braze-cli` onto `@leemour/cli-core` instead of its own copy. Deferred by
   the owner.
-- **OPS-13** · 🚧 `test-tooling` · P3 · A manual run from any worktree uses the owner's real cache file. A build with a
-  newer cache schema migrates it and drops the read history. A per-worktree cache directory would
-  also move the keyring entry (`pathsAreOverridden` in `cli-core`), so every worktree would need
-  its own `session start`. Owner chose this on 2026-09-23 (`NEED-136`).
 - **RISK-2** · P3 · A login per command may exhaust the session. One source claims a reset after
   30–50 logins; 65 on the real account broke nothing (2026-09-21). `max doctor` shows the count.
