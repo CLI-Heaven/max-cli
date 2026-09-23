@@ -88,8 +88,8 @@ to the developer's actual keychain. The seam makes it impossible rather than dis
 
 There is no automated suite against the real MAX, and there should not be: it needs a real account,
 a live token, and it writes messages. What exists instead is a set of probes run by hand, whose
-results are recorded in [`ARCHITECTURE.md`](ARCHITECTURE.md) with the date they were measured —
-deduplication by `cid`, 18-digit message ids, `chatsCount` bounds, contact coverage.
+results are recorded in [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`architecture/`](architecture/) with the
+date they were measured — deduplication by `cid`, 18-digit message ids, `chatsCount` bounds, contact coverage.
 
 When you re-run one, update the sentence it supports. A measurement nobody can replay is a rumour,
 and a measurement that has quietly stopped being true is worse.

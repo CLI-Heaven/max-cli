@@ -271,4 +271,4 @@ try {
   await third.close()
 }
 
-console.log("\nno names, ids or message text were printed. Record what this says in ARCHITECTURE.md.")
+console.log("\nno names, ids or message text were printed. Record what this says in docs/architecture/session.md.")

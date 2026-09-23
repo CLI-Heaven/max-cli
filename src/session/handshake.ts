@@ -15,7 +15,7 @@ export interface SessionOptions {
    * changed in each collection since the one given, so a stored marker is the difference between
    * re-fetching every chat and every contact on every invocation and receiving the handful that
    * moved. Where it is kept, and why the merge and the marker share a transaction, is
-   * `ARCHITECTURE.md`.
+   * `docs/architecture/session.md`.
    *
    * All four carry the same value: nothing reads presence or drafts, and sending the marker in
    * those two as well was measured harmless on the real account (`NEED-103`).
