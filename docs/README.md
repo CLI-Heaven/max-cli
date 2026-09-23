@@ -13,7 +13,7 @@ before the rename (`NEED-48`), the cache (`MAX-7`) and the run log (`CLI-4`).
 | | |
 |---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | how it is built **now**, and which seams you may not cross |
-| [architecture/](architecture/) | its detail: session and login sync, reading messages, settings, the store and search |
+| [architecture/](architecture/) | its detail: session and login sync, reading messages, the store and search |
 | [REQUIREMENTS.md](REQUIREMENTS.md) | the owner's brief, cited by section number |
 | [DECISIONS.md](DECISIONS.md) | what was ruled, and why — read before "fixing" something odd |
 | [CONVENTIONS.md](CONVENTIONS.md) | how code and documents are written here |
