@@ -15,8 +15,11 @@
  * 1,101 messages, and **no field whose name mentions a reaction, not even an empty one**. The
  * fields seen: `attaches` array, `cid` number, `elements` array, `id` string, `link` object,
  * `options` number, `sender` number, `status` string, `text` string, `time` number, `type`
- * string, `updateTime` number. Either nothing in the sample had a reaction, or history does not
- * carry them; reacting to a message in Saved messages and running this again tells which.
+ * string, `updateTime` number.
+ *
+ * Re-measured 2026-09-23 (`30 50`) after the owner reacted to a message in Saved messages, with chat
+ * 0 read explicitly: still no reaction field on any of 653 messages. **History does not carry
+ * reactions**; a client must fetch them with another request, not identified yet.
  */
 import type { Invoke } from "../dist/generated/client.generated.js"
 import { Connection } from "../dist/protocol/connection.js"
@@ -123,9 +126,11 @@ try {
 
   let read = 0
   const kinds = new Map<string, number>()
-  for (const chat of chats.slice(0, chatLimit)) {
-    const chatId = asId(chat.id)
-    if (chatId === undefined) continue
+  // Saved messages (chat 0) is where the owner reacts for this probe, and LOGIN need not list it.
+  const ids = chats.slice(0, chatLimit).map((chat) => asId(chat.id))
+  const chatIds = ["0", ...ids.filter((id): id is string => id !== undefined && id !== "0")]
+  let savedRead = false
+  for (const chatId of chatIds) {
     const answer = await connection.invoke(
       chatsHistory.opcode,
       buildRequest(chatsHistory, {
@@ -142,14 +147,17 @@ try {
       }),
     )
     read += 1
-    const kind = typeof chat.type === "string" ? chat.type : "unknown"
+    const messages = Array.isArray(answer.messages) ? answer.messages : []
+    if (chatId === "0") savedRead = messages.length > 0
+    const chat = chats.find((candidate) => asId(candidate.id) === chatId)
+    const kind = chatId === "0" ? "SAVED" : typeof chat?.type === "string" ? chat.type : "unknown"
     kinds.set(kind, (kinds.get(kind) ?? 0) + 1)
-    if (scan(Array.isArray(answer.messages) ? answer.messages : [])) chatsWithReactions += 1
+    if (scan(messages)) chatsWithReactions += 1
   }
 
   console.log(`LOGIN lastMessage: ${fromLogin.withReactions} of ${fromLogin.scanned} carry a non-empty reaction field`)
   console.log(`history: ${read} chats read, ${scanned} messages, ${withReactions} with a non-empty reaction field`)
-  console.log(`         in ${chatsWithReactions} chats`)
+  console.log(`         in ${chatsWithReactions} chats; Saved messages read: ${savedRead ? "yes" : "no or empty"}`)
   console.log(`chats read by kind: ${[...kinds].map(([kind, count]) => `${kind} ×${count}`).join("  ")}\n`)
   console.log("every top-level message field, with how many messages carry it")
   for (const [key, { count, types }] of [...messageKeys].sort(([a], [b]) => a.localeCompare(b)))
