@@ -775,6 +775,42 @@ describe("with a cache", () => {
     expect(again.sent.map((call) => call.opcode)).toContain(Opcode.LOGIN)
   })
 
+  it("**offline, `before` and `after` read the record either side of the moment**, not its newest page", async () => {
+    const cache = await cacheStore()
+    const at = (minute: number) => new Date(Date.UTC(2026, 8, 20, 0, minute)).toISOString()
+    cache.messages.write(
+      "111",
+      [1, 2, 3, 4].map((minute) => ({
+        id: String(minute),
+        chatId: "111",
+        senderId: "7",
+        senderName: null,
+        timestamp: at(minute),
+        editedAt: null,
+        text: "",
+        outgoing: false,
+        attachments: [],
+        replyTo: null,
+        forwardedFrom: null,
+      })),
+    )
+    const max = mockMax({ answers: {} })
+    const dir = mkdtempSync(join(tmpdir(), "max-cli-"))
+    const offline = new MaxClient({
+      store: new SessionStore({ keyring: memoryKeyring(), configDir: dir, env: {} }),
+      cache,
+      offline: true,
+      connection: new Connection({ createSocket: max.createSocket, timeoutMs: 50 }),
+    })
+
+    const ids = async (options: { before?: number; after?: number }) =>
+      (await offline.messages.list("111", { limit: 2, ...options })).items.map((message) => message.id)
+
+    expect(await ids({ before: Date.parse(at(3)) })).toEqual(["2", "3"])
+    expect(await ids({ after: Date.parse(at(1)) })).toEqual(["2", "3"])
+    expect(max.sent).toEqual([])
+  })
+
   it("says what to do when offline has nothing recorded", async () => {
     const cache = await cacheStore()
     const max = mockMax({ answers: {} })
@@ -1020,9 +1056,9 @@ describe("with a cache", () => {
     it("**`--before` reads the time out of a message id**, with no stored copy needed", async () => {
       const client = clientSharing(await cacheStore(), mockMax({ answers: {} }))
 
-      expect(client.messages.before("116762160362694583")).toBe(Number(116762160362694583n >> 16n))
-      expect(client.messages.before("2026-09-20T01:00:00Z")).toBe(Date.parse("2026-09-20T01:00:00Z"))
-      expect(() => client.messages.before("next tuesday")).toThrow(/ISO 8601/)
+      expect(client.messages.moment("116762160362694583")).toBe(Number(116762160362694583n >> 16n))
+      expect(client.messages.moment("2026-09-20T01:00:00Z")).toBe(Date.parse("2026-09-20T01:00:00Z"))
+      expect(() => client.messages.moment("next tuesday")).toThrow(/ISO 8601/)
       await client.close()
     })
 

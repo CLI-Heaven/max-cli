@@ -99,6 +99,18 @@ describe("searching the store", () => {
     expect(store.chats.count()).toBe(3)
   })
 
+  it("**`--unread` pages and counts the same chats**, and a chat MAX said nothing about is not unread", async () => {
+    const store = await open()
+    store.chats.write([
+      { ...named("1", "Unread"), unreadCount: 3 },
+      { ...named("2", "Read"), unreadCount: 0 },
+      { ...named("3", "Unknown"), unreadCount: null },
+    ])
+
+    expect(store.chats.page({ limit: 20, offset: 0, unread: true }).map((c) => c.id)).toEqual(["1"])
+    expect(store.chats.count({ unread: true })).toBe(1)
+  })
+
   it("**forgets a renamed chat's old name** — an external index does not follow its table alone", async () => {
     const store = await open()
     store.chats.write([named("1", "Work Chat")])
@@ -344,6 +356,26 @@ describe("the cache store", () => {
       )
 
       expect(store.people.chatsWith("alice").sort()).toEqual(["1", "2"])
+    })
+
+    it("gives a chat card its members and a person card their chats, from the same membership", async () => {
+      const store = await open()
+      store.mergeDelta(
+        delta({
+          chats: [group("1", 100), group("2", 200)],
+          people: [person("alice", "Alice"), person("bob", "Bob")],
+          members: new Map([
+            ["1", ["alice", "bob"]],
+            ["2", ["alice"]],
+          ]),
+        }),
+      )
+
+      expect(store.chats.members("1").map((m) => m.name)).toEqual(["Alice", "Bob"])
+      expect(store.people.sharedChats("alice").map((c) => c.id)).toEqual(["2", "1"])
+      expect(store.people.get("bob")?.name).toBe("Bob")
+      expect(store.people.get("nobody")).toBeUndefined()
+      expect(store.chats.get("2")?.kind).toBe("group")
     })
 
     it("**orders somebody whose name arrived after their chat did**", async () => {

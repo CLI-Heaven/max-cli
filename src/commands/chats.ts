@@ -11,6 +11,7 @@ export const chatsCommand = (): Command => {
   withPaging(command.command("list").description("the chats this account is in"))
     .option("--search <text>", "only chats whose name contains this; at least 3 characters")
     .option("--kind <dialog|group|channel>", "only chats of this kind")
+    .option("--unread", "only chats with unread messages")
     .action(async function (this: Command) {
       const options = this.optsWithGlobals()
       const context = forCommand(this)
@@ -27,8 +28,29 @@ export const chatsCommand = (): Command => {
               ...window(settings),
               ...(options.search === undefined ? {} : { query: String(options.search) }),
               ...(options.kind === undefined ? {} : { kind: chatKind(options.kind) }),
+              ...(options.unread === true ? { unread: true } : {}),
             }),
           )
+        } finally {
+          await client.close()
+          cache?.close()
+        }
+      })
+    })
+
+  command
+    .command("show")
+    .argument("<chat>", "chat id, or part of a chat name")
+    .description("one chat: its kind, unread count, last message time and who is in it")
+    .action(async function (this: Command, chat: string) {
+      const { renderer, settings, createClient, run } = forCommand(this)
+      const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
+
+      await run("chats show", async (events) => {
+        const client = createClient({ events, ...(cache ? { cache } : {}) })
+
+        try {
+          renderer.result(await client.chats.show(chat))
         } finally {
           await client.close()
           cache?.close()

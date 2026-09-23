@@ -23,8 +23,13 @@ export const messagesCommand = (): Command => {
     // rather than approximate. A message id is what the reader has in front of them, having just
     // read the output; an ISO 8601 time is what still works once that message is gone.
     .option("--before <id-or-time>", "read what came before this message id, or this ISO 8601 time")
+    .option("--after <id-or-time>", "read what came after this message id, or this ISO 8601 time; not with --before")
     .action(async function (this: Command, chat: string) {
       const options = this.optsWithGlobals()
+      if (options.before !== undefined && options.after !== undefined) {
+        throw new CliError("validation_error", "--before and --after are two directions; give one of them")
+      }
+
       const context = forCommand(this)
       const { renderer, settings, createClient, run } = context
       const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
@@ -33,13 +38,21 @@ export const messagesCommand = (): Command => {
         const client = createClient({ events, ...(cache ? { cache } : {}) })
 
         try {
+          const anchor =
+            options.after !== undefined
+              ? { after: client.messages.moment(String(options.after), "--after") }
+              : options.before !== undefined
+                ? { before: client.messages.moment(String(options.before)) }
+                : {}
           const chatId = await client.chats.resolve(chat)
-          const before = options.before === undefined ? {} : { before: client.messages.before(String(options.before)) }
           renderPage(
             context,
-            await client.messages.list(chatId, { limit: settings.limit, ...before }),
+            await client.messages.list(chatId, { limit: settings.limit, ...anchor }),
             feed(context),
-            ([oldest]) => `older ones: \`--before ${oldest?.id}\``,
+            (items) =>
+              "after" in anchor
+                ? `newer ones: \`--after ${items.at(-1)?.id}\``
+                : `older ones: \`--before ${items[0]?.id}\``,
           )
         } finally {
           await client.close()
