@@ -75,6 +75,8 @@ what exists now, and where it is described. The numbers stay reserved — commit
 - **CLI-17** — `chats show <chat>`: one chat with its members (`null` for a channel).
 - **CLI-18** — `contacts show <person>` by id, `@username` or name fragment; the chats shared.
 - **CLI-20** — `chats list --unread`: only chats MAX counts unread messages in, filtered in SQL.
+- **CLI-19** — `max config set|unset`, and a `defaults` block shared by every profile, checked by the
+  reader's schema before writing (`src/config.ts`, `changeSetting`).
 
 ## Documentation
 
