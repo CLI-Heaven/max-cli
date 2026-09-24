@@ -6,9 +6,10 @@ export interface MockMaxOptions {
   /**
    * One answer per opcode. An opcode with no answer is an unexpected call, and the test fails.
    * A function may return `undefined` to stay silent, which is how a timeout is scripted — and
-   * the only way a test says it means a request to go unanswered.
+   * the only way a test says it means a request to go unanswered. It is handed the request, so
+   * one answer can differ by chat.
    */
-  answers: Record<number, Payload | (() => Payload | undefined)>
+  answers: Record<number, Payload | ((request: Payload) => Payload | undefined)>
   /** Opcodes to refuse, as MAX does: `cmd=3` with an `error` in the payload. */
   refuse?: Record<number, string>
 }
@@ -66,7 +67,7 @@ export const mockMax = ({ answers, refuse = {} }: MockMaxOptions): MockMax => {
         return
       }
 
-      const payload = typeof answer === "function" ? answer() : answer
+      const payload = typeof answer === "function" ? answer(frame.payload ?? {}) : answer
       if (payload === undefined) return // Silence: the caller will time out, as MAX sometimes does.
 
       this.answer({ seq: frame.seq ?? 0, opcode: frame.opcode, payload, cmd: Command.RESPONSE })

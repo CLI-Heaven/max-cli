@@ -39,9 +39,12 @@ export interface SessionOptions {
  * diagnostic hook in `MaxClient` saw nothing of the two requests every single invocation makes,
  * and `max chats list` answers from the LOGIN response without sending anything else.
  */
+/** How many chats LOGIN is asked for. MAX answers the newest that many, newest first (`FIND-80`). */
+export const LOGIN_CHATS = 40
+
 export const startSession = async (
   invoke: Invoke,
-  { token, deviceId, chatsCount = 40, sync = 0 }: SessionOptions,
+  { token, deviceId, chatsCount = LOGIN_CHATS, sync = 0 }: SessionOptions,
 ): Promise<Payload> => {
   await invoke(sessionInit, { userAgent: WEB_USER_AGENT, deviceId })
 

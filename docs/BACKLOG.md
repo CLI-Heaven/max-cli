@@ -29,12 +29,6 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   `docs_ai/plans/2026-09-24-latest-and-scheduled.md`. Builds on `MSG_SEND` as #56 leaves it.
   Correction 2026-09-24: this line first asked whether MAX can schedule at all, with the OS
   scheduler as the fallback. It can.
-- **CLI-23** · 🚧 `cli-23-inbox` · P2 · `max inbox`: the latest messages across all chats in one
-  command, readable by default and `--json` for scripts. `messages list` reads one chat only.
-  Remembers the last check in the profile, so a scheduled run shows only what is new;
-  `--since <time>` overrides it for a one-off look (`NEED-162`). The first run shows the last 24
-  hours (`NEED-164`); other people's messages only (`NEED-165`). Must not mark anything read
-  (REQUIREMENTS §19). Plan: `docs_ai/plans/2026-09-24-latest-and-scheduled.md`.
 - **CLI-26** · P3 · `max inbox --unread`: what MAX counts unread, capped per chat, instead of what
   came since the last check. The owner's next step after `CLI-23` (`NEED-164`).
 - **MAX-9** · 🟡 P2 · The rest of the messenger surface, in the order of REQUIREMENTS §35.

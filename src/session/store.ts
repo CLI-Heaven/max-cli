@@ -18,6 +18,8 @@ export interface SessionState {
   /** Counts logins so a token that stops working can be explained rather than guessed at (NEED-8). */
   logins: number
   lastLoginAt?: string
+  /** Where `max inbox` starts next time: the newest message it has read (`NEED-162`). */
+  lastCheckAt?: string
 }
 
 export interface SessionStoreOptions {
@@ -108,5 +110,6 @@ const pick = (state: Partial<SessionState>) => {
   const extra: Partial<SessionState> = {}
   if (typeof state.viewerId === "string") extra.viewerId = state.viewerId
   if (typeof state.lastLoginAt === "string") extra.lastLoginAt = state.lastLoginAt
+  if (typeof state.lastCheckAt === "string") extra.lastCheckAt = state.lastCheckAt
   return extra
 }

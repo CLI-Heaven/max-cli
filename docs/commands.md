@@ -317,6 +317,10 @@ max sends list [options]
 |---|---|
 | `--limit <n>` | how many to show По умолчанию: `20`. |
 
+## `max inbox`
+
+what other people wrote in any chat since the last check
+
 ## `max config`
 
 the settings in force, and where each one came from

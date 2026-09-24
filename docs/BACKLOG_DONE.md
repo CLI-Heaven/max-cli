@@ -67,6 +67,8 @@ what exists now, and where it is described. The numbers stay reserved — commit
 
 ## The command
 
+- **CLI-23** — `max inbox`: other people's messages in every chat since the last check, the point
+  kept in the profile and moved only after printing; `--since` for a one-off look (`src/commands/inbox.ts`).
 - **CLI-1** — the vertical slice: session, account, chats, messages, send.
 - **CLI-2** — machine mode: stdout carries one JSON value and nothing else, tested.
 - **CLI-3** — every command closes its transport on every exit path, tested.
