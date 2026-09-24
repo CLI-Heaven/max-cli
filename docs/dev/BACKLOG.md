@@ -25,6 +25,16 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
 
 ## Features
 
+- **MAX-46** · P1 · Commands that run at once lose their login in the local cache. Three
+  `max chats list` together: two print `the local record did not take this login …
+  ERR_SQLITE_ERROR` (`src/client.ts:1403`), the third keeps it (measured 2026-09-24, `FIND-130`).
+  The answers are complete; what is lost is the cache update — chats, members, the sync marker.
+  WAL and `busy_timeout` are on (`src/cache/driver.ts`), so the error is not a plain busy wait:
+  start at `mergeDelta` / `inTransaction` (`src/cache/store.ts:289`, `:470`). Probably (not
+  measured): a plain `BEGIN` is deferred, and two readers upgrading to writers at once get
+  SQLITE_BUSY without waiting — `BEGIN IMMEDIATE` takes the write lock first. With one shared
+  `max serve` every command gets the same login and writes it at the same moment, so it happens
+  more often now.
 - **CLI-34** · P2 · `max backup messages <chat> --since <date> | --last
   <n>`: without `--run` only the estimate (what the cache holds, what is missing, requests and
   minutes); with `--run` it fills the gaps within limits and stops on any error. One chat per call
