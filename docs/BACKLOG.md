@@ -37,10 +37,10 @@ operation is measured first in Saved messages (chat 0), as replies and reactions
 and needs the owner's yes before it ships. Deleting messages and marking them read stay ruled out
 (`NEED-32`, REQUIREMENTS §19).
 
-- **MAX-23** · P1 · Send photos, videos and files: `max messages send <chat> [text] --file <path>`.
+- **MAX-23** · 🚧 `send-media` · P1 · Send photos, videos and files: `max messages send <chat> [text] --file <path>`.
   Upload first, then attach in `MSG_SEND` (`upload_photo`, `upload_video`, `upload_file` in
   `api/uploads/`). The bytes are the owner's content: only name and size reach a log.
-- **MAX-24** · P1 · Send a voice message (`upload_voice`).
+- **MAX-24** · 🚧 `send-media` · P1 · Send a voice message (`upload_voice`).
 - **MAX-25** · P1 · Edit your own message (`edit_message`, `MSG_EDIT` 67). It changes a message the
   other person may have read already.
 - **MAX-26** · P1 · Forward a message to another chat (`forward_message`; tsmax sends `MSG_SEND` with
