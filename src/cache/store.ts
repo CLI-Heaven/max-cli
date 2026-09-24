@@ -130,6 +130,9 @@ export interface CacheStore {
     write(chatId: Id, messages: Message[]): void
     /** After a send, what we hold for that chat is missing the message we just added. */
     invalidate(chatId: Id): void
+    /** What `max messages transcribe` heard in a voice message, and which model heard it. */
+    transcript(chatId: Id, messageId: Id): { text: string; model: string } | undefined
+    keepTranscript(chatId: Id, messageId: Id, text: string, model: string): void
     /** `before` messages up to and including `time`, and `after` messages later than it, oldest first. */
     window(chatId: Id, time: number, before: number, after: number): Message[]
     /**
@@ -571,6 +574,19 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
       },
       invalidate: (chatId) => {
         database.prepare("DELETE FROM fetched WHERE kind = ?").run(`messages:${chatId}`)
+      },
+      transcript: (chatId, messageId) => {
+        const row = database
+          .prepare("SELECT transcript, transcript_model FROM messages WHERE chat_id = ? AND id = ?")
+          .get(chatId, messageId)
+        return typeof row?.transcript === "string"
+          ? { text: row.transcript, model: String(row.transcript_model) }
+          : undefined
+      },
+      keepTranscript: (chatId, messageId, text, model) => {
+        database
+          .prepare("UPDATE messages SET transcript = ?, transcript_model = ? WHERE chat_id = ? AND id = ?")
+          .run(text, model, chatId, messageId)
       },
       search: ({ query, chatId, limit, offset }) => {
         const values: (string | number)[] = [phrase(query)]

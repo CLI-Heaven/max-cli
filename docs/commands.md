@@ -466,6 +466,23 @@ max messages download <chat> <message> [options]
 |---|---|
 | `--output <dir>` | where to save them По умолчанию: `.`. |
 
+### `max messages transcribe`
+
+turn a voice message into text, on this machine — the recording goes nowhere
+
+```sh
+max messages transcribe <chat> <message> [options]
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+| `message` | обязательный | id of a voice message |
+
+| Опция | Что делает |
+|---|---|
+| `--model <id>` | which downloaded speech model to use; `max models audio list` shows them |
+
 ### `max messages send`
 
 send one text message
@@ -562,6 +579,18 @@ max messages unpin <chat>
 | Аргумент | | Что это |
 |---|---|---|
 | `chat` | обязательный | chat id, or part of a chat name |
+
+## `max models`
+
+models that run on this machine
+
+### `max models audio`
+
+speech models for transcribing voice messages
+
+```sh
+max models audio
+```
 
 ## `max reactions`
 
@@ -716,7 +745,7 @@ max config set <setting> <value> [options]
 
 | Аргумент | | Что это |
 |---|---|---|
-| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour, serve, updateCheck |
+| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour, serve, updateCheck, transcribeModel |
 | `value` | обязательный | a number, true or false |
 
 | Опция | Что делает |
@@ -733,7 +762,7 @@ max config unset <setting> [options]
 
 | Аргумент | | Что это |
 |---|---|---|
-| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour, serve, updateCheck |
+| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour, serve, updateCheck, transcribeModel |
 
 | Опция | Что делает |
 |---|---|

@@ -178,13 +178,17 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
 Added by the owner on 2026-09-24. Each one goes against REQUIREMENTS §3 or §18, and the line says
 which; the plan for it starts by saying so.
 
-- **CLI-24** · P1 · Voice messages to text with a local speech model, downloaded on first use
+- **CLI-24** · 🟡 🚧 `cli-24-transcribe` · P1 · Voice messages to text with a local speech model, downloaded on first use
   and never bundled. Builds on `max messages download`. The model runs on this machine; audio never
   leaves it. Model: **GigaAM v3** (int8, ~230 MB) through the WebAssembly build of `sherpa-onnx`,
   Silero VAD for audio over 25 s, `ogg-opus-decoder` — no native module (owner, 2026-09-24,
   `NEED-213`; research G5 §3.13). Deferred by the owner the same day, then made the most important
   next item the same evening. Measured 2026-09-24 on Node 24 and Bun 1.3.14: 5 min of Ogg Opus in
-  42 s through VAD, ~700 MB peak; without VAD it crashes at 5 min.
+  42 s through VAD, ~700 MB peak; without VAD it crashes at 5 min. Done 2026-09-24: `max messages
+  transcribe`, `max models audio list|download`, three pinned models (`gigaam-v3`, `gigaam-v3-ctc`,
+  `parakeet-v3`), the text kept in the cache (schema 5), MCP tool `max_messages_transcribe`. On the
+  owner's own voice messages `gigaam-v3` was best and stays the default (`NEED-235`). Left:
+  `--transcribe` on `messages list` and `inbox`.
 - **CLI-25** · P3 · `max bot …` — work with a MAX bot through the official bot API and a bot token,
   beside the personal account. Reopens REQUIREMENTS §3 ("not a bot-account client"). Bots are
   issued only to verified organisations, sole traders and the self-employed

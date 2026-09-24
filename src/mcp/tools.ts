@@ -8,9 +8,13 @@ import {
 } from "@modelcontextprotocol/server"
 import { toStandardJsonSchema } from "@valibot/to-json-schema"
 import * as v from "valibot"
+import { openProfileCache } from "../cache/index.js"
 import type { MaxClient } from "../client.js"
 import { maskedProfile } from "../domain/map.js"
 import type { Page } from "../domain/models.js"
+import { transcribe } from "../transcribe/index.js"
+import { modelsDirectory } from "../transcribe/install.js"
+import { DEFAULT_MODEL, speechModel } from "../transcribe/models.js"
 import { confirmer, type SendArgs } from "./confirm.js"
 import type { MaxSession } from "./session.js"
 
@@ -34,11 +38,23 @@ interface Tool<S extends v.ObjectSchema<v.ObjectEntries, undefined>> {
   input: S
   annotations: ToolAnnotations
   _meta?: Record<string, unknown>
-  answer: (client: MaxClient, args: v.InferOutput<S>, defaults: { limit: number }) => Promise<object>
+  answer: (client: MaxClient, args: v.InferOutput<S>, defaults: Defaults) => Promise<object>
+}
+
+/**
+ * What a tool may need beyond its arguments. `release` drops the connection early: a minute of
+ * transcription runs synchronously, and a socket that answers no ping for that long is a client
+ * MAX can tell apart. The next call logs in again.
+ */
+interface Defaults {
+  limit: number
+  profile: string
+  transcribeModel: string
+  release: () => Promise<void>
 }
 
 type AnyTool = Omit<Tool<v.ObjectSchema<v.ObjectEntries, undefined>>, "answer"> & {
-  answer: (client: MaxClient, args: Record<string, unknown>, defaults: { limit: number }) => Promise<object>
+  answer: (client: MaxClient, args: Record<string, unknown>, defaults: Defaults) => Promise<object>
 }
 
 /** Typed where it is written; erased here because the SDK checks the arguments against `input` first. */
@@ -182,6 +198,27 @@ const READ_TOOLS = {
     },
   }),
 
+  max_messages_transcribe: tool({
+    title: "Transcribe a voice message",
+    description:
+      "The text of one voice message, heard on the owner's machine by a local speech model; the recording goes " +
+      "nowhere. Up to a minute for five minutes of speech; asked again, it answers from the cache. Refuses when " +
+      "the model is not downloaded: the owner runs `max models audio download <id>` in a terminal.",
+    input: v.object({ chat, message }),
+    annotations: READ,
+    answer: async (client, args, { profile, transcribeModel, release }) => {
+      const model = speechModel(transcribeModel)
+      const directory = modelsDirectory()
+      const chatId = await client.chats.resolve(args.chat)
+      // Its own handle: `release` closes the session's, and the text is saved after that.
+      const cache = await openProfileCache(profile)
+      try {
+        return await transcribe(client, chatId, args.message, { model, directory, cache, release })
+      } finally {
+        cache?.close()
+      }
+    },
+  }),
   max_messages_context: tool({
     title: "Show a message",
     description:
@@ -321,7 +358,16 @@ export const registerTools = (
     confirmSend = false,
     allowMarkRead = false,
     defaultLimit,
-  }: { allowSend: boolean; confirmSend?: boolean; allowMarkRead?: boolean; defaultLimit: number },
+    profile,
+    transcribeModel = DEFAULT_MODEL,
+  }: {
+    allowSend: boolean
+    confirmSend?: boolean
+    allowMarkRead?: boolean
+    defaultLimit: number
+    profile: string
+    transcribeModel?: string
+  },
 ): void => {
   const confirmed = confirmSend ? confirmer() : undefined
 
@@ -343,10 +389,10 @@ export const registerTools = (
       },
       async (args: Record<string, unknown>, ctx: ServerContext) => {
         try {
-          const result = await session.use(name.replace(/^max_/, "mcp ").replaceAll("_", " "), (client) =>
+          const result = await session.use(name.replace(/^max_/, "mcp ").replaceAll("_", " "), (client, release) =>
             confirmed && name === "max_messages_send"
               ? confirmed(client, args as unknown as SendArgs, ctx)
-              : definition.answer(client, args, { limit: defaultLimit }),
+              : definition.answer(client, args, { limit: defaultLimit, profile, transcribeModel, release }),
           )
           return isInputRequiredResult(result) ? result : answered(result)
         } catch (error) {

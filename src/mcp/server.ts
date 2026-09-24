@@ -27,7 +27,14 @@ export const createMaxServer = (
       { name: "max", version: VERSION },
       { instructions: instructions({ allowSend, confirmSend, allowMarkRead, profile: context.settings.profile }) },
     )
-    registerTools(server, session, { allowSend, confirmSend, allowMarkRead, defaultLimit: context.settings.limit })
+    registerTools(server, session, {
+      allowSend,
+      confirmSend,
+      allowMarkRead,
+      defaultLimit: context.settings.limit,
+      profile: context.settings.profile,
+      transcribeModel: context.settings.transcribeModel,
+    })
     return server
   }
   return { session, build }

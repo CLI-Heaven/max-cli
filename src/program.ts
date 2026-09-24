@@ -19,6 +19,7 @@ import { doctorCommand } from "./commands/doctor.js"
 import { inboxCommand } from "./commands/inbox.js"
 import { mcpCommand } from "./commands/mcp.js"
 import { messagesCommand } from "./commands/messages.js"
+import { modelsCommand } from "./commands/models.js"
 import { reactionsCommand } from "./commands/reactions.js"
 import { recipientsCommand } from "./commands/recipients.js"
 import { runsCommand } from "./commands/runs.js"
@@ -89,6 +90,7 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
   program.addCommand(chatsCommand())
   program.addCommand(contactsCommand())
   program.addCommand(messagesCommand())
+  program.addCommand(modelsCommand())
   program.addCommand(reactionsCommand())
   program.addCommand(recipientsCommand())
   program.addCommand(sendsCommand())

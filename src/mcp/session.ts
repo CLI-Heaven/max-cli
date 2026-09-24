@@ -53,7 +53,7 @@ export class MaxSession {
     this.#now = now
   }
 
-  use<T>(name: string, body: (client: MaxClient) => Promise<T>): Promise<T> {
+  use<T>(name: string, body: (client: MaxClient, release: () => Promise<void>) => Promise<T>): Promise<T> {
     const turn = this.#queue.then(() => this.#call(name, body))
     this.#queue = turn.catch(() => {})
     return turn
@@ -65,14 +65,14 @@ export class MaxSession {
     await this.#release()
   }
 
-  async #call<T>(name: string, body: (client: MaxClient) => Promise<T>): Promise<T> {
+  async #call<T>(name: string, body: (client: MaxClient, release: () => Promise<void>) => Promise<T>): Promise<T> {
     if (this.#closed) throw new Error("the MCP server is shutting down")
     clearTimeout(this.#idle)
 
     try {
       return await this.#context.run(name, async (events) => {
         this.#events = events ?? (() => {})
-        return body(await this.#hold())
+        return body(await this.#hold(), () => this.#release())
       })
     } catch (error) {
       if (!(isCliError(error) && HARMLESS.has(error.code))) await this.#release()
