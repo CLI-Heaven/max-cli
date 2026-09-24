@@ -160,6 +160,24 @@ max chats join <link>
 |---|---|---|
 | `link` | обязательный | an invite link, https://max.ru/join/…, or a public one, https://max.ru/<name> |
 
+### `max chats read`
+
+mark a chat read; the other person sees that you read it
+
+**Меняет что-то в MAX.**
+
+```sh
+max chats read <chat> [options]
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+
+| Опция | Что делает |
+|---|---|
+| `--until <message>` | only up to this message id, inclusive; the newest by default |
+
 ### `max chats leave`
 
 leave a group or channel; the others in it see that you left
@@ -381,6 +399,7 @@ max messages list <chat> [options]
 | `--limit <n>` | how many to read |
 | `--before <id-or-time>` | read what came before this message id, or this ISO 8601 time |
 | `--after <id-or-time>` | read what came after this message id, or this ISO 8601 time; not with --before |
+| `--mark-read` | also mark the chat read up to the newest message shown; the other person sees it |
 
 ### `max messages search`
 
@@ -822,6 +841,7 @@ max mcp [options]
 |---|---|
 | `--allow-send` | offer the send tool; without it the server can only read |
 | `--confirm-send` | show the owner each send in a form from the server — the chat it resolved to and the text |
+| `--allow-mark-read` | offer the tool that marks a chat read; the other person sees it |
 
 ## Коды возврата
 

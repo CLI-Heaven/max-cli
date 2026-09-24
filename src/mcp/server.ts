@@ -9,6 +9,7 @@ import { registerTools } from "./tools.js"
 export interface ServerOptions extends SessionOptions {
   allowSend: boolean
   confirmSend?: boolean
+  allowMarkRead?: boolean
 }
 
 /**
@@ -18,15 +19,15 @@ export interface ServerOptions extends SessionOptions {
  */
 export const createMaxServer = (
   context: CommandContext,
-  { allowSend, confirmSend = false, ...sessionOptions }: ServerOptions,
+  { allowSend, confirmSend = false, allowMarkRead = false, ...sessionOptions }: ServerOptions,
 ) => {
   const session = new MaxSession(context, sessionOptions)
   const build = (): McpServer => {
     const server = new McpServer(
       { name: "max", version: VERSION },
-      { instructions: instructions({ allowSend, confirmSend, profile: context.settings.profile }) },
+      { instructions: instructions({ allowSend, confirmSend, allowMarkRead, profile: context.settings.profile }) },
     )
-    registerTools(server, session, { allowSend, confirmSend, defaultLimit: context.settings.limit })
+    registerTools(server, session, { allowSend, confirmSend, allowMarkRead, defaultLimit: context.settings.limit })
     return server
   }
   return { session, build }

@@ -34,6 +34,7 @@ import type {
   Profile,
   QuotedMessage,
   Reactions,
+  ReadMark,
   WindowedMessage,
 } from "./domain/models.js"
 import { type Invoke, wireClient } from "./generated/client.generated.js"
@@ -306,6 +307,30 @@ export class MaxClient {
         const chat = toGroupCard(record((await this.#wire.chats.join({ link: wire })).chat) ?? {})
         return { chatId: chat.id, result: chat }
       })
+    },
+
+    /**
+     * Marks a chat read up to `messageId`, or up to its newest message. The one call here that
+     * sends `CHAT_MARK`; nothing that reads does (REQUIREMENTS §19). The other person sees it, so it
+     * passes the send guard like a pin, and is not retried.
+     */
+    markRead: async (chatId: Id, messageId?: Id): Promise<ReadMark> => {
+      if (this.#offline)
+        throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot mark a chat read")
+      this.#guard(chatId, "read", messageId)
+
+      try {
+        await this.#connectOnce()
+        const upTo =
+          messageId ?? (await this.#history(chatId, { from: Date.now(), backward: 1, forward: 0 })).at(-1)?.id
+        if (!upTo) throw new CliError("not_found", `chat ${chatId} has no messages to mark read`)
+        const answer = await this.#wire.chats.mark({ type: "READ_MESSAGE", chatId, messageId: upTo, mark: Date.now() })
+        this.#sends?.record({ chatId, kind: "read", outcome: "sent", messageId: upTo })
+        return { chatId, messageId: upTo, unread: typeof answer.unread === "number" ? answer.unread : null }
+      } catch (error) {
+        this.#sends?.record({ chatId, kind: "read", outcome: "failed", errorCode: asCliError(error).code })
+        throw error
+      }
     },
 
     leave: async (reference: string): Promise<ChatChange> => {

@@ -42,13 +42,33 @@ export const chatsHistory = defineOperation({
   provenance: { confidence: "measured", sources: ["measured against MAX 2026-09-19"] },
 })
 
-export const chatMark = reserveOpcode({
+export const chatsMark = defineOperation({
   name: "chats.mark",
   constant: "CHAT_MARK",
   opcode: 50,
-  reason:
-    "Reading is observational by construction. Marking a conversation read is a change to somebody's account that no read command asked for, so 50 is declared here and never sent — and `src/client.test.ts` asserts its absence from everything the client sent.",
-  provenance: { confidence: "confirmed", sources: ["tsmax", "max-api-docs/protocol/chats.md"] },
+  auth: true,
+  /**
+   * Sent only by `max chats read` and `messages list --mark-read`: reading never sends it, and the
+   * tests that assert so stay (REQUIREMENTS §19).
+   */
+  request: v.strictObject({
+    type: v.literal("READ_MESSAGE"),
+    chatId: id(),
+    messageId: id(),
+    /** When it was read, in milliseconds. */
+    mark: v.number(),
+  }),
+  response: v.looseObject({ unread: v.optional(v.number()), mark: v.optional(v.number()) }),
+  provenance: {
+    confidence: "observed",
+    sources: [
+      "PyMax `api/messages/service.py` read_message, `payloads.py` ReadMessagesPayload, `types/domain/message.py` ReadState (53103f0)",
+      "tsmax",
+      "max-api-docs/protocol/chats.md",
+    ],
+    notes:
+      "Not measured: the shape is PyMax's. PyMax also sends `type: READ_REACTION`, which is not used here (`CLI-33`).",
+  },
 })
 
 /** `join/<token>` — what 57 and 89 take for a private link. A public channel's link goes whole. */

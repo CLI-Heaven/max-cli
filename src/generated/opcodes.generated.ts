@@ -29,11 +29,6 @@ export const Opcode = {
   UNIDENTIFIED_36: 36,
   CONTACT_INFO_BY_PHONE: 46,
   CHAT_HISTORY: 49,
-  /**
-   * **Declared, never sent.** Reading is observational by construction. Marking a conversation read is a change to
-   * somebody's account that no read command asked for, so 50 is declared here and never sent — and
-   * `src/client.test.ts` asserts its absence from everything the client sent.
-   */
   CHAT_MARK: 50,
   /**
    * **Declared, never sent.** Deleting a chat is left out of MAX-31 for the reason of `NEED-32`: a tool that can

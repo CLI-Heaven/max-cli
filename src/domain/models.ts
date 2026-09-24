@@ -56,6 +56,13 @@ export interface Pin {
   pinned: Id | null
 }
 
+/** A chat marked read up to `messageId`, inclusive. `unread` is what MAX says is left, or `null`. */
+export interface ReadMark {
+  chatId: Id
+  messageId: Id
+  unread: number | null
+}
+
 export interface Reactions {
   counts: { reaction: string; count: number }[]
   /** This account's own reaction, or `null`. */

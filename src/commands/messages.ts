@@ -13,8 +13,8 @@ export const messagesCommand = (): Command => {
   const command = new Command("messages").description("read and send messages in a chat")
 
   /**
-   * Observational, and deliberately so: this reads `CHAT_HISTORY` and never sends `CHAT_MARK`, so
-   * looking at a conversation does not tell anyone you read it (REQUIREMENTS §19).
+   * Observational, and deliberately so: this reads `CHAT_HISTORY` and sends `CHAT_MARK` only with
+   * `--mark-read`, so looking at a conversation does not tell anyone you read it (REQUIREMENTS §19).
    */
   command
     .command("list")
@@ -26,6 +26,7 @@ export const messagesCommand = (): Command => {
     // read the output; an ISO 8601 time is what still works once that message is gone.
     .option("--before <id-or-time>", "read what came before this message id, or this ISO 8601 time")
     .option("--after <id-or-time>", "read what came after this message id, or this ISO 8601 time; not with --before")
+    .option("--mark-read", "also mark the chat read up to the newest message shown; the other person sees it")
     .action(async function (this: Command, chat: string) {
       const options = this.optsWithGlobals()
       if (options.before !== undefined && options.after !== undefined) {
@@ -47,14 +48,17 @@ export const messagesCommand = (): Command => {
                 ? { before: client.messages.moment(String(options.before)) }
                 : {}
           const chatId = await client.chats.resolve(chat)
-          renderPage(
-            context,
-            await client.messages.list(chatId, { limit: settings.limit, ...anchor }),
-            feed(context),
-            (items) =>
-              "after" in anchor
-                ? `newer ones: \`--after ${items.at(-1)?.id}\``
-                : `older ones: \`--before ${items[0]?.id}\``,
+          const page = await client.messages.list(chatId, { limit: settings.limit, ...anchor })
+          const newest = page.items.at(-1)
+          // Before printing: a refused mark must not leave the messages on stdout under a failing exit code.
+          if (options.markRead === true && newest) {
+            const mark = await client.chats.markRead(chatId, newest.id)
+            renderer.note(`marked read up to ${mark.messageId}`)
+          }
+          renderPage(context, page, feed(context), (items) =>
+            "after" in anchor
+              ? `newer ones: \`--after ${items.at(-1)?.id}\``
+              : `older ones: \`--before ${items[0]?.id}\``,
           )
         } finally {
           await client.close()

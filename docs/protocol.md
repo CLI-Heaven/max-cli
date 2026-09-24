@@ -35,7 +35,7 @@ sources disagree.
 | `folders.update` | 274 | `FOLDERS_UPDATE` | after login | measured | measured against MAX 2026-09-24 (`pnpm probe:account`): created, renamed and deleted a folder; a 21-character title came back `folder.validation.title.too-long`, 15 was taken; web.max.ru chunk `_app/immutable/chunks/5oCuRT0F.js`, read 2026-09-24; PyMax 53103f0 `create_folder`, `update_folder` |
 | `folders.delete` | 276 | `FOLDERS_DELETE` | after login | measured | measured against MAX 2026-09-24 (`pnpm probe:account`); web.max.ru chunk `_app/immutable/chunks/5oCuRT0F.js`, read 2026-09-24; PyMax 53103f0 `delete_folder` |
 | `chats.history` | 49 | `CHAT_HISTORY` | after login | measured | measured against MAX 2026-09-19 |
-| `chats.mark` | 50 | `CHAT_MARK` | **never sent** | confirmed | tsmax; max-api-docs/protocol/chats.md |
+| `chats.mark` | 50 | `CHAT_MARK` | after login | observed | PyMax `api/messages/service.py` read_message, `payloads.py` ReadMessagesPayload, `types/domain/message.py` ReadState (53103f0); tsmax; max-api-docs/protocol/chats.md |
 | `chats.list` | 53 | `CHATS_LIST` | after login | measured | measured against MAX 2026-09-19; max-api-docs/protocol/chats.md |
 | `chats.linkInfo` | 89 | `LINK_INFO` | after login | measured | measured against MAX 2026-09-24 (`pnpm probe:groups`); PyMax resolve_group_by_link |
 | `chats.join` | 57 | `CHAT_JOIN` | after login | measured | measured against MAX 2026-09-24 with a private group link (`pnpm probe:groups`); PyMax join_group |
@@ -62,6 +62,5 @@ A number in the registry is not permission to use it.
 - **LOGOUT** (20) — `max session end` forgets the token locally and tells MAX nothing. Ending the session server-side would also end it for the browser tab the token came from, which is not what the command promises.
 - **AUTH_QR_APPROVE** (290) — The phone's side of a QR login: it lets whoever showed the code into the owner's account. A CLI logging itself in never approves anybody.
 - **UNIDENTIFIED_36** (36) — Nobody agrees what it is: tsmax and PyMax call it `CONTACT_LIST`; the protocol documentation calls it `GET_BLOCKED`. Sent once with the owner's permission on 2026-09-20 and it exists — but it refuses every payload we can guess, and one guess closed the connection. It stays unsent until somebody watches a real client send it (`PROTO-1`).
-- **CHAT_MARK** (50) — Reading is observational by construction. Marking a conversation read is a change to somebody's account that no read command asked for, so 50 is declared here and never sent — and `src/client.test.ts` asserts its absence from everything the client sent.
 - **CHAT_DELETE** (52) — Deleting a chat is left out of MAX-31 for the reason of `NEED-32`: a tool that can destroy a conversation for everyone in it is a poor trade for tidiness.
 - **MSG_DELETE** (66) — Deliberately never called. Giving this tool the ability to destroy somebody's messages, in order to tidy up after a test, is a poor trade (`NEED-32`).
