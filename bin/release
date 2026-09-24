@@ -1,13 +1,21 @@
 #!/usr/bin/env sh
 # Publishes the version in package.json, tags it, creates the GitHub release, installs `max`.
 #
-#   bin/release
+#   bin/release           # publishes from GitHub Actions (.github/workflows/release.yml)
+#   bin/release --local   # publishes from this machine with the npm token from the keyring
 #
-# Steps 3–7 of docs/releasing.md. Run on a clean, up-to-date `main`. The npm token comes from the
-# keyring and is never printed — not on success, not in an error.
+# Steps 3–7 of docs/releasing.md. Run on a clean, up-to-date `main`. The npm token is never
+# printed — not on success, not in an error.
 set -eu
 
 cd "$(dirname "$0")/.."
+
+mode=ci
+case "${1:-}" in
+  "") ;;
+  --local) mode=local ;;
+  *) echo "usage: bin/release [--local]" >&2; exit 2 ;;
+esac
 
 git fetch -q origin
 [ "$(git branch --show-current)" = "main" ] || { echo "not on main" >&2; exit 1; }
@@ -17,6 +25,8 @@ git merge -q --ff-only origin/main
 # The shell is still running the file it read before the merge. On 2026-09-23 that meant the fixed
 # check of 080a5c4 never ran: the checkout was behind, and the old script published and gave up.
 [ "$(git rev-parse HEAD)" = "$before" ] || exec "$0" "$@"
+# The workflow publishes origin/main, so a local commit not pushed yet would silently not ship.
+[ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "main is ahead of origin/main — push first" >&2; exit 1; }
 
 version=$(node -p 'require("./package.json").version')
 # `npm view` rather than a curl of the registry document: that document is served through a CDN
@@ -27,6 +37,34 @@ published() {
 if published; then
   echo "$version is already on npm — raise the version first" >&2
   exit 1
+fi
+
+install() {
+  echo "== installing =="
+  pnpm add -g "@leemour/max-cli@$version"
+  cd /tmp && max -V
+}
+
+if [ "$mode" = ci ]; then
+  last_run() {
+    gh run list --workflow release.yml --branch main --event workflow_dispatch --limit 1 \
+      --json databaseId --jq '.[0].databaseId // ""'
+  }
+  previous=$(last_run)
+  echo "== starting the release workflow for $version =="
+  gh workflow run release.yml --ref main
+  run=""
+  for _ in $(seq 30); do
+    run=$(last_run)
+    [ -n "$run" ] && [ "$run" != "$previous" ] && break
+    run=""
+    sleep 2
+  done
+  [ -n "$run" ] || { echo "the release workflow did not start within a minute — see gh run list --workflow release.yml" >&2; exit 1; }
+  gh run watch "$run" --exit-status
+  git fetch -q --tags origin
+  install
+  exit 0
 fi
 
 echo "== checks for $version =="
@@ -57,6 +95,4 @@ git push -q origin "v$version"
 awk -v v="$version" '$0 ~ "^## "v" " {on=1; next} /^## / && on {exit} on' CHANGELOG.md |
   gh release create "v$version" --title "$version" --notes-file -
 
-echo "== installing =="
-pnpm add -g "@leemour/max-cli@$version"
-cd /tmp && max -V
+install
