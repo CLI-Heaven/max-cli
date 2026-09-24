@@ -13,6 +13,8 @@ const SHOWN: SourcedSetting[] = [
   "senderColors",
   "record",
   "keepRunsForDays",
+  "readOnly",
+  "sendsPerHour",
 ]
 
 export const configCommand = (): Command => {

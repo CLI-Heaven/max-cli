@@ -54,6 +54,11 @@ what exists now, and where it is described. The numbers stay reserved — commit
   2026-09-23; never overwrites (`src/download.ts`).
 - **MAX-17** — not doing: an alternative MAX client (web, mobile). Accounts on third-party clients
   get banned, the owner found on 2026-09-24 (`NEED-144`).
+- **MAX-18** — an optional recipient list per profile; a send outside it is refused with code 7
+  (`src/sends/recipients.ts`, `max recipients`).
+- **MAX-19** — `readOnly`: a read-only profile refuses to send with code 5.
+- **MAX-20** — `sendsPerHour`, 30 by default: over it, code 8 with the time the next send is possible.
+- **MAX-21** — every send attempt journalled without its text, always; `max sends list`.
 
 ## The command
 
@@ -88,3 +93,4 @@ what exists now, and where it is described. The numbers stay reserved — commit
 - **DOC-2** — the user pages in Russian, indexed by [`README.md`](README.md) (`NEED-108`).
 - **DOC-3** — [`skills/max-cli/SKILL.md`](../skills/max-cli/SKILL.md), printed by `max skill show`
   (`NEED-132`).
+- **DOC-4** — what the send guards hold and what they do not: `docs/security.md`, the skill.

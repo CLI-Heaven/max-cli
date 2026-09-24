@@ -6,6 +6,9 @@ import { withDeadline } from "../deadline.js"
 import { resolveOutput } from "../output.js"
 import { rootOf } from "../profile.js"
 import { recorded } from "../runs/recording.js"
+import { sendGuard } from "../sends/guard.js"
+import { SendJournal, sendsPathFor } from "../sends/journal.js"
+import { RecipientList, recipientsPathFor } from "../sends/recipients.js"
 import { SessionStore } from "../session/store.js"
 
 /**
@@ -98,6 +101,15 @@ export const forCommand = (command: Command): CommandContext => {
         timeoutMs: settings.timeoutMs,
         warn: renderer.note,
         offline: command.optsWithGlobals().offline === true,
+        sends: sendGuard({
+          profile: settings.profile,
+          readOnly: settings.readOnly,
+          readOnlyFrom: settings.sources.readOnly,
+          sendsPerHour: settings.sendsPerHour,
+          journal: new SendJournal(sendsPathFor(settings.profile)),
+          recipients: new RecipientList(recipientsPathFor(settings.profile)),
+          warn: renderer.warn,
+        }),
         ...(environment.connection ? { connection: environment.connection() } : {}),
         ...extra,
       })
