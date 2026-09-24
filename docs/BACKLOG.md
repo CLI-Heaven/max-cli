@@ -101,7 +101,7 @@ and needs the owner's yes before it ships. Deleting messages and marking them re
 
 ## Foundation and risks
 
-- **CORE-9** · P2 · Self-update: `max update` finds how `max` was installed (npm, pnpm or bun,
+- **CORE-9** · P2 · 🚧 `core-9-self-update` · Self-update: `max update` finds how `max` was installed (npm, pnpm or bun,
   globally) and runs that package manager, plus a once-a-day "a newer version exists" line — on
   stderr, in pretty mode only, never where an agent reads JSON. Shared in `cli-core`; the idea is
   oclif's `plugin-update`.
