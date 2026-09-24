@@ -88,7 +88,7 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   The plan weighs it against the smaller option: numbered `.sql` files and a ~30-line runner on
   the `user_version` we already keep. Either way: the FTS5 tables and triggers are hand-written
   SQL, and the migration files have to ship inside the npm package. Starts at `src/cache/schema.ts`.
-- **MAX-40** · P1 · Speak the official web client's binary protocol: frames with version 10, a
+- **MAX-40** · 🚧 `feat/max-40-binary-protocol` · P1 · Speak the official web client's binary protocol: frames with version 10, a
   binary header and a MessagePack payload, instead of our JSON text frames (version 11,
   `src/protocol/frame.ts`). Read in the web.max.ru bundle 2026-09-24 (`nre()` in its socket code). Raised from P3 by the owner
   on 2026-09-24 (`NEED-230`), next after transcription: PyMax moved to MessagePack on
