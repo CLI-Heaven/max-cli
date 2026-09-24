@@ -23,6 +23,7 @@ export const createMaxServer = (
   { allowSend, confirmSend = false, allowMarkRead = false, allowDelete = false, ...sessionOptions }: ServerOptions,
 ) => {
   const session = new MaxSession(context, sessionOptions)
+  const permitted = context.settings.allow
   const build = (): McpServer => {
     const server = new McpServer(
       { name: "max", version: VERSION },
@@ -33,6 +34,7 @@ export const createMaxServer = (
           allowMarkRead,
           allowDelete,
           profile: context.settings.profile,
+          permitted,
         }),
       },
     )
@@ -44,6 +46,7 @@ export const createMaxServer = (
       defaultLimit: context.settings.limit,
       profile: context.settings.profile,
       transcribeModel: context.settings.transcribeModel,
+      permitted,
     })
     return server
   }

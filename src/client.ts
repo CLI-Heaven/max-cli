@@ -1908,7 +1908,7 @@ export class MaxClient {
       throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot change the account")
 
     try {
-      this.#sends?.check(null, "account")
+      this.#sends?.check(null, "account", action)
     } catch (error) {
       this.#sends?.record({
         chatId: null,

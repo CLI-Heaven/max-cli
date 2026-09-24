@@ -13,6 +13,7 @@ import { DELETE_AT_ONCE, type MaxClient } from "../client.js"
 import { sendTime } from "../config.js"
 import { maskedProfile } from "../domain/map.js"
 import type { Page } from "../domain/models.js"
+import type { Permission } from "../sends/permissions.js"
 import { transcribe } from "../transcribe/index.js"
 import { modelsDirectory } from "../transcribe/install.js"
 import { DEFAULT_MODEL, speechModel } from "../transcribe/models.js"
@@ -337,6 +338,17 @@ const SEND_TOOLS = {
 }
 
 /** Registered only with `--allow-mark-read`: the other person sees it, and `--allow-send` does not imply it. */
+/** Which profile permission each writing tool needs (`CLI-37`). */
+const TOOL_PERMISSION: Record<string, Permission> = {
+  max_messages_send: "send",
+  max_messages_edit: "edit",
+  max_messages_forward: "forward",
+  max_messages_pin: "pin",
+  max_messages_unpin: "pin",
+  max_chats_read: "read",
+  max_messages_delete: "delete",
+}
+
 const MARK_READ_TOOLS = {
   max_chats_read: tool({
     title: "Mark a chat read",
@@ -394,6 +406,7 @@ export const registerTools = (
     defaultLimit,
     profile,
     transcribeModel = DEFAULT_MODEL,
+    permitted,
   }: {
     allowSend: boolean
     confirmSend?: boolean
@@ -402,15 +415,22 @@ export const registerTools = (
     defaultLimit: number
     profile: string
     transcribeModel?: string
+    /** What the profile allows; `undefined` is everything. The guard refuses anyway — this only hides. */
+    permitted?: readonly Permission[]
   },
 ): void => {
   const confirmed = confirmSend ? confirmer() : undefined
 
-  const tools: Record<string, AnyTool> = {
-    ...READ_TOOLS,
+  const offered: Record<string, AnyTool> = {
     ...(allowSend ? SEND_TOOLS : {}),
     ...(allowMarkRead ? MARK_READ_TOOLS : {}),
     ...(allowDelete ? DELETE_TOOLS : {}),
+  }
+  const tools: Record<string, AnyTool> = {
+    ...READ_TOOLS,
+    ...Object.fromEntries(
+      Object.entries(offered).filter(([name]) => !permitted || permitted.includes(TOOL_PERMISSION[name] as Permission)),
+    ),
   }
 
   for (const [name, definition] of Object.entries(tools)) {

@@ -303,6 +303,21 @@ describe("the MCP server", () => {
     expect(await names({ allowMarkRead: true })).toContain("max_chats_read")
   })
 
+  it("does not offer a tool the profile's allow list leaves out, whatever the flags", async () => {
+    const profile = "mcp-allow"
+    await run([profile, "config", "set", "allow", "send,pin"], { streams: captureStreams(), tty: false })
+    const { client } = await connect({ allowSend: true, allowDelete: true, allowMarkRead: true }, { profile })
+
+    const names = (await client.listTools()).tools.map(({ name }) => name)
+
+    expect(names).toEqual(expect.arrayContaining(["max_messages_send", "max_messages_pin", "max_messages_unpin"]))
+    expect(names).not.toContain("max_messages_edit")
+    expect(names).not.toContain("max_messages_forward")
+    expect(names).not.toContain("max_messages_delete")
+    expect(names).not.toContain("max_chats_read")
+    expect(names).toContain("max_messages_list")
+  })
+
   it("marks a chat read up to the message given, through the send guards", async () => {
     const { client, max } = await connect(
       { allowMarkRead: true },

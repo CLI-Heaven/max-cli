@@ -61,7 +61,9 @@ export const configCommand = (): Command => {
       .argument("<setting>", `one of: ${ALL_SETTINGS.join(", ")}`)
       .option("--defaults", "change what every profile gets, rather than this profile")
     if (action === "set")
-      sub.argument("<value>", "a number, true or false").description("save a setting to the configuration file")
+      sub
+        .argument("<value>", "a number, true or false, or for allow a list like send,reaction")
+        .description("save a setting to the configuration file")
     else sub.description("remove a setting from the configuration file")
 
     sub.action(function (this: Command, setting: string, given: unknown) {

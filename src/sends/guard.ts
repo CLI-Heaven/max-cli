@@ -1,6 +1,7 @@
 import { CliError } from "@leemour/cli-core"
 import type { Id } from "../domain/models.js"
 import type { AccountAction, ChatAction, SendEntry, SendJournal, SendKind } from "./journal.js"
+import { type Permission, permissionFor } from "./permissions.js"
 import type { RecipientList } from "./recipients.js"
 
 const HOUR_MS = 60 * 60 * 1000
@@ -8,7 +9,7 @@ const HOUR_MS = 60 * 60 * 1000
 /** What `MaxClient.messages.send` asks before it sends, and tells after — on every outcome. */
 export interface SendGuard {
   /** `null` for a chat that does not exist yet — joining or creating one — or for the account itself: no list can name either. */
-  check(chatId: Id | null, kind?: SendKind, action?: ChatAction, count?: number): void
+  check(chatId: Id | null, kind?: SendKind, action?: ChatAction | AccountAction, count?: number): void
   record(entry: Omit<SendEntry, "at" | "profile">): void
 }
 
@@ -17,6 +18,9 @@ export interface SendGuardOptions {
   readOnly: boolean
   /** Named in the refusal, so the owner can find what decided it. */
   readOnlyFrom: string
+  /** `undefined` allows every action; a list only those (`CLI-37`). */
+  allow?: readonly Permission[]
+  allowFrom?: string
   sendsPerHour: number
   journal: SendJournal
   recipients: RecipientList
@@ -44,6 +48,8 @@ export const sendGuard = ({
   profile,
   readOnly,
   readOnlyFrom,
+  allow,
+  allowFrom = "default",
   sendsPerHour,
   journal,
   recipients,
@@ -55,6 +61,18 @@ export const sendGuard = ({
       throw new CliError(
         "permission_error",
         `profile ${profile} is read-only (readOnly, from the ${readOnlyFrom}) — it cannot send, react, change chats or change the account`,
+      )
+    }
+
+    const permission = permissionFor(kind, action)
+    if (allow && !allow.includes(permission)) {
+      const command =
+        allowFrom === "config defaults" ? "max config set --defaults allow" : `max ${profile} config set allow`
+      throw new CliError(
+        "permission_error",
+        `profile ${profile} does not allow ${permission} (allow: ${allow.join(", ") || "nothing"} — from the ${allowFrom}); ` +
+          `to allow it: ${command} ${[...allow, permission].join(",")}`,
+        { permission },
       )
     }
 
