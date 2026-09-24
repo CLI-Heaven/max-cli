@@ -1,6 +1,8 @@
+import { once } from "node:events"
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { Worker } from "node:worker_threads"
 import { afterEach, describe, expect, it } from "vitest"
 import type { Chat, Contact, Id, Message } from "../domain/models.js"
 import { openCache } from "./open.js"
@@ -486,6 +488,42 @@ describe("the cache store", () => {
 
       expect(store.syncMarker()).toBe(1)
       expect(store.people.page(recent)).toEqual([])
+    })
+
+    it("**waits for another command's write** instead of losing the merge", async () => {
+      const path = join(mkdtempSync(join(tmpdir(), "max-store-")), "cache.db")
+      const store = openStore({ database: await openCache(path), now: () => 1_000_000 })
+      opened.push(store)
+
+      // node:sqlite is synchronous, so the other writer needs its own thread to commit while
+      // mergeDelta is blocked. It holds the write lock across the merge's first read.
+      const other = new Worker(
+        `
+        const { parentPort, workerData } = require("node:worker_threads")
+        const { DatabaseSync } = require("node:sqlite")
+        const database = new DatabaseSync(workerData.path)
+        database.exec("PRAGMA busy_timeout = 5000; BEGIN IMMEDIATE")
+        database.exec("INSERT INTO people (id, source, fetched_at) VALUES ('bob', 'login', 1)")
+        parentPort.postMessage("locked")
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 300)
+        database.exec("COMMIT")
+        database.close()
+        `,
+        { eval: true, workerData: { path } },
+      )
+      const finished = once(other, "exit")
+      await once(other, "message")
+
+      store.mergeDelta(delta({ people: [person("alice")], marker: 2 }))
+      await finished
+
+      expect(store.syncMarker()).toBe(2)
+      expect(
+        store.people
+          .page(recent)
+          .map((p) => p.id)
+          .sort(),
+      ).toEqual(["alice", "bob"])
     })
   })
 
