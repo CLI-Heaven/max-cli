@@ -9,7 +9,7 @@
 терминале таблицы и цвет, и ничего не происходит само.
 
 ```sh
-max session start          # один раз: токен уходит в ключницу
+max session start qr-chrome  # один раз: токен уходит в ключницу
 max chats list --limit 5
 max messages list "Иван Петров"
 ```
@@ -77,11 +77,13 @@ max --version      # 0.1.0
 
 ## Вход
 
-Своего входа по номеру телефона пока нет: `max session start` импортирует токен, полученный в
-официальном клиенте, и кладёт его в ключницу.
+`max session start qr-chrome` открывает web.max.ru в браузере: вы сканируете QR-код приложением MAX,
+и токен уходит в ключницу. Ещё способы — `qr`, `sms`, `sms-chrome` и `token`
+([docs/sessions.md](docs/sessions.md)).
 
 ```sh
-max session start                      # спросит токен, не отображая ввод
+max session start qr-chrome            # вход через web.max.ru
+max session start                      # или спросит токен, не отображая ввод
 pass show max/token | max session start # или из трубы
 max account show                       # кто вы
 ```
