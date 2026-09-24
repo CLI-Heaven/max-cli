@@ -6,10 +6,10 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 
 ## Rules
 
-- **An id is permanent** and never reused. The highest one used anywhere — every branch, open pull
-  requests included, since a number claimed on a branch is not in `main` yet:
-  `git fetch && git log --all -p | grep -ohE '<PREFIX>-[0-9]+' | sort -V | tail -1`. Looking at
-  `main` alone gave out `CLI-26` three times and `MAX-16` twice on 2026-09-24.
+- **An id is permanent** and never reused. Take one with `bin/next-id <PREFIX>`: one counter for
+  every worktree on the machine, under a lock, and never below the highest number on any branch.
+  Searching the text instead gave out `CLI-26` three times and `MAX-16` and `MAX-23` twice on
+  2026-09-24.
 - **Prefixes:** `RES` research and measurement · `OPS` repository, tooling, CI, release · `CORE`
   `cli-core` · `SPEC` protocol spec and generator · `MAX` domain, client, transport, session ·
   `CLI` commands and output · `DOC` handwritten docs · `PROTO` protocol unknowns · `RISK` risks.
