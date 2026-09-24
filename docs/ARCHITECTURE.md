@@ -97,7 +97,8 @@ socket, so "the next frame is my answer" eventually reads somebody's incoming me
   both requests are checked and reported like any other (§13).
 - LOGIN returns profile, chats, contacts, recent messages and presence, so `account show` and `chats
   list` need **no further request**. `PROFILE` (16) is a profile *update* and refuses an empty
-  payload — not used for reading.
+  payload — not used for reading. **Correction 2026-09-24:** it is sent now, by `max account update`
+  only (`MAX-33`), with the current first name always included, as the web client does.
 - `interactive: false` on login and history (the web client sends `true` for a watching person).
   Whether it moves presence or read state is not settled (`RES-5`).
 
