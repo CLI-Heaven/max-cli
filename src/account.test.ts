@@ -185,6 +185,18 @@ describe("the profile", () => {
   })
 })
 
+describe("the phone number", () => {
+  it("`account show` prints only its last four digits, and `--show-phone` the whole of it", async () => {
+    const { environment } = account()
+    const masked = await runWith(["account", "show"], environment)
+    const whole = await runWith(["account", "show", "--show-phone"], environment)
+
+    expect(JSON.parse(masked.stdout).phone).toBe("***7890")
+    expect(masked.stdout).not.toContain("123456")
+    expect(JSON.parse(whole.stdout).phone).toBe(PHONE)
+  })
+})
+
 describe("folders", () => {
   it("`update` sends the folder back whole, changing only the title, without what MAX keeps for itself", async () => {
     const { environment, sent } = account()

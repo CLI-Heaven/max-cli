@@ -1,6 +1,7 @@
 import { CliError } from "@leemour/cli-core"
 import { annotate } from "@leemour/cli-core/commands"
 import { Command } from "commander"
+import { maskedProfile } from "../domain/map.js"
 import { forCommand } from "./context.js"
 
 export const accountCommand = (): Command => {
@@ -8,15 +9,18 @@ export const accountCommand = (): Command => {
 
   command
     .command("show")
-    .description("who this profile is logged in as")
+    .description("who this profile is logged in as; the phone number shows its last four digits")
+    .option("--show-phone", "print the whole phone number")
     .action(async function (this: Command) {
+      const whole = this.opts<{ showPhone?: boolean }>().showPhone === true
       const { renderer, createClient, run } = forCommand(this)
 
       await run("account show", async (events) => {
         const client = createClient({ events })
 
         try {
-          renderer.result(await client.account.me())
+          const profile = await client.account.me()
+          renderer.result(whole ? profile : maskedProfile(profile))
         } finally {
           // Nothing below this line: an open socket keeps the process alive after the answer printed.
           await client.close()
@@ -40,7 +44,7 @@ export const accountCommand = (): Command => {
         const client = createClient({ events })
 
         try {
-          renderer.result(await client.account.update(options))
+          renderer.result(maskedProfile(await client.account.update(options)))
         } finally {
           await client.close()
         }

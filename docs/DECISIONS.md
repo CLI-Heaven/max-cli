@@ -721,3 +721,8 @@ token from the answer, the web client does not).
 
 **NEED-204 · May a probe rewrite the profile with its current values and create, rename and delete a
 test folder?** **Yes, both.** «3 A».
+
+**NEED-209 · Does `max account show` print the phone number, and do agents see it over MCP?**
+**Masked, with a flag to show it whole.** «fix it but mask it (show last 4 digits) and add a flag to
+unmask». `account show` prints `***1234`, `--show-phone` prints the number; `account update` and the
+MCP tool `max_account_show` always mask it. Closes `MAX-43`.
