@@ -5,6 +5,9 @@ what exists now, and where it is described. The numbers stay reserved — commit
 
 ## Foundation and repository
 
+- **CORE-9** — self-update: `max update [--check]` through the package manager that installed it,
+  and a daily "newer version" line for a person at a terminal only. `@leemour/cli-core/update` (0.4.0);
+  `updateCheck` in `defaults`. `docs/installation.md`, `docs/configuration.md`.
 - **CORE-12** — shell completion from the command registry: `@leemour/cli-core/completion` (0.3.0)
   suggests, `max complete zsh|bash|fish|powershell` prints the script (`@bomb.sh/tab`, pinned) and
   answers from the local cache, never the network. `docs/installation.md`.

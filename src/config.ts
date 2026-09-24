@@ -49,10 +49,14 @@ const profileEntries = {
 }
 const profileSettings = v.strictObject(profileEntries, objectMessage(Object.keys(profileEntries)))
 
+/** One program, one version: whether to look for a newer one is not a per-profile matter. */
+const defaultsEntries = { ...profileEntries, updateCheck: v.optional(flag) }
+const defaultsSettings = v.strictObject(defaultsEntries, objectMessage(Object.keys(defaultsEntries)))
+
 const configEntries = {
   defaultProfile: v.optional(v.string(plain("has to be a profile name, in quotes"))),
   /** What every profile gets unless it says otherwise. */
-  defaults: v.optional(profileSettings),
+  defaults: v.optional(defaultsSettings),
   profiles: v.optional(v.record(v.string(), profileSettings, "has to be an object of profiles, by name"), {}),
 }
 export const configSchema = v.strictObject(configEntries, objectMessage(Object.keys(configEntries)))
@@ -61,6 +65,8 @@ export type Config = v.InferOutput<typeof configSchema>
 
 export type ProfileSetting = keyof v.InferOutput<typeof profileSettings>
 export const PROFILE_SETTINGS = Object.keys(profileSettings.entries) as ProfileSetting[]
+export const DEFAULTS_ONLY_SETTINGS = ["updateCheck"] as const
+export const ALL_SETTINGS: string[] = [...PROFILE_SETTINGS, ...DEFAULTS_ONLY_SETTINGS]
 
 /** Whatever the command line carried. Everything is optional: absent means "not given here". */
 export interface GlobalFlags {
@@ -115,6 +121,8 @@ export interface Settings {
   keepRunsForDays: number
   readOnly: boolean
   sendsPerHour: number
+  /** Whether a person at a terminal hears, once a day, that a newer version exists. */
+  updateCheck: boolean
   /** Named in errors and in `max --help`, so a person can find the file that decided this. */
   configPath: string
   configFound: boolean
@@ -143,6 +151,7 @@ export type SourcedSetting =
   | "keepRunsForDays"
   | "readOnly"
   | "sendsPerHour"
+  | "updateCheck"
 
 /** The first given value wins, and says which it was. */
 const first = <T>(candidates: [Source, T | undefined][], fallback: T): { value: T; from: Source } => {
@@ -245,6 +254,8 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
     DEFAULT_SENDS_PER_HOUR,
   )
 
+  const updateCheck = first([["config defaults", shared.updateCheck]], true)
+
   /**
    * ⚠ **The only setting with no `config file` row, on purpose.** A budget for one command is
    * about a particular run, not a habit, and a timeout written into a file is one somebody trips
@@ -276,6 +287,7 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
     keepRunsForDays: keepRunsForDays.value,
     readOnly: readOnly.value,
     sendsPerHour: sendsPerHour.value,
+    updateCheck: updateCheck.value,
     configPath,
     configFound: existsSync(configPath),
     configuredProfiles: Object.keys(config.profiles),
@@ -290,6 +302,7 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
       keepRunsForDays: keepRunsForDays.from,
       readOnly: readOnly.from,
       sendsPerHour: sendsPerHour.from,
+      updateCheck: updateCheck.from,
     },
   }
 
@@ -366,8 +379,14 @@ export const changeSetting = (
   path: string,
   { profile, setting, value }: { profile: string | undefined; setting: string; value: string | undefined },
 ): unknown => {
-  if (!(PROFILE_SETTINGS as string[]).includes(setting)) {
-    throw new CliError("validation_error", `no setting called "${setting}" — one of: ${PROFILE_SETTINGS.join(", ")}`)
+  if (!ALL_SETTINGS.includes(setting)) {
+    throw new CliError("validation_error", `no setting called "${setting}" — one of: ${ALL_SETTINGS.join(", ")}`)
+  }
+  if (profile !== undefined && (DEFAULTS_ONLY_SETTINGS as readonly string[]).includes(setting)) {
+    throw new CliError(
+      "validation_error",
+      `${setting} is one setting for the whole program, not per profile — add --defaults`,
+    )
   }
 
   const config = readConfig(path)
