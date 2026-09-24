@@ -32,6 +32,7 @@ export const createMaxServer = (
       confirmSend,
       allowMarkRead,
       defaultLimit: context.settings.limit,
+      profile: context.settings.profile,
       transcribeModel: context.settings.transcribeModel,
     })
     return server

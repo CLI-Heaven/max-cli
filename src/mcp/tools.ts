@@ -8,7 +8,7 @@ import {
 } from "@modelcontextprotocol/server"
 import { toStandardJsonSchema } from "@valibot/to-json-schema"
 import * as v from "valibot"
-import type { CacheStore } from "../cache/index.js"
+import { openProfileCache } from "../cache/index.js"
 import type { MaxClient } from "../client.js"
 import { maskedProfile } from "../domain/map.js"
 import type { Page } from "../domain/models.js"
@@ -41,11 +41,16 @@ interface Tool<S extends v.ObjectSchema<v.ObjectEntries, undefined>> {
   answer: (client: MaxClient, args: v.InferOutput<S>, defaults: Defaults) => Promise<object>
 }
 
-/** What a tool may need beyond its arguments: the page size, and for transcription the model and the cache. */
+/**
+ * What a tool may need beyond its arguments. `release` drops the connection early: a minute of
+ * transcription runs synchronously, and a socket that answers no ping for that long is a client
+ * MAX can tell apart. The next call logs in again.
+ */
 interface Defaults {
   limit: number
+  profile: string
   transcribeModel: string
-  cache: CacheStore | undefined
+  release: () => Promise<void>
 }
 
 type AnyTool = Omit<Tool<v.ObjectSchema<v.ObjectEntries, undefined>>, "answer"> & {
@@ -201,12 +206,18 @@ const READ_TOOLS = {
       "the model is not downloaded: the owner runs `max models download <id>` in a terminal.",
     input: v.object({ chat, message }),
     annotations: READ,
-    answer: async (client, args, { transcribeModel, cache }) =>
-      transcribe(client, await client.chats.resolve(args.chat), args.message, {
-        model: speechModel(transcribeModel),
-        directory: modelsDirectory(),
-        cache,
-      }),
+    answer: async (client, args, { profile, transcribeModel, release }) => {
+      const model = speechModel(transcribeModel)
+      const directory = modelsDirectory()
+      const chatId = await client.chats.resolve(args.chat)
+      // Its own handle: `release` closes the session's, and the text is saved after that.
+      const cache = await openProfileCache(profile)
+      try {
+        return await transcribe(client, chatId, args.message, { model, directory, cache, release })
+      } finally {
+        cache?.close()
+      }
+    },
   }),
   max_messages_context: tool({
     title: "Show a message",
@@ -347,12 +358,14 @@ export const registerTools = (
     confirmSend = false,
     allowMarkRead = false,
     defaultLimit,
+    profile,
     transcribeModel = DEFAULT_MODEL,
   }: {
     allowSend: boolean
     confirmSend?: boolean
     allowMarkRead?: boolean
     defaultLimit: number
+    profile: string
     transcribeModel?: string
   },
 ): void => {
@@ -376,10 +389,10 @@ export const registerTools = (
       },
       async (args: Record<string, unknown>, ctx: ServerContext) => {
         try {
-          const result = await session.use(name.replace(/^max_/, "mcp ").replaceAll("_", " "), (client, cache) =>
+          const result = await session.use(name.replace(/^max_/, "mcp ").replaceAll("_", " "), (client, release) =>
             confirmed && name === "max_messages_send"
               ? confirmed(client, args as unknown as SendArgs, ctx)
-              : definition.answer(client, args, { limit: defaultLimit, transcribeModel, cache }),
+              : definition.answer(client, args, { limit: defaultLimit, profile, transcribeModel, release }),
           )
           return isInputRequiredResult(result) ? result : answered(result)
         } catch (error) {

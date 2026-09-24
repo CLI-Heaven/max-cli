@@ -5,8 +5,8 @@ import { openProfileCache } from "../cache/index.js"
 import type { Id, Message, WindowedMessage } from "../domain/models.js"
 import { type Saved, save } from "../download.js"
 import { renderMessages } from "../rendering/messages.js"
-import { transcribe } from "../transcribe/index.js"
-import { modelsDirectory } from "../transcribe/install.js"
+import { notDownloaded, transcribe } from "../transcribe/index.js"
+import { isInstalled, modelsDirectory } from "../transcribe/install.js"
 import { speechModel } from "../transcribe/models.js"
 import { readBody } from "./body.js"
 import { type CommandContext, forCommand } from "./context.js"
@@ -190,6 +190,9 @@ export const messagesCommand = (): Command => {
       const context = forCommand(this)
       const { renderer, format, streams, settings, createClient, run } = context
       const model = speechModel(wanted ?? settings.transcribeModel)
+      const directory = modelsDirectory()
+      // Before connecting: a refusal for a missing model should not cost a login.
+      if (!isInstalled(model, directory)) throw notDownloaded(model)
       const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
 
       await run("messages transcribe", async (events) => {
@@ -198,7 +201,7 @@ export const messagesCommand = (): Command => {
           const chatId = await client.chats.resolve(chat)
           const transcript = await transcribe(client, chatId, messageId.trim(), {
             model,
-            directory: modelsDirectory(),
+            directory,
             cache,
             release: async () => {
               await client.close()

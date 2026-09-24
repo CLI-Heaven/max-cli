@@ -27,6 +27,13 @@ export interface TranscribeOptions {
   open?: (model: SpeechModel, directory: string) => Recognizer
 }
 
+export const notDownloaded = (model: SpeechModel): CliError =>
+  new CliError(
+    "not_found",
+    `the speech model ${model.id} is not downloaded — \`max models download ${model.id}\` fetches it ` +
+      `(${megabytes(installedBytes(model) + VAD.bytes)}, once)`,
+  )
+
 const openInstalled = (model: SpeechModel, directory: string): Recognizer =>
   openRecognizer(model, modelPath(directory, model), vadPath(directory))
 
@@ -48,13 +55,7 @@ export const transcribe = async (
     return { chatId, messageId, text: kept.text, model: model.id, seconds: null, cached: true }
   }
 
-  if (!isInstalled(model, directory)) {
-    throw new CliError(
-      "not_found",
-      `the speech model ${model.id} is not downloaded — \`max models download ${model.id}\` fetches it ` +
-        `(${megabytes(installedBytes(model) + VAD.bytes)}, once)`,
-    )
-  }
+  if (!isInstalled(model, directory)) throw notDownloaded(model)
 
   const { links } = await client.messages.links(chatId, messageId)
   const voice = links.find((link) => link.kind === "audio")
