@@ -106,7 +106,8 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   `src/protocol/frame.ts`). Read in the web.max.ru bundle 2026-09-24 (`nre()` in its socket code). Raised from P3 by the owner
   on 2026-09-24 (`NEED-230`), next after transcription: PyMax moved to MessagePack on
   `wss://api.oneme.ru/websocket` on 2026-07-05, while we send JSON to `wss://ws-api.oneme.ru` —
-  the plainest difference between us and the official client (`RISK-28`).
+  the plainest difference between us and the official client (`RISK-28`). Handoff:
+  `docs_ai/plans/2026-09-24-max-40-binary-protocol-handoff.md`.
   MAX can tell our frames from the web client's today (`REQUIREMENTS.md` §34), and voice messages
   (`MAX-24`) need a byte field JSON cannot carry. Start with a read-only probe: log in and list chats
   over binary frames. Ranked P3 by the owner 2026-09-24.
