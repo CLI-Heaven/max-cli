@@ -726,3 +726,10 @@ test folder?** **Yes, both.** «3 A».
 **Masked, with a flag to show it whole.** «fix it but mask it (show last 4 digits) and add a flag to
 unmask». `account show` prints `***1234`, `--show-phone` prints the number; `account update` and the
 MCP tool `max_account_show` always mask it. Closes `MAX-43`.
+
+**NEED-191 · Confirm a send through MCP with a form from the server itself (`CLI-28`)?** **Yes, as an
+optional flag, off by default.** «let's do CLI-28 - as an optional flag, off by default», then «1 А»
+on the plan. `--confirm-send` without `--allow-send` refuses to start rather than being ignored. The
+owner's "yes" is bound to the chat and text the form showed — an HMAC under a per-process key in
+`requestState` — because the state round-trips through the client and an answer must not carry
+over to another message. A client that cannot show a form gets an error and nothing is sent.
