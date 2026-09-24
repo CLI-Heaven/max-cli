@@ -35,18 +35,32 @@ export const wireClient = (invoke: Invoke) => ({
   },
   contacts: {
     info: (request: RequestOf<(typeof OPERATIONS)["contacts.info"]>) => invoke(OPERATIONS["contacts.info"], request),
+    byPhone: (request: RequestOf<(typeof OPERATIONS)["contacts.byPhone"]>) =>
+      invoke(OPERATIONS["contacts.byPhone"], request),
+    update: (request: RequestOf<(typeof OPERATIONS)["contacts.update"]>) =>
+      invoke(OPERATIONS["contacts.update"], request),
+    import: (request: RequestOf<(typeof OPERATIONS)["contacts.import"]>) =>
+      invoke(OPERATIONS["contacts.import"], request),
+  },
+  account: {
+    update: (request: RequestOf<(typeof OPERATIONS)["account.update"]>) =>
+      invoke(OPERATIONS["account.update"], request),
+    sessions: (request: RequestOf<(typeof OPERATIONS)["account.sessions"]>) =>
+      invoke(OPERATIONS["account.sessions"], request),
+    closeSessions: (request: RequestOf<(typeof OPERATIONS)["account.closeSessions"]>) =>
+      invoke(OPERATIONS["account.closeSessions"], request),
+  },
+  folders: {
+    list: (request: RequestOf<(typeof OPERATIONS)["folders.list"]>) => invoke(OPERATIONS["folders.list"], request),
+    update: (request: RequestOf<(typeof OPERATIONS)["folders.update"]>) =>
+      invoke(OPERATIONS["folders.update"], request),
+    delete: (request: RequestOf<(typeof OPERATIONS)["folders.delete"]>) =>
+      invoke(OPERATIONS["folders.delete"], request),
   },
   chats: {
     history: (request: RequestOf<(typeof OPERATIONS)["chats.history"]>) => invoke(OPERATIONS["chats.history"], request),
     list: (request: RequestOf<(typeof OPERATIONS)["chats.list"]>) => invoke(OPERATIONS["chats.list"], request),
-    linkInfo: (request: RequestOf<(typeof OPERATIONS)["chats.linkInfo"]>) =>
-      invoke(OPERATIONS["chats.linkInfo"], request),
-    join: (request: RequestOf<(typeof OPERATIONS)["chats.join"]>) => invoke(OPERATIONS["chats.join"], request),
-    leave: (request: RequestOf<(typeof OPERATIONS)["chats.leave"]>) => invoke(OPERATIONS["chats.leave"], request),
     update: (request: RequestOf<(typeof OPERATIONS)["chats.update"]>) => invoke(OPERATIONS["chats.update"], request),
-    members: (request: RequestOf<(typeof OPERATIONS)["chats.members"]>) => invoke(OPERATIONS["chats.members"], request),
-    updateMembers: (request: RequestOf<(typeof OPERATIONS)["chats.updateMembers"]>) =>
-      invoke(OPERATIONS["chats.updateMembers"], request),
   },
   messages: {
     send: (request: RequestOf<(typeof OPERATIONS)["messages.send"]>) => invoke(OPERATIONS["messages.send"], request),

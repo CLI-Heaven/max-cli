@@ -1,4 +1,5 @@
 import type { Entry, Operation, Reservation } from "./define.js"
+import { accountCloseSessions, accountSessions, accountUpdate } from "./operations/account.js"
 import { attachmentsFile, attachmentsVideo } from "./operations/attachments.js"
 import {
   chatDelete,
@@ -12,7 +13,8 @@ import {
   chatsUpdate,
   chatsUpdateMembers,
 } from "./operations/chats.js"
-import { contactsInfo, profile, unidentified36 } from "./operations/contacts.js"
+import { contactsByPhone, contactsImport, contactsInfo, contactsUpdate, unidentified36 } from "./operations/contacts.js"
+import { foldersDelete, foldersList, foldersUpdate } from "./operations/folders.js"
 import {
   loginByQr,
   loginPassword,
@@ -56,8 +58,16 @@ export const spec: readonly Entry[] = [
   loginSmsCode,
   loginPassword,
   contactsInfo,
-  profile,
+  contactsByPhone,
+  contactsUpdate,
+  contactsImport,
   unidentified36,
+  accountUpdate,
+  accountSessions,
+  accountCloseSessions,
+  foldersList,
+  foldersUpdate,
+  foldersDelete,
   chatsHistory,
   chatMark,
   chatsList,

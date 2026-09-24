@@ -7,11 +7,6 @@
  */
 export const Opcode = {
   SESSION_INIT: 6,
-  /**
-   * **Declared, never sent.** It does not read a profile, it updates one, and it refuses an empty payload. Your own
-   * profile arrives with the login response, so nothing needs to send this. It is declared here so that fact keeps a
-   * home.
-   */
   PROFILE: 16,
   AUTH_REQUEST: 17,
   AUTH: 18,
@@ -21,7 +16,9 @@ export const Opcode = {
    * server-side would also end it for the browser tab the token came from, which is not what the command promises.
    */
   LOGOUT: 20,
+  SYNC: 21,
   CONTACT_INFO: 32,
+  CONTACT_UPDATE: 34,
   /**
    * **Declared, never sent.** Nobody agrees what it is: tsmax and PyMax call it `CONTACT_LIST`; the protocol
    * documentation calls it `GET_BLOCKED`. Sent once with the owner's permission on 2026-09-20 and it exists — but it
@@ -29,6 +26,7 @@ export const Opcode = {
    * real client send it (`PROTO-1`).
    */
   UNIDENTIFIED_36: 36,
+  CONTACT_INFO_BY_PHONE: 46,
   CHAT_HISTORY: 49,
   /**
    * **Declared, never sent.** Reading is observational by construction. Marking a conversation read is a change to
@@ -36,16 +34,8 @@ export const Opcode = {
    * `src/client.test.ts` asserts its absence from everything the client sent.
    */
   CHAT_MARK: 50,
-  /**
-   * **Declared, never sent.** Deleting a chat is left out of MAX-31 for the reason of `NEED-32`: a tool that can
-   * destroy a conversation for everyone in it is a poor trade for tidiness.
-   */
-  CHAT_DELETE: 52,
   CHATS_LIST: 53,
   CHAT_UPDATE: 55,
-  CHAT_JOIN: 57,
-  CHAT_LEAVE: 58,
-  CHAT_MEMBERS: 59,
   MSG_SEND: 64,
   /**
    * **Declared, never sent.** Deliberately never called. Giving this tool the ability to destroy somebody's messages,
@@ -53,16 +43,19 @@ export const Opcode = {
    */
   MSG_DELETE: 66,
   MSG_EDIT: 67,
-  CHAT_MEMBERS_UPDATE: 77,
   PHOTO_UPLOAD: 80,
   VIDEO_PLAY: 83,
   FILE_UPLOAD: 87,
   FILE_DOWNLOAD: 88,
-  LINK_INFO: 89,
+  SESSIONS_INFO: 96,
+  SESSIONS_CLOSE: 97,
   AUTH_LOGIN_CHECK_PASSWORD: 115,
   MSG_REACTION: 178,
   MSG_CANCEL_REACTION: 179,
   MSG_GET_REACTIONS: 180,
+  FOLDERS_GET: 272,
+  FOLDERS_UPDATE: 274,
+  FOLDERS_DELETE: 276,
   GET_QR: 288,
   GET_QR_STATUS: 289,
   /**
