@@ -77,6 +77,9 @@ what exists now, and where it is described. The numbers stay reserved — commit
 - **MAX-43** — `max account show` reads the account's own number, which the login sends as a bare
   integer, and prints its last four digits; `--show-phone` prints it whole. MCP always masks it
   (`NEED-209`).
+- **MAX-35** — `max serve` keeps one logged-in connection per profile, pinging and acknowledging as
+  web.max.ru does; `max watch` streams new messages; other commands read through it and send on
+  their own connection (`NEED-185`). Numbered `MAX-16` until #75. `src/server/`.
 - **MAX-36** — `session start qr-chrome` and `sms` talk to the browser over
   `--remote-debugging-pipe`, not a port on 127.0.0.1 another local user could reach.
   `src/session/browser.ts`, `docs/security.md`.
