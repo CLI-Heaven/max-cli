@@ -312,6 +312,27 @@ max messages unpin 0                                          # открепит
 Закрепить можно только в группе или канале — в личном чате и в «Избранном» MAX не закрепляет, и
 команда отказывает сразу.
 
+### Контакты, профиль, папки
+
+```sh
+max contacts lookup                         # спросит номер; или: echo "+7…" | max contacts lookup
+max contacts add 20000002                   # id из lookup, или часть известного имени
+max contacts remove 20000002
+max contacts import книжка.csv              # строка: номер, запятая или табуляция, имя
+max account update --description "о себе"   # имя остаётся прежним
+max account sessions list                   # где ещё выполнен вход
+max account sessions end-others --yes       # выйти везде, кроме этого сеанса — и на телефоне
+max chats folders list
+max chats folders create "Работа" --chat -1000 --chat "Проект"
+max chats folders update "Работа" --title "Офис" --add -2000 --remove -1000
+max chats folders delete "Офис"             # чаты остаются
+```
+
+Номер телефона не пишется в строку команды — её видят `ps` и история оболочки. Добавленный
+человек, с которым нет диалога, в `contacts list` не появится (там только те, с кем есть переписка);
+его видно через `contacts show <id>`. Название папки MAX ограничивает: 21 знак он отклонил, 15
+принял. `import` отправляет в MAX номера других людей.
+
 ### Фото и файлы
 
 ```sh

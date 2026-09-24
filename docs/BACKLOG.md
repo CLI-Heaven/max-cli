@@ -49,12 +49,10 @@ and needs the owner's yes before it ships. Deleting messages and marking them re
 - **MAX-41** · 🟡 P2 · Measure opcode 77 (`CHAT_MEMBERS_UPDATE`). Done 2026-09-24 with a second
   person (`pnpm probe:members`): add, remove, make admin, take admin back. Left: accept and decline a
   join request — needs somebody who asks to join a group the owner runs.
-- **MAX-32** · 🚧 `contacts-account` · P1 · Contacts: add, remove, import, find a person by phone number (`add_contact`,
-  `remove_contact`, `import_contacts`, `search_by_phone`). A phone number never reaches a log.
-- **MAX-33** · 🚧 `contacts-account` · P1 · Your own account: edit the profile, manage chat folders, list your other
-  sessions and end them (`change_profile`, `get_folders`, `create_folder`, `update_folder`,
-  `delete_folder`, `get_sessions`, `close_all_sessions`). Ending sessions must never end this one
-  — `LOGOUT` (20) stays never-sent.
+- **MAX-42** · P2 · Profile and contacts, what `MAX-32`/`MAX-33` left out: a profile photo
+  (`PHOTO_UPLOAD` 80 with `profile: true`, then `photoToken` and `avatarType: "USER_AVATAR"` in
+  `PROFILE` 16 — web.max.ru `Q8r`), the short name (`link` in 16), a name of your own for a contact
+  and blocking (`CONTACT_UPDATE` 34 with `UPDATE`, `BLOCK`, `UNBLOCK` — web.max.ru). Code, not measured.
 - **MAX-40** · P3 · Speak the official web client's binary protocol: frames with version 10, a
   binary header and a MessagePack payload, instead of our JSON text frames (version 11,
   `src/protocol/frame.ts`). Read in the web.max.ru bundle 2026-09-24 (`nre()` in its socket code).

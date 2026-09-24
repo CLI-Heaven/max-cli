@@ -68,7 +68,12 @@ what exists now, and where it is described. The numbers stay reserved — commit
   `CHAT_UPDATE` (55), `pinMessageId: 0` unpins, no notification unless asked (`NEED-196`). Measured
   2026-09-24 in a group. MAX never pins in a personal chat, so the command refuses one before asking.
   `docs/usage.md`.
-
+- **MAX-32** — contacts: `max contacts lookup` (the number asked for or piped, never argv),
+  `add`, `remove`, `import <file>`. Measured 2026-09-24 (`pnpm probe:account`) except `add`/`remove`,
+  which rest on the web client's code and PyMax. `docs/usage.md`, `docs/security.md`.
+- **MAX-33** — the account: `max account update`, `max account sessions list|end-others --yes`,
+  `max chats folders list|create|update|delete`. `end-others` was never run by us — the owner runs
+  it first (`NEED-202`); `LOGOUT` (20) stays unsent. Profile photo and the rest: `MAX-42`.
 - **MAX-36** — `session start qr-chrome` and `sms` talk to the browser over
   `--remote-debugging-pipe`, not a port on 127.0.0.1 another local user could reach.
   `src/session/browser.ts`, `docs/security.md`.
