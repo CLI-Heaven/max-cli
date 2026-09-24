@@ -1,8 +1,7 @@
 import { CliError } from "@leemour/cli-core"
 import { Command } from "commander"
 import { renderMessages } from "../rendering/messages.js"
-import { answers } from "../server/server.js"
-import { startInBackground } from "../server/start.js"
+import { ensureServer } from "../server/start.js"
 import { subscribe } from "../server/subscribe.js"
 import { forCommand } from "./context.js"
 
@@ -49,9 +48,10 @@ export const watchCommand = (): Command =>
           await listen()
         } catch (error) {
           if (!(error instanceof CliError && error.code === "not_found") || !settings.serve) throw error
-          startInBackground(store)
           renderer.note("no server was running — starting `max serve` in the background")
-          await untilListening(store.socketPath(), START_WAIT_MS)
+          if (!(await ensureServer(store))) {
+            throw new CliError("not_found", "`max serve` did not start — its log is beside the profile's state")
+          }
           await listen()
         }
       } finally {
@@ -59,18 +59,3 @@ export const watchCommand = (): Command =>
         process.off("SIGTERM", end)
       }
     })
-
-/** Logging in takes a second or two; a server that has not listened by now is not coming. */
-const START_WAIT_MS = 15_000
-
-const untilListening = async (path: string, withinMs: number): Promise<void> => {
-  const until = Date.now() + withinMs
-  while (Date.now() < until) {
-    if (await answers(path)) return
-    await new Promise((resolve) => setTimeout(resolve, 250))
-  }
-  throw new CliError(
-    "not_found",
-    `\`max serve\` did not start within ${withinMs / 1000}s — its log is beside the profile's state`,
-  )
-}

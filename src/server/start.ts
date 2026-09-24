@@ -2,7 +2,7 @@ import { spawn } from "node:child_process"
 import { closeSync, mkdirSync, openSync, rmSync, statSync } from "node:fs"
 import { dirname } from "node:path"
 import type { SessionStore } from "../session/store.js"
-import { startingPath } from "./server.js"
+import { answers, startingPath } from "./server.js"
 
 /** A server a command started stops after this long unused. */
 export const IDLE_MS = 15 * 60_000
@@ -58,4 +58,28 @@ export const startInBackground = (
   child.unref()
   closeSync(log)
   return child.pid
+}
+
+/** Logging in takes a second or two; a server that has not answered by now is not coming. */
+const START_WAIT_MS = 15_000
+
+/**
+ * A server for this profile, answering — started if none is, waited for if another command is
+ * already starting one. `false`: none came up (no session, or MAX refused its login lately).
+ */
+export const ensureServer = async (store: SessionStore): Promise<boolean> => {
+  if (await answers(store.socketPath())) return true
+  if (store.readToken() === undefined) return false
+  const refusedAt = statSync(refusedPath(store), { throwIfNoEntry: false })?.mtimeMs
+  if (refusedAt !== undefined && Date.now() - refusedAt < REFUSED_PAUSE_MS) return false
+
+  const asked = Date.now()
+  startInBackground(store)
+  const until = asked + START_WAIT_MS
+  while (Date.now() < until) {
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    if (await answers(store.socketPath())) return true
+    if ((statSync(refusedPath(store), { throwIfNoEntry: false })?.mtimeMs ?? 0) >= asked) return false
+  }
+  return false
 }

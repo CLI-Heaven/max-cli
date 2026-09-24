@@ -11,7 +11,7 @@ import { sendGuard } from "../sends/guard.js"
 import { SendJournal, sendsPathFor } from "../sends/journal.js"
 import { RecipientList, recipientsPathFor } from "../sends/recipients.js"
 import { ServerConnection } from "../server/server-connection.js"
-import { startInBackground } from "../server/start.js"
+import { ensureServer } from "../server/start.js"
 import { type BrowserDoors, realBrowser } from "../session/browser.js"
 import { readSecret } from "../session/prompt.js"
 import { SessionStore } from "../session/store.js"
@@ -126,12 +126,16 @@ export const contextFor = (
     createClient: (extra = {}) => {
       const timeout = settings.timeoutMs ? { timeoutMs: settings.timeoutMs } : {}
       // Only for the real thing: a test hands in its own store, and must never start a process.
-      const startsServer = !environment.store && !environment.connection && flags.offline !== true && settings.serve
-      const start = () => {
-        if (startsServer) startInBackground(store)
-      }
-      const running = existsSync(store.socketPath())
-      if (!running) start()
+      const shares = !environment.store && !environment.connection && flags.offline !== true && settings.serve
+      const wire =
+        shares || existsSync(store.socketPath())
+          ? new ServerConnection({
+              path: store.socketPath(),
+              store,
+              ...timeout,
+              ...(shares ? { ensure: () => ensureServer(store) } : {}),
+            })
+          : undefined
       const client = new MaxClient({
         store,
         timeoutMs: settings.timeoutMs,
@@ -146,13 +150,7 @@ export const contextFor = (
           recipients: new RecipientList(recipientsPathFor(settings.profile)),
           warn: renderer.warn,
         }),
-        ...(environment.connection
-          ? { connection: environment.connection() }
-          : running
-            ? {
-                connection: new ServerConnection({ path: store.socketPath(), store, onUnreachable: start, ...timeout }),
-              }
-            : {}),
+        ...(environment.connection ? { connection: environment.connection() } : wire ? { connection: wire } : {}),
         ...extra,
       })
       clients.push(client)

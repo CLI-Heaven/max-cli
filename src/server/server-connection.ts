@@ -1,10 +1,10 @@
 import { connect, type Socket } from "node:net"
+import { CliError } from "@leemour/cli-core"
 import { Opcode } from "../generated/opcodes.generated.js"
+import { OPERATIONS } from "../generated/operations.generated.js"
 import { Connection, ProtocolError, type Wire, type WireEvent } from "../protocol/connection.js"
 import { asId, type Payload } from "../protocol/frame.js"
-import { startSession } from "../session/handshake.js"
 import type { SessionStore } from "../session/store.js"
-import { buildRequest } from "../spec/index.js"
 import { fromLine, lineReader, toLine } from "./lines.js"
 
 interface Pending {
@@ -14,20 +14,23 @@ interface Pending {
 }
 
 /**
- * **A command's connection that goes through `max serve`** when one is running (`MAX-16`).
+ * **A command's connection: `max serve`'s, shared** (`MAX-35`, `NEED-229`).
  *
- * INIT and LOGIN are answered by the server's own login, so the command logs in without logging
- * in. Reads go through the server's connection. **Anything else — a send, a reaction — makes this
- * open a connection of its own and log in on it**, so it passes the send guards exactly as it does
- * without a server (`NEED-185`). No server, a stale login, or a server that stops answering: the
- * whole command falls back to its own connection before it has sent anything.
+ * One connection to MAX per profile, whoever asks — CLI commands, `max mcp`, `max watch`. INIT
+ * and LOGIN are answered by the server's own login; **every other request goes over its
+ * connection, sends included**. The send guards still apply: they run in the command's client,
+ * before the request reaches this wire.
+ *
+ * No server answering: `ensure` starts one and waits for it. A connection of the command's own
+ * is opened only when there is no `ensure` (the owner said `serve: false`) and no server, or for
+ * a token being tried out (`max session start`), which is by definition not the server's.
  */
 export class ServerConnection implements Wire {
   readonly #path: string
   readonly #store: SessionStore
   readonly #timeoutMs: number
   readonly #direct: () => Connection
-  readonly #onUnreachable: (() => void) | undefined
+  readonly #ensure: (() => Promise<boolean>) | undefined
   readonly #pending = new Map<number, Pending>()
   #socket: Socket | undefined
   #id = 0
@@ -35,23 +38,22 @@ export class ServerConnection implements Wire {
   /** What the client sent as INIT; a fallback at LOGIN has to send it first, or MAX refuses. */
   #init: Payload | undefined
   #own: Connection | undefined
-  #ownLoggedIn = false
 
   constructor({
     path,
     store,
     timeoutMs = 30_000,
     direct,
-    onUnreachable,
+    ensure,
   }: {
     path: string
     store: SessionStore
     timeoutMs?: number
     direct?: () => Connection
-    /** The socket file is there and nobody answers — a server that died; start another. */
-    onUnreachable?: () => void
+    /** Starts a server when none answers and waits for it; `false` if it did not come up. */
+    ensure?: () => Promise<boolean>
   }) {
-    this.#onUnreachable = onUnreachable
+    this.#ensure = ensure
     this.#path = path
     this.#store = store
     this.#timeoutMs = timeoutMs
@@ -61,16 +63,12 @@ export class ServerConnection implements Wire {
   async open(): Promise<void> {}
 
   async invoke(opcode: number, payload: Payload = {}, watch?: (event: WireEvent) => void): Promise<Payload> {
-    if (this.#own) return this.#ownRequest(opcode, payload, watch)
+    if (this.#own) return this.#own.invoke(opcode, payload, watch)
 
     if (opcode === Opcode.SESSION_INIT) {
       this.#init = payload
-      this.#login = await this.#ask({ login: true }).catch((error: NodeJS.ErrnoException) => {
-        if (error.code === "ECONNREFUSED" || error.code === "ENOENT") this.#onUnreachable?.()
-        return undefined
-      })
-      if (!this.#login) return this.#fallBack(opcode, payload, watch)
-      return {}
+      this.#login = await this.#askServer({ login: true })
+      return this.#login ? {} : this.#fallBack(opcode, payload, watch)
     }
     if (opcode === Opcode.LOGIN) {
       // A token being tried out (`max session start`) is not the one the server logged in with, and
@@ -80,12 +78,32 @@ export class ServerConnection implements Wire {
       }
       return this.#login
     }
-    if (!READS.has(opcode)) return this.#ownRequest(opcode, payload, watch)
 
     watch?.({ phase: "sent", seq: this.#id + 1, opcode, bytes: 0 })
     const answer = await this.#ask({ opcode, payload })
     watch?.({ phase: "received", seq: this.#id, opcode, bytes: 0 })
     return answer
+  }
+
+  /** The server's answer, starting one if `ensure` may; `undefined` when there is none to be had. */
+  async #askServer(request: Record<string, unknown>): Promise<Payload | undefined> {
+    try {
+      return await this.#ask(request)
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      if (code !== "ECONNREFUSED" && code !== "ENOENT") throw error
+      if (!this.#ensure || !(await this.#ensure())) {
+        if (this.#ensure) {
+          throw new CliError(
+            "network_error",
+            "`max serve` did not start, and this profile shares one connection (`serve: true`) — " +
+              "its log is beside the profile's state; `--no-serve` runs this command on its own",
+          )
+        }
+        return undefined
+      }
+      return this.#ask(request)
+    }
   }
 
   #sameAccount(login: Payload): boolean {
@@ -105,34 +123,14 @@ export class ServerConnection implements Wire {
     await this.#own?.close()
   }
 
-  /** Before anything was sent: the command simply runs as it would with no server. */
+  /** Before anything was sent: the command runs on its own connection, as with no server at all. */
   async #fallBack(opcode: number, payload: Payload, watch?: (event: WireEvent) => void): Promise<Payload> {
     this.#socket?.destroy()
     this.#socket = undefined
     this.#own = this.#direct()
     await this.#own.open()
     if (opcode === Opcode.LOGIN && this.#init) await this.#own.invoke(Opcode.SESSION_INIT, this.#init)
-    this.#ownLoggedIn = opcode === Opcode.LOGIN
     return this.#own.invoke(opcode, payload, watch)
-  }
-
-  /** A write mid-command: a connection of its own, logged in, then the request. */
-  async #ownRequest(opcode: number, payload: Payload, watch?: (event: WireEvent) => void): Promise<Payload> {
-    if (!this.#own) {
-      this.#own = this.#direct()
-      await this.#own.open()
-    }
-    const own = this.#own
-    if (!this.#ownLoggedIn && opcode !== Opcode.SESSION_INIT && opcode !== Opcode.LOGIN) {
-      const token = this.#store.readToken() ?? ""
-      await startSession((operation, request) => own.invoke(operation.opcode, buildRequest(operation, request)), {
-        token,
-        deviceId: this.#store.readState().deviceId,
-      })
-      this.#ownLoggedIn = true
-    }
-    if (opcode === Opcode.LOGIN) this.#ownLoggedIn = true
-    return own.invoke(opcode, payload, watch)
   }
 
   async #ask(request: Record<string, unknown>): Promise<Payload> {
@@ -189,18 +187,15 @@ export class ServerConnection implements Wire {
 }
 
 /**
- * What a command may ask for through the server — the server allows exactly these. **Nothing here
- * changes anything**: sending, reacting, marking read and deleting never come this way, so no
- * guard can be walked around.
+ * What the server does **not** pass on: logging in is the server's own business, and a login by
+ * QR or SMS is `max session start` on a connection of its own. Everything else the specification
+ * lets a client send goes through the one connection.
  */
-export const READS = new Set<number>([
-  Opcode.CHAT_HISTORY,
-  Opcode.CHATS_LIST,
-  Opcode.CONTACT_INFO,
-  Opcode.FILE_DOWNLOAD,
-  Opcode.VIDEO_PLAY,
-  Opcode.MSG_GET_REACTIONS,
-])
+export const forwarded = (opcode: number): boolean =>
+  Object.values(OPERATIONS).some(
+    (operation) =>
+      operation.opcode === opcode && !operation.name.startsWith("session.") && !operation.name.startsWith("login."),
+  )
 
 /**
  * Asks a running server to stop. `"refused"` is a server started by hand, which only Ctrl-C
