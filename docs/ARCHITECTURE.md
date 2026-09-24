@@ -439,6 +439,14 @@ keyring, deadline and run record as a command, built from flags instead of argv.
 - **Sending is absent, not refused**, without `--allow-send`. With it, the tool carries
   `destructiveHint` and Claude Code's `anthropic/requiresUserInteraction`, and goes through the same
   `MaxClient.messages.send` as the command — so the send guards apply unchanged.
+- **`--confirm-send` asks the owner from the server** (`CLI-28`, `src/mcp/confirm.ts`): the first
+  call resolves the chat and returns an elicitation form showing its title, id and the text; only
+  the SDK's second call, carrying Accept, sends. The form has no fields — Accept is the
+  "yes"; a required checkbox under it was missed and made Accept look broken. The form's `requestState` is an
+  HMAC of chat and text under a per-process key, recomputed from the second call's own arguments —
+  state round-trips through the client. Clients on the 2025 protocol (Claude Code over stdio) get
+  the same flow through the SDK's legacy shim; a client without form support fails before the
+  second call. Tested on both protocol eras.
 - **Discovery is the client's.** Clients that defer tools keep only the names and the server's
   `instructions` in context; `instructions` is `max --help` plus the skill's boundaries, under the
   2048 characters Claude Code keeps. No meta-tools, no tool with an `action` parameter: approval is

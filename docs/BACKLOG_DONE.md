@@ -118,6 +118,10 @@ what exists now, and where it is described. The numbers stay reserved — commit
 
 ## The command
 
+- **CLI-28** — `max mcp --allow-send --confirm-send`: the server shows the owner a form with the chat
+  the name resolved to and the text, and sends only on "yes"; the answer is bound to chat and text by
+  an HMAC in `requestState`. `src/mcp/confirm.ts`, `docs/mcp.md`, ARCHITECTURE §17.
+
 - **CLI-23**, **CLI-31** — `max inbox`: other people's unread messages in every chat, as MAX counts
   them; `--new` for what arrived since the last check, the point kept in the profile and moved only
   after printing; `--since` for a one-off look (`src/commands/inbox.ts`, `NEED-171`). Correction 2026-09-24: numbered the unread half `CLI-26` until then, a number taken three times.

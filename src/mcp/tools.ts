@@ -1,10 +1,17 @@
 import { CliError, isCliError } from "@leemour/cli-core"
-import type { CallToolResult, McpServer, ToolAnnotations } from "@modelcontextprotocol/server"
+import {
+  type CallToolResult,
+  isInputRequiredResult,
+  type McpServer,
+  type ServerContext,
+  type ToolAnnotations,
+} from "@modelcontextprotocol/server"
 import { toStandardJsonSchema } from "@valibot/to-json-schema"
 import * as v from "valibot"
 import type { MaxClient } from "../client.js"
 import { maskedProfile } from "../domain/map.js"
 import type { Page } from "../domain/models.js"
+import { confirmer, type SendArgs } from "./confirm.js"
 import type { MaxSession } from "./session.js"
 
 const chat = v.pipe(v.string(), v.minLength(1), v.description("chat id, or part of a chat name"))
@@ -296,8 +303,10 @@ const failed = (error: unknown): CallToolResult => {
 export const registerTools = (
   server: McpServer,
   session: MaxSession,
-  { allowSend, defaultLimit }: { allowSend: boolean; defaultLimit: number },
+  { allowSend, confirmSend = false, defaultLimit }: { allowSend: boolean; confirmSend?: boolean; defaultLimit: number },
 ): void => {
+  const confirmed = confirmSend ? confirmer() : undefined
+
   const tools: Record<string, AnyTool> = {
     ...READ_TOOLS,
     ...(allowSend ? SEND_TOOLS : {}),
@@ -313,13 +322,14 @@ export const registerTools = (
         annotations: definition.annotations,
         ...(definition._meta ? { _meta: definition._meta } : {}),
       },
-      async (args: Record<string, unknown>) => {
+      async (args: Record<string, unknown>, ctx: ServerContext) => {
         try {
-          return answered(
-            await session.use(name.replace(/^max_/, "mcp ").replaceAll("_", " "), (client) =>
-              definition.answer(client, args, { limit: defaultLimit }),
-            ),
+          const result = await session.use(name.replace(/^max_/, "mcp ").replaceAll("_", " "), (client) =>
+            confirmed && name === "max_messages_send"
+              ? confirmed(client, args as unknown as SendArgs, ctx)
+              : definition.answer(client, args, { limit: defaultLimit }),
           )
+          return isInputRequiredResult(result) ? result : answered(result)
         } catch (error) {
           return failed(error)
         }

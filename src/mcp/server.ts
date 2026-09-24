@@ -8,6 +8,7 @@ import { registerTools } from "./tools.js"
 
 export interface ServerOptions extends SessionOptions {
   allowSend: boolean
+  confirmSend?: boolean
 }
 
 /**
@@ -15,14 +16,17 @@ export interface ServerOptions extends SessionOptions {
  * before settling on the protocol era, so each call is a fresh server — and all of them share the
  * one connection to MAX, which is the thing that must not be opened twice.
  */
-export const createMaxServer = (context: CommandContext, { allowSend, ...sessionOptions }: ServerOptions) => {
+export const createMaxServer = (
+  context: CommandContext,
+  { allowSend, confirmSend = false, ...sessionOptions }: ServerOptions,
+) => {
   const session = new MaxSession(context, sessionOptions)
   const build = (): McpServer => {
     const server = new McpServer(
       { name: "max", version: VERSION },
-      { instructions: instructions({ allowSend, profile: context.settings.profile }) },
+      { instructions: instructions({ allowSend, confirmSend, profile: context.settings.profile }) },
     )
-    registerTools(server, session, { allowSend, defaultLimit: context.settings.limit })
+    registerTools(server, session, { allowSend, confirmSend, defaultLimit: context.settings.limit })
     return server
   }
   return { session, build }

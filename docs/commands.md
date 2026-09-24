@@ -799,6 +799,7 @@ max mcp [options]
 | Опция | Что делает |
 |---|---|
 | `--allow-send` | offer the send tool; without it the server can only read |
+| `--confirm-send` | show the owner each send in a form from the server — the chat it resolved to and the text |
 
 ## Коды возврата
 

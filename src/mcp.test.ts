@@ -1,6 +1,7 @@
 import { captureStreams, memoryKeyring } from "@leemour/cli-core"
-import { Client } from "@modelcontextprotocol/client"
+import { Client, type ElicitResult } from "@modelcontextprotocol/client"
 import { InMemoryTransport } from "@modelcontextprotocol/server"
+import { serveStdio } from "@modelcontextprotocol/server/stdio"
 import { afterEach, describe, expect, it } from "vitest"
 import { contextFor } from "./commands/context.js"
 import { Opcode } from "./generated/opcodes.generated.js"
@@ -44,7 +45,16 @@ const connect = async (
     token = true,
     answers = {},
     profile = `mcp-${++profiles}`,
-  }: { token?: boolean; answers?: MockMaxOptions["answers"]; profile?: string } = {},
+    form,
+    era = "legacy",
+  }: {
+    token?: boolean
+    answers?: MockMaxOptions["answers"]
+    profile?: string
+    /** Answers the server's form; without it the client says it cannot show one. */
+    form?: (message: string) => ElicitResult
+    era?: "legacy" | "modern"
+  } = {},
 ) => {
   const max = scriptedMax(answers)
   const keyring = memoryKeyring()
@@ -64,18 +74,34 @@ const connect = async (
   )
   const { session, build } = createMaxServer(context, { allowSend: false, ...options })
   const [serverSide, clientSide] = InMemoryTransport.createLinkedPair()
-  const server = build()
-  await server.connect(serverSide)
-  const client = new Client({ name: "test", version: "0" })
+  // The modern era is chosen by `serveStdio`, as in `max mcp`; a server connected directly only speaks the legacy one.
+  const served = era === "modern" ? serveStdio(build, { transport: serverSide }) : undefined
+  const server = served ? undefined : build()
+  await server?.connect(serverSide)
+  const client = new Client(
+    { name: "test", version: "0" },
+    {
+      ...(form ? { capabilities: { elicitation: {} } } : {}),
+      ...(era === "modern" ? { versionNegotiation: { mode: { pin: "2026-07-28" } } } : {}),
+    },
+  )
+  const forms: string[] = []
+  if (form) {
+    client.setRequestHandler("elicitation/create", async (request) => {
+      forms.push(request.params.message)
+      return form(request.params.message)
+    })
+  }
   await client.connect(clientSide)
   closers.push(async () => {
     await client.close()
-    await server.close()
+    await server?.close()
+    await served?.close()
     await session.close()
   })
 
   const logins = () => max.sent.filter(({ opcode }) => opcode === Opcode.LOGIN).length
-  return { client, session, max, streams, logins }
+  return { client, session, max, streams, logins, forms }
 }
 
 const call = async (client: Client, name: string, args: Record<string, unknown> = {}) => {
@@ -234,5 +260,67 @@ describe("the MCP server", () => {
     await session.close()
 
     expect(max.closed).toBe(true)
+  })
+
+  describe("with --confirm-send", () => {
+    const sendAnswer = {
+      [Opcode.MSG_SEND]: { message: { id: 116762160362694590n, time: 1789776000000, sender: 10000001, text: "hello" } },
+    }
+    const sends = (max: { sent: { opcode: number }[] }) =>
+      max.sent.filter(({ opcode }) => opcode === Opcode.MSG_SEND).length
+
+    it.each(["legacy", "modern"] as const)(
+      "shows the chat the name resolved to and the text, and sends once confirmed (%s protocol)",
+      async (era) => {
+        const { client, max, forms } = await connect(
+          { allowSend: true, confirmSend: true },
+          { answers: sendAnswer, era, form: () => ({ action: "accept", content: {} }) },
+        )
+
+        const { isError } = await call(client, "max_messages_send", { chat: "Alpha", text: "hello" })
+
+        expect(isError).toBe(false)
+        expect(forms).toEqual(['Send to "Team Alpha" (111)?\n\nhello'])
+        expect(sends(max)).toBe(1)
+      },
+    )
+
+    it.each([
+      ["declined", { action: "decline" }],
+      ["cancelled", { action: "cancel" }],
+    ] as const)("sends nothing when the owner %s", async (_, answer) => {
+      const { client, max } = await connect(
+        { allowSend: true, confirmSend: true },
+        { answers: sendAnswer, form: () => answer as ElicitResult },
+      )
+
+      const { isError, body } = await call(client, "max_messages_send", { chat: "111", text: "hello" })
+
+      expect(isError).toBe(true)
+      expect(body?.error ?? body).toBeDefined()
+      expect(sends(max)).toBe(0)
+    })
+
+    it("sends nothing when the client cannot show a form", async () => {
+      const { client, max } = await connect({ allowSend: true, confirmSend: true }, { answers: sendAnswer })
+
+      const result = await client.callTool({ name: "max_messages_send", arguments: { chat: "111", text: "hello" } })
+
+      expect(result.isError).toBe(true)
+      expect(sends(max)).toBe(0)
+    })
+
+    it("sends without a form when the flag is off", async () => {
+      const { client, max, forms } = await connect(
+        { allowSend: true },
+        { answers: sendAnswer, form: () => ({ action: "decline" }) },
+      )
+
+      const { isError } = await call(client, "max_messages_send", { chat: "111", text: "hello" })
+
+      expect(isError).toBe(false)
+      expect(forms).toEqual([])
+      expect(sends(max)).toBe(1)
+    })
   })
 })
