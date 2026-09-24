@@ -74,6 +74,9 @@ what exists now, and where it is described. The numbers stay reserved — commit
 - **MAX-33** — the account: `max account update`, `max account sessions list|end-others --yes`,
   `max chats folders list|create|update|delete`. `end-others` was never run by us — the owner runs
   it first (`NEED-202`); `LOGOUT` (20) stays unsent. Profile photo and the rest: `MAX-42`.
+- **MAX-43** — `max account show` reads the account's own number, which the login sends as a bare
+  integer, and prints its last four digits; `--show-phone` prints it whole. MCP always masks it
+  (`NEED-209`).
 - **MAX-36** — `session start qr-chrome` and `sms` talk to the browser over
   `--remote-debugging-pipe`, not a port on 127.0.0.1 another local user could reach.
   `src/session/browser.ts`, `docs/security.md`.

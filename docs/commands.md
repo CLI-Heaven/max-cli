@@ -65,11 +65,15 @@ the account this profile is logged in as
 
 ### `max account show`
 
-who this profile is logged in as
+who this profile is logged in as; the phone number shows its last four digits
 
 ```sh
-max account show
+max account show [options]
 ```
+
+| Опция | Что делает |
+|---|---|
+| `--show-phone` | print the whole phone number |
 
 ### `max account update`
 

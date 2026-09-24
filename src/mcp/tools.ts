@@ -3,6 +3,7 @@ import type { CallToolResult, McpServer, ToolAnnotations } from "@modelcontextpr
 import { toStandardJsonSchema } from "@valibot/to-json-schema"
 import * as v from "valibot"
 import type { MaxClient } from "../client.js"
+import { maskedProfile } from "../domain/map.js"
 import type { Page } from "../domain/models.js"
 import type { MaxSession } from "./session.js"
 
@@ -57,7 +58,8 @@ const READ_TOOLS = {
     description: "The MAX account this server is logged in as.",
     input: v.object({}),
     annotations: { ...READ, idempotentHint: true },
-    answer: (client) => client.account.me(),
+    // Always masked: an agent has no reason to hold the owner's number (`NEED-209`).
+    answer: async (client) => maskedProfile(await client.account.me()),
   }),
 
   max_chats_list: tool({

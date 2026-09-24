@@ -48,7 +48,8 @@ MAX_TOKEN="$(cat /path/to/token)" max chats list
 Проверить, кто вы:
 
 ```sh
-max account show
+max account show                # номер телефона — только последние 4 цифры
+max account show --show-phone   # номер целиком
 ```
 
 Забыть сессию на этой машине:

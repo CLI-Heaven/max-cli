@@ -16,7 +16,9 @@ const scriptedMax = (extra: MockMaxOptions["answers"] = {}) =>
       ...extra,
       [Opcode.SESSION_INIT]: {},
       [Opcode.LOGIN]: {
-        profile: { contact: { id: 10000001, names: [{ name: "Test Person", type: "FULL_NAME" }] } },
+        profile: {
+          contact: { id: 10000001, phone: 71234567890, names: [{ name: "Test Person", type: "FULL_NAME" }] },
+        },
         chats: [
           { id: 111, title: "Team Alpha", type: "CHAT", lastEventTime: 1789776000000 },
           { id: 222, title: "Team Beta", type: "CHAT", lastEventTime: 1789775000000 },
@@ -132,6 +134,14 @@ describe("the MCP server", () => {
 
     expect(answers.map(({ isError }) => isError)).toEqual([false, false, false])
     expect(logins()).toBe(1)
+  })
+
+  it("`max_account_show` never hands an agent the whole phone number", async () => {
+    const { client } = await connect()
+
+    const { body } = await call(client, "max_account_show")
+
+    expect(body).toMatchObject({ phone: "***7890" })
   })
 
   it("logs in again once the connection has been idle", async () => {

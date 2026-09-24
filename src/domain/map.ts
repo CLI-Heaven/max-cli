@@ -122,7 +122,8 @@ export const toProfile = (raw: Payload): Profile => {
   return {
     id: asId(contact.id) ?? "",
     name: displayName(contact.names) ?? text(contact.name),
-    phone: phone(contact.phones) ?? text(contact.phone),
+    // The login's own profile carries `phone` as a bare integer (measured 2026-09-24).
+    phone: phone(contact.phones) ?? text(contact.phone) ?? digits(contact.phone),
     description: text(contact.description),
   }
 }
@@ -194,6 +195,15 @@ const displayName = (value: unknown): string | null => {
   const full = entries.find((entry) => entry.type === "FULL_NAME")
   return text(full?.name) ?? text(entries[0]?.name)
 }
+
+const digits = (value: unknown): string | null =>
+  typeof value === "number" || typeof value === "bigint" ? `+${value}` : null
+
+/** The last four digits only, unless the owner asks for the whole number (`NEED-209`). */
+export const maskedProfile = (profile: Profile): Profile => ({
+  ...profile,
+  phone: profile.phone === null ? null : `***${profile.phone.replace(/\D/g, "").slice(-4)}`,
+})
 
 const phone = (value: unknown): string | null => {
   if (!Array.isArray(value)) return null

@@ -53,10 +53,6 @@ and needs the owner's yes before it ships. Deleting messages and marking them re
   (`PHOTO_UPLOAD` 80 with `profile: true`, then `photoToken` and `avatarType: "USER_AVATAR"` in
   `PROFILE` 16 — web.max.ru `Q8r`), the short name (`link` in 16), a name of your own for a contact
   and blocking (`CONTACT_UPDATE` 34 with `UPDATE`, `BLOCK`, `UNBLOCK` — web.max.ru). Code, not measured.
-- **MAX-43** · P3 · `max account show` prints `phone: null` for every profile: the login sends
-  the account's own number as a bare integer (measured 2026-09-24, `pnpm probe:account`), and
-  `toProfile` (`src/domain/map.ts`) reads only a string or `phones[]`. Fixing it hands the owner's
-  number to every MCP client through `max_account_show` — decide that first (constraint 6).
 - **MAX-40** · P3 · Speak the official web client's binary protocol: frames with version 10, a
   binary header and a MessagePack payload, instead of our JSON text frames (version 11,
   `src/protocol/frame.ts`). Read in the web.max.ru bundle 2026-09-24 (`nre()` in its socket code).
