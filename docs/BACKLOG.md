@@ -6,8 +6,10 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 
 ## Rules
 
-- **An id is permanent** and never reused. Next free one:
-  `grep -ohE '<PREFIX>-[0-9]+' docs/BACKLOG*.md | sort -V | tail -1`.
+- **An id is permanent** and never reused. The highest one used anywhere — every branch, open pull
+  requests included, since a number claimed on a branch is not in `main` yet:
+  `git fetch && git log --all -p | grep -ohE '<PREFIX>-[0-9]+' | sort -V | tail -1`. Looking at
+  `main` alone gave out `CLI-26` three times and `MAX-16` twice on 2026-09-24.
 - **Prefixes:** `RES` research and measurement · `OPS` repository, tooling, CI, release · `CORE`
   `cli-core` · `SPEC` protocol spec and generator · `MAX` domain, client, transport, session ·
   `CLI` commands and output · `DOC` handwritten docs · `PROTO` protocol unknowns · `RISK` risks.
@@ -83,11 +85,12 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 Added by the owner on 2026-09-24. Each one goes against REQUIREMENTS §3 or §18, and the line says
 which; the plan for it starts by saying so.
 
-- **MAX-16** · P3 · A watching server: one long-running process that keeps the connection open and
+- **MAX-35** · P3 · A watching server: one long-running process that keeps the connection open and
   hands new messages to other tools as they arrive. Reopens REQUIREMENTS §3 and §18 (one command,
   one operation, no daemon) and §34 (traffic like the official client's). A separate package beside
   the CLI, not a mode of it (`NEED-137`). Unlocks what a scheduled run cannot do: a reply within
   seconds, a trigger on an incoming message.
+  Correction 2026-09-24: numbered `MAX-16` until then, which `qr-login` had claimed on 2026-09-23.
 - **CLI-24** · P3 · Voice messages to text with a local speech model (Whisper, Parakeet or
   similar), downloaded on first use and never bundled. Builds on `max messages download`.
   The model runs on this machine; audio never leaves it.
@@ -98,5 +101,5 @@ which; the plan for it starts by saying so.
 - **CLI-27** · P3 · Hooks for workflows: `max` runs a configured command when a check finds
   something new. Asked by the owner 2026-09-24 (`NEED-172`). Two things to settle in the plan: the
   message text reaches that command, so it must go as data on stdin and never into the command
-  line; and without a watching process (`MAX-16`) a hook fires only when `max` runs, so it is
+  line; and without a watching process (`MAX-35`) a hook fires only when `max` runs, so it is
   `max inbox --new` on a schedule with a pipe in the end — say what it adds over that.
