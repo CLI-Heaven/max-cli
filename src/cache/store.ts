@@ -284,13 +284,15 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
   }
 
   /**
-   * SQLite has no nested transactions and this is the only writer that needs one, so a plain
-   * `BEGIN` is enough. The rollback is what item 4 of the plan turns on: a marker saved over rows
+   * SQLite has no nested transactions and this is the only writer that needs one. `IMMEDIATE`
+   * takes the write lock before the first read: a plain `BEGIN` reads a snapshot, and once another
+   * command commits, the upgrade to writer fails at once without `busy_timeout` ever waiting
+   * (`MAX-46`). The rollback is what item 4 of the plan turns on: a marker saved over rows
    * that were never written makes the next login ask for changes since data we do not have, and
    * nothing downstream ever notices.
    */
   const inTransaction = (body: () => void): void => {
-    database.exec("BEGIN")
+    database.exec("BEGIN IMMEDIATE")
     try {
       body()
       database.exec("COMMIT")
