@@ -60,8 +60,23 @@ max recipients add "Иван Петров"       # и писать только 
   30 8 * * * claude -p "$(cat ~/max-recipes/morning.md)" --allowedTools "Bash(max inbox:*)" >> ~/max-recipes/morning.log 2>&1
   ```
 
-  У cron свой короткий `PATH`: если `claude` или `max` не находятся, пропишите полные пути
-  (`which claude`, `which max`). Первый запуск проверьте руками и посмотрите в журнал.
+  Задачи cron запускаются в почти пустом окружении, и в Linux это ломает `max` дважды:
+
+  - **`node: not found`, код 127.** Node, поставленный через nvm, fnm или volta, лежит не в
+    системном `PATH`, а cron знает только системный.
+  - **`no session for profile "default"`, код 4, хотя вход выполнен.** `max` не может достучаться
+    до хранилища паролей и не видит токен. **Не входите заново** — дело не во входе, а в окружении.
+
+  Обе строки — в начало `crontab -e`, со своими значениями: папка — из `dirname "$(which node)"`,
+  число — из `id -u`:
+
+  ```cron
+  PATH=/home/ivan/.nvm/versions/node/v24.19.0/bin:/home/ivan/.local/bin:/usr/local/bin:/usr/bin:/bin
+  XDG_RUNTIME_DIR=/run/user/1000
+  ```
+
+  Хранилище паролей доступно, пока вы вошли в систему. Первый запуск проверьте руками и
+  посмотрите в журнал.
   Про режим `-p` — [документация Claude](https://code.claude.com/docs/en/headless).
 - **cron и `codex exec`.** То же для Codex:
 
