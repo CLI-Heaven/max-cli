@@ -583,3 +583,15 @@ something asked for fail loudly, and it still does where it can: a run that cann
 before the command does anything. Once the operation has happened or is under way, failing the
 command tells a script it did not — and a script retries, and a retried send is a second message to
 a person. The warning is the loud part.
+
+
+## 2026-09-24
+
+**NEED-143 · Who is `max` built for first: people made to use MAX, or developers and agents?**
+**Developers and agents.** «1 B». History, new messages in a script or n8n, the agent catalogues.
+The research behind it: `docs_ai/research/G3-people.md`, 3.1.
+
+**NEED-144 · Forward MAX to Telegram as a command, as a documented recipe, or not at all?**
+**Not at all.** «пересылка в ТГ — костыль, потому что не видно нормального отправителя, невозможно
+между контактами переключаться». The answer for people who will not install MAX is an open-source
+client of its own — web and mobile — which is a separate project and is not started now (`MAX-17`).
