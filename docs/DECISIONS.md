@@ -597,3 +597,7 @@ The research behind it: `docs_ai/research/G3-people.md`, 3.1.
 client of its own — web and mobile — which is a separate project and is not started now (`MAX-17`).~~
 Overturned the same day: «почитал, за это банят - не делаем». No alternative client either;
 `MAX-17` is closed as not doing.
+
+**NEED-162 · How does the latest-messages command (`CLI-23`) know what it already showed?** **It
+keeps the point of the last check in the profile by itself; `--since <time>` overrides it.** «1 А».
+A scheduled run is then one line with no storage of its own.

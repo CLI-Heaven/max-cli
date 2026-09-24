@@ -30,8 +30,8 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   ([#45](https://github.com/MaxApiTeam/PyMax/issues/45)).
 - **CLI-23** · P2 · Check the latest messages across all chats in one command, readable by default
   and `--json` for scripts. `messages list` reads one chat only (`docs/commands.md`,
-  `max messages list`). Takes `--since <time>` or a saved "since the last check" point, so a
-  scheduled run shows only what is new. Must not mark anything read (REQUIREMENTS §19). The one
+  `max messages list`). Remembers the last check in the profile on its own, so a scheduled run
+  shows only what is new; `--since <time>` overrides it for a one-off look (`NEED-162`). Must not mark anything read (REQUIREMENTS §19). The one
   feature both target users need (`NEED-143`).
 - **MAX-9** · 🟡 P2 · The rest of the messenger surface, in the order of REQUIREMENTS §35.
   Done: attachments, replies and forwards when reading (`src/domain/models.ts:23-75`). Left:
