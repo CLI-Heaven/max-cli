@@ -1,28 +1,28 @@
 import { CliError } from "@leemour/cli-core"
 import type { CacheStore, PersonOrder, SyncSummary } from "./cache/store.js"
 import { namesFrom, toChat, toContact, toMessage, toProfile, toReactions } from "./domain/map.js"
-import {
-  type AttachmentLink,
-  type Chat,
-  type ChatCard,
-  type ChatKind,
-  type Contact,
-  type Id,
-  type Message,
-  type MessageHit,
-  type Page,
-  type PersonCard,
-  type Profile,
-  type QuotedMessage,
-  type Reactions,
-  timeOfMessageId,
-  type WindowedMessage,
+import type {
+  AttachmentLink,
+  Chat,
+  ChatCard,
+  ChatKind,
+  Contact,
+  Id,
+  Message,
+  MessageHit,
+  Page,
+  PersonCard,
+  Profile,
+  QuotedMessage,
+  Reactions,
+  WindowedMessage,
 } from "./domain/models.js"
 import { type Invoke, wireClient } from "./generated/client.generated.js"
 import { parseMarkdown } from "./markdown.js"
 import { asFirstWord } from "./profile.js"
 import { Connection, ProtocolError } from "./protocol/connection.js"
 import type { Payload } from "./protocol/frame.js"
+import { isId, pickChat, pickPerson } from "./resolve.js"
 import { countsIn, type DiagnosticEvent, idsOf } from "./runs/events.js"
 import { startSession } from "./session/handshake.js"
 import type { SessionStore } from "./session/store.js"
@@ -951,75 +951,6 @@ export interface PageRequest {
  */
 const MIN_QUERY = 3
 
-const isId = (reference: string): boolean => /^-?\d+$/.test(reference.trim())
-
-/**
- * A name matched exactly first, then as a fragment — and **an ambiguous one is an error, not a
- * guess**: sending to the wrong conversation is not undoable, so the caller is shown the
- * candidates and asked to be specific.
- */
-const pickChat = (reference: string, chats: Chat[]): Chat => {
-  const wanted = reference.trim().toLowerCase()
-  const titled = chats.filter((chat) => chat.title !== null)
-
-  const exact = titled.filter((chat) => chat.title?.toLowerCase() === wanted)
-  const matches = exact.length > 0 ? exact : titled.filter((chat) => chat.title?.toLowerCase().includes(wanted))
-
-  if (matches.length === 1 && matches[0]) return matches[0]
-  if (matches.length === 0) throw new CliError("not_found", `no chat matches "${reference}"`)
-  throw ambiguous(
-    reference,
-    "chats",
-    matches.map((chat) => ({ id: chat.id, title: chat.title })),
-    ({ title }) => String(title),
-  )
-}
-
-/**
- * As `pickChat`, over names and @usernames. Matched here rather than in SQL because SQLite's
- * `lower()` folds ASCII only, and most of these names are Cyrillic.
- */
-const pickPerson = (reference: string, cache: CacheStore): Contact => {
-  const trimmed = reference.trim()
-  if (isId(trimmed)) {
-    const known = cache.people.get(trimmed)
-    if (!known) throw new CliError("not_found", `no person ${trimmed} in what this account has seen`)
-    return known
-  }
-
-  const wanted = trimmed.replace(/^@/, "").toLowerCase()
-  const everyone = cache.people.page({ order: "name", limit: Number.MAX_SAFE_INTEGER, offset: 0 })
-  const fields = (person: Contact) => [person.name, person.username].filter(isPresent).map((one) => one.toLowerCase())
-
-  const exact = everyone.filter((person) => fields(person).includes(wanted))
-  const matches =
-    exact.length > 0 ? exact : everyone.filter((person) => fields(person).some((one) => one.includes(wanted)))
-
-  if (matches.length === 1 && matches[0]) return matches[0]
-  if (matches.length === 0) throw new CliError("not_found", `nobody matches "${reference}"`)
-  throw ambiguous(
-    reference,
-    "people",
-    matches.map(({ id, name, username }) => ({ id, name, username })),
-    ({ name, username }) => [name, username && `@${username}`].filter(isPresent).join("  "),
-  )
-}
-
-const ambiguous = <T extends { id: Id }>(
-  reference: string,
-  what: string,
-  candidates: T[],
-  label: (candidate: T) => string,
-): CliError => {
-  const width = Math.max(...candidates.map(({ id }) => id.length))
-  const lines = candidates.map((candidate) => `  ${candidate.id.padEnd(width)}  ${label(candidate)}`).join("\n")
-  return new CliError(
-    "validation_error",
-    `"${reference}" matches ${candidates.length} ${what} — name one by its id:\n${lines}`,
-    { candidates },
-  )
-}
-
 const checkedQuery = (query: string | undefined): string | undefined => {
   if (query === undefined) return undefined
   const trimmed = query.trim()
@@ -1039,6 +970,17 @@ const checkedQuery = (query: string | undefined): string | undefined => {
  * names itself rather than as a wrong answer.
  */
 const CONTACT_INFO_BATCH = 100
+
+/**
+ * When a message was sent, read from its id: **`id >> 16` is the send time in milliseconds**, the
+ * low 16 bits a counter. Measured 2026-09-22 on three messages across two days, exact every time.
+ * `undefined` for anything that is not a message id.
+ */
+export const timeOfMessageId = (id: Id): number | undefined => {
+  if (!/^\d{10,20}$/.test(id)) return undefined
+  const time = Number(BigInt(id) >> 16n)
+  return Number.isSafeInteger(time) && time > 0 ? time : undefined
+}
 
 const isPresent = <T>(value: T | null | undefined): value is T => value !== null && value !== undefined
 

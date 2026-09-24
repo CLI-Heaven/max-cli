@@ -77,9 +77,6 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 
 ## Foundation and risks
 
-- **CLI-26** · P2 · 🚧 `cli-26-messenger-boundary` · A lint-enforced boundary around what any
-  messenger CLI could share — the model, the cache, message rendering, name resolution — so a
-  future `cli-messenger` package is a move, not an untangling (`NEED-147`). `biome.json:59`.
 - **CORE-5** · ⏸️ P3 · Move `braze-cli` onto `@leemour/cli-core` instead of its own copy. Deferred by
   the owner.
 - **RISK-2** · P3 · A login per command may exhaust the session. One source claims a reset after

@@ -82,6 +82,45 @@
           }
         }
       }
+    },
+    {
+      "includes": ["src/domain/models.ts", "src/cache/**", "src/rendering/**", "src/resolve.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/protocol/**",
+                      "../protocol/*",
+                      "./protocol/*",
+                      "**/spec/**",
+                      "../spec/*",
+                      "./spec/*",
+                      "**/generated/**",
+                      "../generated/*",
+                      "./generated/*",
+                      "**/session/**",
+                      "../session/*",
+                      "./session/*",
+                      "**/commands/**",
+                      "../commands/*",
+                      "./commands/*",
+                      "**/client.js",
+                      "../client.js",
+                      "./client.js"
+                    ],
+                    "message": "the messenger boundary (CLI-26): what any messenger CLI could share may not know MAX — no protocol, spec, generated wrappers, session, client or commands"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }

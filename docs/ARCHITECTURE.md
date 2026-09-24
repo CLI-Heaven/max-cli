@@ -45,6 +45,12 @@ only the event lines.
   (`NEED-12`). **`src/commands/` may not import from `src/protocol/`, `src/spec/` or
   `src/generated/`**: a Biome rule fails the build with that sentence. Verified by writing the
   forbidden import, both directions.
+- **A second rule marks what any messenger CLI could share** (`CLI-26`, `NEED-147`):
+  `src/domain/models.ts`, `src/cache/`, `src/rendering/` and `src/resolve.ts` may not import the
+  protocol, the specification, the generated wrappers, the session, the client or the commands.
+  The files stay where they are; a future `cli-messenger` package is a move of exactly these, not
+  an untangling. `src/domain/map.ts` is outside it on purpose — it is where MAX becomes the model.
+  Verified by a forbidden import in each of the four places.
 
 ## 2. What each layer may know
 

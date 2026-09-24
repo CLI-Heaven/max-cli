@@ -5,6 +5,9 @@ what exists now, and where it is described. The numbers stay reserved — commit
 
 ## Foundation and repository
 
+- **CLI-26** — a lint rule marks what any messenger CLI could share: the model, the cache, message
+  rendering and name resolution (`src/resolve.ts`) may not import MAX's protocol, session or client.
+  ARCHITECTURE §1.
 - **RES-1** — what moved from `braze-cli` into `cli-core`, file by file.
 - **RES-2** — our own WebSocket adapter rather than a third-party MAX client (`NEED-17`).
 - **RES-3** — the protocol spec is a TypeScript module, not TypeSpec (`NEED-7`).
