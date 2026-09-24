@@ -38,10 +38,6 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   Done: attachments, replies and forwards when reading (`src/domain/models.ts:23-75`); sending a
   reaction (`max reactions add`, `NEED-141`). Left: reactions when reading (`MAX-15`), then uploads, edits; group administration
   last. Each writing operation needs its request shape measured first.
-- **RES-8** · 🟡 🚩 P2 · Markup when sending. Measured 2026-09-23 (`pnpm probe:reply`): `elements` is
-  `[{type: "STRONG", from, length}]` in UTF-16 positions, and a reply is `link: {type: "REPLY",
-  messageId}` — `--reply-to` is built. Left: how markup is typed on our command line, which is the
-  owner's call.
 - **MAX-4** · 🟡 P3 · Chat addressing. Done: an id, or a title matched exactly then as a fragment,
   an ambiguous one refused (`src/client.ts:149`). Left: `@username`, a phone number, a chat the
   account is not in.

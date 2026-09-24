@@ -626,3 +626,7 @@ client it could tell apart from its own. The notice does not cite the blocking. 
 keep using MAX normally in the browser or on the phone alongside `max`. That the extra ordinary
 traffic lowers the risk is a belief, not a measurement. Shown once per profile, on stderr, never in
 JSON mode's stdout (`CLI-26`).
+
+**NEED-156 · How is markup typed when sending?** **Markdown, behind `--markdown`.** «1 A». Without
+the flag a message goes as typed, so text that happens to hold `*` or `_` is never reshaped. Inside a
+word `_` and `*` are not marks (`src/markdown.ts`).

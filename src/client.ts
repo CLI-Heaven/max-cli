@@ -19,6 +19,7 @@ import {
   type WindowedMessage,
 } from "./domain/models.js"
 import { type Invoke, wireClient } from "./generated/client.generated.js"
+import { parseMarkdown } from "./markdown.js"
 import { asFirstWord } from "./profile.js"
 import { Connection, ProtocolError } from "./protocol/connection.js"
 import type { Payload } from "./protocol/frame.js"
@@ -456,19 +457,20 @@ export class MaxClient {
     send: async (
       chatId: Id,
       text: string,
-      options: { cid?: number; notify?: boolean; replyTo?: Id } = {},
+      options: { cid?: number; notify?: boolean; replyTo?: Id; markdown?: boolean } = {},
     ): Promise<Message> => {
       if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot send")
 
       await this.#connectOnce()
       const session = this.#session()
       const cid = options.cid ?? this.#nextCid()
+      const { text: plain, markup } = options.markdown ? parseMarkdown(text) : { text, markup: [] }
       const request = {
         chatId,
         message: {
-          text,
+          text: plain,
           cid,
-          elements: [],
+          elements: markup,
           attaches: [],
           ...(options.replyTo ? { link: { type: "REPLY" as const, messageId: options.replyTo } } : {}),
         },

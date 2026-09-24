@@ -16,7 +16,7 @@ export const messagesSend = defineOperation({
        * never be regenerated on a retry: a fresh one means a second message in somebody's chat.
        */
       cid: v.pipe(v.number(), v.integer()),
-      /** Markup over the text, in UTF-16 positions. `STRONG` measured 2026-09-23; the rest are tsmax's names. */
+      /** Markup in UTF-16 positions. STRONG, EMPHASIZED, STRIKETHROUGH, MONOSPACED read back from MAX 2026-09-24. */
       elements: v.array(v.strictObject({ type: v.string(), from: v.number(), length: v.number() })),
       attaches: v.array(v.unknown()),
       /** Read back as `{type, chatId, message}` — the quoted message whole (measured 2026-09-23). */
