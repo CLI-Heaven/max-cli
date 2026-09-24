@@ -317,6 +317,20 @@ max sends list [options]
 |---|---|
 | `--limit <n>` | how many to show По умолчанию: `20`. |
 
+## `max inbox`
+
+other people's unread messages in every chat; --new for what arrived since the last check
+
+```sh
+max inbox [options]
+```
+
+| Опция | Что делает |
+|---|---|
+| `--new` | what arrived since the last check, each message once — for scheduled runs |
+| `--since <id-or-time>` | what arrived after this message id or ISO 8601 time; the saved point stays put |
+| `--limit <n>` | at most this many per chat, the newest |
+
 ## `max config`
 
 the settings in force, and where each one came from
@@ -364,6 +378,10 @@ max config unset [options] <setting>
 ## `max doctor`
 
 the state this installation is in, without contacting MAX
+
+```sh
+max doctor [options]
+```
 
 ## `max cache`
 

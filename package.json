@@ -45,7 +45,8 @@
     "probe:contacts": "pnpm build && node --experimental-strip-types scripts/probe-contacts.ts",
     "probe:reactions": "pnpm build && node --experimental-strip-types scripts/probe-reactions.ts",
     "probe:message-shapes": "pnpm build && node --experimental-strip-types scripts/probe-message-shapes.ts",
-    "probe:token": "pnpm build && node --experimental-strip-types scripts/probe-token.ts"
+    "probe:token": "pnpm build && node --experimental-strip-types scripts/probe-token.ts",
+    "probe:inbox": "pnpm build && node --experimental-strip-types scripts/probe-inbox.ts"
   },
   "dependencies": {
     "@leemour/cli-core": "^0.2.0",

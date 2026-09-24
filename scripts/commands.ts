@@ -52,12 +52,11 @@ const argumentRows = (command: Command): string =>
     )
     .join("\n")
 
-/** One subcommand: how it is typed, what it takes, what it accepts. */
-const action = (resource: Command, command: Command): string => {
-  const path = `max ${resource.name()} ${command.name()}`
+/** One command that runs: how it is typed, what it takes, what it accepts. */
+const action = (path: string, command: Command, heading = "###"): string => {
   const usage = `${path} ${command.usage()}`.replace(/\s+/g, " ").trim()
 
-  const parts = [`### \`${path}\``, "", cell(command.description()), "", "```sh", usage, "```"]
+  const parts = [`${heading} \`${path}\``, "", cell(command.description()), "", "```sh", usage, "```"]
 
   if (command.registeredArguments.length > 0) {
     parts.push("", "| Аргумент | | Что это |", "|---|---|---|", argumentRows(command))
@@ -71,11 +70,14 @@ const action = (resource: Command, command: Command): string => {
   return parts.join("\n")
 }
 
+// A top-level command with no subcommands of its own — `max inbox` — is documented like one.
 const resource = (command: Command): string =>
-  [`## \`max ${command.name()}\``, "", cell(command.description()), ""]
-    .join("\n")
-    .concat(command.commands.map((c) => action(command, c)).join("\n\n"))
-    .trimEnd()
+  command.commands.length === 0
+    ? action(`max ${command.name()}`, command, "##")
+    : [`## \`max ${command.name()}\``, "", cell(command.description()), ""]
+        .join("\n")
+        .concat(command.commands.map((c) => action(`max ${command.name()} ${c.name()}`, c)).join("\n\n"))
+        .trimEnd()
 
 const exitCodes = (): string =>
   [

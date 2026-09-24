@@ -8,6 +8,7 @@ import { configCommand } from "./commands/config.js"
 import { contactsCommand } from "./commands/contacts.js"
 import { type Environment, provide } from "./commands/context.js"
 import { doctorCommand } from "./commands/doctor.js"
+import { inboxCommand } from "./commands/inbox.js"
 import { messagesCommand } from "./commands/messages.js"
 import { reactionsCommand } from "./commands/reactions.js"
 import { recipientsCommand } from "./commands/recipients.js"
@@ -76,6 +77,7 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
   program.addCommand(reactionsCommand())
   program.addCommand(recipientsCommand())
   program.addCommand(sendsCommand())
+  program.addCommand(inboxCommand())
   program.addCommand(configCommand())
   program.addCommand(doctorCommand())
   program.addCommand(cacheCommand())

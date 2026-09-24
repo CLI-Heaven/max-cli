@@ -110,6 +110,26 @@ export interface MessageHit extends Message {
   chatTitle: string | null
 }
 
+/** One chat's share of `max inbox`: other people's messages since the last check, oldest first. */
+export interface InboxChat extends Pick<Chat, "id" | "title" | "kind" | "unreadCount"> {
+  messages: Message[]
+  /** There are more than `--limit`; these are the newest of them. */
+  more: boolean
+}
+
+export interface Inbox {
+  /** `unread` — what MAX counts unread; `new` — what arrived since the last check. */
+  mode: "unread" | "new"
+  /** ISO 8601, `new` only. `until` is where the next check starts. */
+  since?: string
+  until?: string
+  chats: InboxChat[]
+  /** Past the per-run cap on history requests, so not read. */
+  skipped: Pick<Chat, "id" | "title" | "lastMessageAt">[]
+  /** Only the 40 chats the login named were looked at, and there may be more. */
+  partial: boolean
+}
+
 export interface Contact {
   id: Id
   name: string | null

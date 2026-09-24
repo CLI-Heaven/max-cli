@@ -8,6 +8,8 @@ import type {
   ChatKind,
   Contact,
   Id,
+  Inbox,
+  InboxChat,
   Message,
   MessageHit,
   Page,
@@ -25,7 +27,7 @@ import type { Payload } from "./protocol/frame.js"
 import { isId, pickChat, pickPerson } from "./resolve.js"
 import { countsIn, type DiagnosticEvent, idsOf } from "./runs/events.js"
 import type { SendGuard } from "./sends/guard.js"
-import { startSession } from "./session/handshake.js"
+import { LOGIN_CHATS, startSession } from "./session/handshake.js"
 import type { SessionStore } from "./session/store.js"
 import { buildRequest, checkResponse, type Operation, type RequestOf } from "./spec/index.js"
 
@@ -524,6 +526,77 @@ export class MaxClient {
           errorCode: asCliError(error).code,
         })
         throw error
+      }
+    },
+  }
+
+  readonly inbox = {
+    /**
+     * Other people's unread messages, as MAX counts them: for each chat with a count, its newest
+     * that many. Reading changes nothing — no `CHAT_MARK` — so the same messages come back until
+     * they are read somewhere else. That is right for a person and wrong for a scheduled run,
+     * which is what `since` is for.
+     */
+    unread: async ({ limit }: { limit: number }): Promise<Inbox> => {
+      const chats = (await this.chats.list()).items
+      const waiting = byRecency(chats.filter((chat) => (chat.unreadCount ?? 0) > 0))
+      const { read, skipped } = capped(waiting)
+
+      const found: InboxChat[] = []
+      for (const { id, title, kind, unreadCount } of read) {
+        const count = unreadCount ?? 0
+        const wanted = Math.min(count, limit)
+        const { items } = await this.messages.list(id, { limit: wanted })
+        const theirs = items.slice(-wanted).filter((message) => message.outgoing !== true)
+        if (theirs.length > 0) found.push({ id, title, kind, unreadCount, messages: theirs, more: count > limit })
+      }
+
+      return { mode: "unread", chats: found, skipped, partial: !this.#cache && chats.length >= LOGIN_CHATS }
+    },
+
+    /**
+     * Other people's messages in every chat that changed after `since`.
+     *
+     * A chat changed if its last message is later than `since`; the chat list says so without a
+     * request, and with a store it covers every chat, not only the ones this login named. Each
+     * changed chat then costs one history read of its newest `limit` — the newest, because the
+     * reader wants what just arrived, and one request rather than paging forward to reach it.
+     *
+     * **Everything is cut at the chat list's newest message**, the snapshot this login took. The
+     * reads run one after another, so a chat read early can gain a message while a later one is
+     * read; had the saved point followed the later read, that message would sit behind it and
+     * never show. Anything newer than the snapshot waits for the next run and shows once there.
+     */
+    since: async ({ since, limit }: { since: number; limit: number }): Promise<Inbox> => {
+      const chats = (await this.chats.list()).items
+      const changed = byRecency(
+        chats.filter((chat) => chat.lastMessageAt !== null && Date.parse(chat.lastMessageAt) > since),
+      )
+      const cut = Math.max(since, ...changed.map((chat) => Date.parse(chat.lastMessageAt ?? "")))
+      const { read, skipped } = capped(changed)
+
+      let until = since
+      const found: InboxChat[] = []
+      for (const { id, title, kind, unreadCount } of read) {
+        const { items } = await this.messages.list(id, { limit })
+        const fresh = items.filter((message) => {
+          const time = Date.parse(message.timestamp)
+          return time > since && time <= cut
+        })
+        for (const message of fresh) until = Math.max(until, Date.parse(message.timestamp))
+
+        const theirs = fresh.filter((message) => message.outgoing !== true)
+        if (theirs.length > 0)
+          found.push({ id, title, kind, unreadCount, messages: theirs, more: fresh.length >= limit })
+      }
+
+      return {
+        mode: "new",
+        since: new Date(since).toISOString(),
+        until: new Date(until).toISOString(),
+        chats: found,
+        skipped,
+        partial: !this.#cache && chats.length >= LOGIN_CHATS && changed.length === chats.length,
       }
     },
   }
@@ -1057,6 +1130,22 @@ export const timeOfMessageId = (id: Id): number | undefined => {
   const time = Number(BigInt(id) >> 16n)
   return Number.isSafeInteger(time) && time > 0 ? time : undefined
 }
+
+/**
+ * **At most this many history reads per `max inbox`.** The official client reads a chat's history
+ * when a person opens it; twenty in one burst is already more than a person does (§34). A personal
+ * account rarely has that many chats change between two checks, and the rest are named, not lost.
+ */
+const INBOX_CHATS = 20
+
+/** Newest first — the chats a reader most likely came for are read before the cap. */
+const byRecency = (chats: Chat[]): Chat[] =>
+  chats.toSorted((a, b) => Date.parse(b.lastMessageAt ?? "") - Date.parse(a.lastMessageAt ?? ""))
+
+const capped = (chats: Chat[]) => ({
+  read: chats.slice(0, INBOX_CHATS),
+  skipped: chats.slice(INBOX_CHATS).map(({ id, title, lastMessageAt }) => ({ id, title, lastMessageAt })),
+})
 
 const isPresent = <T>(value: T | null | undefined): value is T => value !== null && value !== undefined
 

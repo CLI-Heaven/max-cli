@@ -29,11 +29,6 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   `docs_ai/plans/2026-09-24-latest-and-scheduled.md`. Builds on `MSG_SEND` as #56 leaves it.
   Correction 2026-09-24: this line first asked whether MAX can schedule at all, with the OS
   scheduler as the fallback. It can.
-- **CLI-23** · P2 · Check the latest messages across all chats in one command, readable by default
-  and `--json` for scripts. `messages list` reads one chat only (`docs/commands.md`,
-  `max messages list`). Remembers the last check in the profile on its own, so a scheduled run
-  shows only what is new; `--since <time>` overrides it for a one-off look (`NEED-162`). Must not mark anything read (REQUIREMENTS §19). The one
-  feature both target users need (`NEED-143`).
 - **MAX-9** · 🟡 P2 · The rest of the messenger surface, in the order of REQUIREMENTS §35.
   Done: attachments, replies and forwards when reading (`src/domain/models.ts:23-75`); sending a
   reaction (`max reactions add`, `NEED-141`). Left: uploads, edits; group administration
@@ -100,3 +95,8 @@ which; the plan for it starts by saying so.
   beside the personal account. Reopens REQUIREMENTS §3 ("not a bot-account client"). Bots are
   issued only to verified organisations, sole traders and the self-employed
   ([dev.max.ru](https://dev.max.ru/docs/maxbusiness/connection)).
+- **CLI-27** · P3 · Hooks for workflows: `max` runs a configured command when a check finds
+  something new. Asked by the owner 2026-09-24 (`NEED-172`). Two things to settle in the plan: the
+  message text reaches that command, so it must go as data on stdin and never into the command
+  line; and without a watching process (`MAX-16`) a hook fires only when `max` runs, so it is
+  `max inbox --new` on a schedule with a pipe in the end — say what it adds over that.
