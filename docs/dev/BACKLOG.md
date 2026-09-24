@@ -25,6 +25,13 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
 
 ## Features
 
+- **MAX-50** · P2 · When the keyring does not answer, say so instead of "no session — run `max session
+  start`". Measured 2026-09-25 from cron on Linux: no `XDG_RUNTIME_DIR`, the keyring is unreachable,
+  and `max` tells the owner to log in again although the profile's state file holds a `viewerId`
+  and hundreds of logins — following that advice is one more login and a new device. Starts at
+  `src/client.ts:1375`: a missing token with a state file that has logged in is the keyring, not the
+  session; `max doctor` says `token present: false` the same way. Workaround in `docs/recipes.md`.
+
 - **CLI-34** · P2 · `max backup messages <chat> --since <date> | --last
   <n>`: without `--run` only the estimate (what the cache holds, what is missing, requests and
   minutes); with `--run` it fills the gaps within limits and stops on any error. One chat per call
