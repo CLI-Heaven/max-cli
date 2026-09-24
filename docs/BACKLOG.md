@@ -46,6 +46,17 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 - **MAX-8** · P3 · Telemetry as the official client sends it — only once our own traffic is
   understood (`NEED-16`).
 
+- **MAX-18** · 🚧 `feat/send-guards` · P1 · Optional recipient list per profile; a send outside it
+  is refused with code 7 (`NEED-159`). Starts at `src/client.ts:455`.
+- **MAX-19** · 🚧 `feat/send-guards` · P1 · A read-only profile (`readOnly`); a send is refused with
+  code 5. `src/config.ts:37`.
+- **MAX-20** · 🚧 `feat/send-guards` · P1 · An hourly send limit (`sendsPerHour`, 30 by default);
+  over it, code 8.
+- **MAX-21** · 🚧 `feat/send-guards` · P1 · A journal of every send attempt, always on, never the
+  text; `max sends list`.
+- **DOC-4** · 🚧 `feat/send-guards` · P1 · What the send guards hold and what they do not, in
+  `docs/security.md` and the skill.
+
 ## Research and protocol unknowns
 
 - **MAX-15** · P3 · Show reactions when reading. History does not carry them: after the owner
