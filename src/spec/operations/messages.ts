@@ -10,17 +10,24 @@ export const messagesSend = defineOperation({
   request: v.strictObject({
     chatId: id(),
     message: v.strictObject({
-      text: v.string(),
+      /** Left out on a forward, as the web client does: the forwarded message is the content. */
+      text: v.optional(v.string()),
       /**
        * The client id MAX deduplicates by — measured, and it is what makes one retry safe. It must
        * never be regenerated on a retry: a fresh one means a second message in somebody's chat.
        */
       cid: v.pipe(v.number(), v.integer()),
       /** Markup in UTF-16 positions. STRONG, EMPHASIZED, STRIKETHROUGH, MONOSPACED read back from MAX 2026-09-24. */
-      elements: v.array(v.strictObject({ type: v.string(), from: v.number(), length: v.number() })),
+      elements: v.optional(v.array(v.strictObject({ type: v.string(), from: v.number(), length: v.number() }))),
       attaches: v.array(v.unknown()),
       /** Read back as `{type, chatId, message}` — the quoted message whole (measured 2026-09-23). */
-      link: v.optional(v.strictObject({ type: v.literal("REPLY"), messageId: id() })),
+      link: v.optional(
+        v.variant("type", [
+          v.strictObject({ type: v.literal("REPLY"), messageId: id() }),
+          /** `chatId` is the chat the message is forwarded **from** (web.max.ru, PyMax). */
+          v.strictObject({ type: v.literal("FORWARD"), messageId: id(), chatId: id() }),
+        ]),
+      ),
     }),
     notify: v.boolean(),
   }),
@@ -30,8 +37,40 @@ export const messagesSend = defineOperation({
     sources: [
       "measured against MAX 2026-09-19, including deduplication by `cid` across two connections",
       "`link` and `elements` measured 2026-09-23 in Saved messages (`pnpm probe:reply`); shapes from tsmax and PyMax",
+      "the FORWARD link: web.max.ru `_app/immutable/chunks/5oCuRT0F.js` (2026-09-24), PyMax `api/messages/payloads.py:56-73`",
+      "a forward with no `text` and no `elements` measured 2026-09-24 in Saved messages (`pnpm probe:edit-pin-forward`)",
     ],
-    notes: "How long MAX remembers a `cid` is still unmeasured (`PROTO-2`); the two probes were seconds apart.",
+    notes:
+      "How long MAX remembers a `cid` is still unmeasured (`PROTO-2`); the two probes were seconds apart. " +
+      "The forward was measured from chat 0 to chat 0, so that `link.chatId` is the source rests on the two clients.",
+  },
+})
+
+export const messagesEdit = defineOperation({
+  name: "messages.edit",
+  constant: "MSG_EDIT",
+  opcode: 67,
+  auth: true,
+  request: v.strictObject({
+    chatId: id(),
+    messageId: id(),
+    text: v.string(),
+    elements: v.array(v.strictObject({ type: v.string(), from: v.number(), length: v.number() })),
+    /** `attachments`, not `attaches` as in MSG_SEND — every source spells them differently. */
+    attachments: v.array(v.unknown()),
+  }),
+  response: v.looseObject({ message: v.optional(v.looseObject({})) }),
+  provenance: {
+    confidence: "measured",
+    sources: [
+      "measured against MAX 2026-09-24 in Saved messages (`pnpm probe:edit-pin-forward`)",
+      "web.max.ru `_app/immutable/chunks/5oCuRT0F.js` (2026-09-24)",
+      "PyMax `api/messages/payloads.py:21-28` (53103f0)",
+    ],
+    notes:
+      'Answers `{message}` with `status: "EDITED"`. `attachments: []` removes a photo; the ones history gives, sent back ' +
+      "as they are, keep it. LOGIN's `config.server.edit-timeout` was 604800 s. The web client edits only your own " +
+      "messages, and never a forward.",
   },
 })
 

@@ -132,6 +132,13 @@ message id** and **one** copy, also across two connections and logins — the ca
   (8) — all before the socket when the chat is an id. Every outcome, refusals included, goes to
   `<state>/sends/<profile>.jsonl` without the text; the limit counts that file. These stop a model
   talked into sending by what it read, not an agent that edits the configuration (`NEED-159`).
+- **A forward is a send** — `MSG_SEND` with a `FORWARD` link and no text — so it gets the same one
+  retry with the same `cid` and counts against the hourly limit. **An edit and a pin are not
+  retried**, like a reaction, and are not counted: they put no new message in anybody's chat
+  (`NEED-168`). The guard's other two checks apply to all of them.
+- **An edit sends the message's attachments back as history gives them.** Measured 2026-09-24:
+  an edit with `attachments: []` removes a photo. So `messages edit` reads the message first, and
+  refuses somebody else's message or a forward before asking MAX.
 
 ## 7. The session is a token and a stable identity
 

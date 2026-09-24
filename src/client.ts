@@ -14,6 +14,7 @@ import type {
   MessageHit,
   Page,
   PersonCard,
+  Pin,
   Profile,
   QuotedMessage,
   Reactions,
@@ -23,10 +24,11 @@ import { type Invoke, wireClient } from "./generated/client.generated.js"
 import { parseMarkdown } from "./markdown.js"
 import { asFirstWord } from "./profile.js"
 import { Connection, ProtocolError } from "./protocol/connection.js"
-import type { Payload } from "./protocol/frame.js"
+import { asId, type Payload } from "./protocol/frame.js"
 import { isId, pickChat, pickPerson } from "./resolve.js"
 import { countsIn, type DiagnosticEvent, idsOf } from "./runs/events.js"
 import type { SendGuard } from "./sends/guard.js"
+import type { SendKind } from "./sends/journal.js"
 import { LOGIN_CHATS, startSession } from "./session/handshake.js"
 import { type QrLogin, tokenByQr } from "./session/login.js"
 import type { SessionStore } from "./session/store.js"
@@ -534,6 +536,106 @@ export class MaxClient {
     /** Takes your reaction off. Measured 2026-09-24: a second call is answered the same, not refused. */
     unreact: (chatId: Id, messageId: Id): Promise<Reactions> =>
       this.#reaction(chatId, messageId, () => this.#wire.messages.unreact({ chatId, messageId })),
+
+    /**
+     * Changes the text of one of the owner's own messages. The person may have read it already.
+     *
+     * **Its attachments are sent back as history gives them**: measured 2026-09-24, an edit with
+     * none removes a photo from the message. Refused before asking MAX when the message is not the
+     * owner's or is a forward — the web client offers neither. MAX's own limit is
+     * `edit-timeout` from LOGIN, 604800 s when measured; past it MAX refuses and that is the answer.
+     * Not retried, like a reaction.
+     */
+    edit: async (chatId: Id, messageId: Id, text: string, { markdown = false } = {}): Promise<Message> => {
+      if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot edit")
+      this.#guard(chatId, "edit", messageId)
+
+      try {
+        await this.#connectOnce()
+        const lookup = { names: namesFrom(this.#session().contacts), ...viewer(this.#store) }
+        const raw = await this.#rawMessage(chatId, messageId)
+        const current = toMessage(raw, chatId, lookup)
+        if (current.outgoing !== true) {
+          throw new CliError("validation_error", `message ${messageId} is not yours — only your own can be edited`)
+        }
+        if (record(raw.link)?.type === "FORWARD") {
+          throw new CliError("validation_error", `message ${messageId} is a forward — a forward cannot be edited`)
+        }
+
+        const { text: plain, markup } = markdown ? parseMarkdown(text) : { text, markup: [] }
+        const answer = await this.#wire.messages.edit({
+          chatId,
+          messageId,
+          text: plain,
+          elements: markup,
+          attachments: asArray(raw.attaches),
+        })
+        this.#cache?.messages.invalidate(chatId)
+        this.#sends?.record({ chatId, kind: "edit", outcome: "sent", messageId, length: text.length })
+        return toMessage(record(answer.message) ?? raw, chatId, lookup)
+      } catch (error) {
+        const failure = asCliError(error)
+        this.#sends?.record({ chatId, kind: "edit", outcome: "failed", messageId, errorCode: failure.code })
+        throw error
+      }
+    },
+
+    /**
+     * Forwards one message into another chat: a new message there, so it goes through `#deliver`
+     * — the same `cid`, the same one retry — and counts against `sendsPerHour`.
+     */
+    forward: async (
+      fromChatId: Id,
+      messageId: Id,
+      toChatId: Id,
+      options: { cid?: number; notify?: boolean } = {},
+    ): Promise<Message> => {
+      if (this.#offline)
+        throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot forward")
+      this.#guard(toChatId, "forward")
+
+      const cid = options.cid ?? this.#nextCid()
+      try {
+        const sent = await this.#deliver(toChatId, "", cid, {
+          ...options,
+          forward: { chatId: fromChatId, messageId },
+          repeat: `max messages forward ${fromChatId} ${messageId} --to ${toChatId}`,
+        })
+        this.#sends?.record({ chatId: toChatId, kind: "forward", outcome: "sent", messageId: sent.id, cid })
+        return sent
+      } catch (error) {
+        const failure = asCliError(error)
+        this.#sends?.record({
+          chatId: toChatId,
+          kind: "forward",
+          outcome: failure.code === "outcome_unknown" ? "outcome_unknown" : "failed",
+          cid,
+          errorCode: failure.code,
+        })
+        throw error
+      }
+    },
+
+    /**
+     * Pins one message in a chat, or with `null` unpins whatever is pinned — `pinMessageId: 0` is
+     * how the web client unpins. No notification unless asked (`NEED-196`). Not retried.
+     *
+     * ⚠ Unmeasured: MAX refuses both in Saved messages, the only chat a probe may write to (`FIND-107`).
+     */
+    pin: async (chatId: Id, messageId: Id | null, { notify = false } = {}): Promise<Pin> => {
+      if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot pin")
+      this.#guard(chatId, "pin", messageId ?? undefined)
+
+      try {
+        await this.#connectOnce()
+        await this.#wire.chats.update({ chatId, pinMessageId: messageId ?? "0", notifyPin: notify })
+        this.#sends?.record({ chatId, kind: "pin", outcome: "sent", ...(messageId ? { messageId } : {}) })
+        return { chatId, pinned: messageId }
+      } catch (error) {
+        this.#sends?.record({ chatId, kind: "pin", outcome: "failed", errorCode: asCliError(error).code })
+        throw error
+      }
+    },
   }
 
   readonly inbox = {
@@ -633,6 +735,46 @@ export class MaxClient {
     }
   }
 
+  /** Asks the send guard, and writes a refusal to the send journal before passing it on. */
+  #guard(chatId: Id, kind: SendKind, messageId?: Id): void {
+    try {
+      this.#sends?.check(chatId, kind)
+    } catch (error) {
+      this.#sends?.record({
+        chatId,
+        kind,
+        outcome: "refused",
+        ...(messageId ? { messageId } : {}),
+        errorCode: asCliError(error).code,
+      })
+      throw error
+    }
+  }
+
+  /** One message as MAX sends it, for what the domain model drops — its attachments whole, its link. */
+  async #rawMessage(chatId: Id, messageId: Id): Promise<Payload> {
+    const time = timeOfMessageId(messageId)
+    if (time === undefined) throw new CliError("validation_error", `"${messageId}" is not a message id`)
+    const answer = await this.#wire.chats.history({
+      chatId,
+      from: time,
+      forward: 0,
+      backward: 1,
+      forwardTime: 0,
+      backwardTime: 0,
+      itemType: "REGULAR",
+      getChat: false,
+      getMessages: true,
+      interactive: false,
+    })
+    const found = asArray(answer.messages)
+      .map((raw) => record(raw) ?? {})
+      .find((raw) => asId(raw.id) === messageId)
+    if (!found)
+      throw new CliError("not_found", `no message ${messageId} in chat ${chatId} — deleted, or in another chat`)
+    return found
+  }
+
   async #deliver(
     chatId: Id,
     text: string,
@@ -640,8 +782,11 @@ export class MaxClient {
     options: {
       notify?: boolean
       replyTo?: Id
+      forward?: { chatId: Id; messageId: Id }
       markdown?: boolean
       files?: { path: string; bytes: Buffer; photo: boolean }[]
+      /** The command that repeats this attempt, named in `outcome_unknown`. */
+      repeat?: string
     },
   ): Promise<Message> {
     await this.#connectOnce()
@@ -649,17 +794,15 @@ export class MaxClient {
     const attaches = []
     for (const file of options.files ?? []) attaches.push(await this.#upload(file))
     const { text: plain, markup } = options.markdown ? parseMarkdown(text) : { text, markup: [] }
-    const request = {
-      chatId,
-      message: {
-        text: plain,
-        cid,
-        elements: markup,
-        attaches,
-        ...(options.replyTo ? { link: { type: "REPLY" as const, messageId: options.replyTo } } : {}),
-      },
-      notify: options.notify ?? true,
-    }
+    // A forward carries no text or markup of its own — the web client leaves both out, and so was it measured.
+    const content = options.forward
+      ? { link: { type: "FORWARD" as const, ...options.forward } }
+      : {
+          text: plain,
+          elements: markup,
+          ...(options.replyTo ? { link: { type: "REPLY" as const, messageId: options.replyTo } } : {}),
+        }
+    const request = { chatId, message: { cid, attaches, ...content }, notify: options.notify ?? true }
 
     let answer: Payload
     try {
@@ -676,7 +819,7 @@ export class MaxClient {
         throw new CliError(
           "outcome_unknown",
           `the message may or may not have been sent (${failure.message}) — ` +
-            `\`max messages send <chat> <text> --cid ${cid}\` repeats the attempt without risking a second copy`,
+            `\`${options.repeat ?? "max messages send <chat> <text>"} --cid ${cid}\` repeats the attempt without risking a second copy`,
           { cid },
         )
       }

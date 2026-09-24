@@ -50,6 +50,12 @@ export interface AttachmentLink {
 }
 
 /** The reactions on one message, as MAX counts them. */
+/** What a chat has pinned after `messages pin` or `unpin`; `null` is nothing. */
+export interface Pin {
+  chatId: Id
+  pinned: Id | null
+}
+
 export interface Reactions {
   counts: { reaction: string; count: number }[]
   /** This account's own reaction, or `null`. */

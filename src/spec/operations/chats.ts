@@ -42,6 +42,32 @@ export const chatsHistory = defineOperation({
   provenance: { confidence: "measured", sources: ["measured against MAX 2026-09-19"] },
 })
 
+export const chatsUpdate = defineOperation({
+  name: "chats.update",
+  constant: "CHAT_UPDATE",
+  opcode: 55,
+  auth: true,
+  /** Only the pin: the same opcode renames and reconfigures a chat, and none of that is sent. */
+  request: v.strictObject({
+    chatId: id(),
+    /** `"0"` unpins — the web client sends `message?.id ?? 0n`. */
+    pinMessageId: id(),
+    notifyPin: v.boolean(),
+  }),
+  response: v.looseObject({ chat: v.optional(v.looseObject({})) }),
+  provenance: {
+    confidence: "confirmed",
+    sources: [
+      "web.max.ru `_app/immutable/chunks/5oCuRT0F.js` (2026-09-24)",
+      "PyMax `api/messages/payloads.py:95-98` (53103f0)",
+    ],
+    notes:
+      "The web client does not notify by default and PyMax does; ours follows the web client (`NEED-196`). " +
+      "Refused in Saved messages on 2026-09-24 — `not.found` to pin, `chat.not.found` to unpin, by chat 0 and by the " +
+      "dialog's own id alike — so no chat a probe may write to can measure it.",
+  },
+})
+
 export const chatMark = reserveOpcode({
   name: "chats.mark",
   constant: "CHAT_MARK",

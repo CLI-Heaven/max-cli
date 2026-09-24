@@ -39,9 +39,11 @@ export const wireClient = (invoke: Invoke) => ({
   chats: {
     history: (request: RequestOf<(typeof OPERATIONS)["chats.history"]>) => invoke(OPERATIONS["chats.history"], request),
     list: (request: RequestOf<(typeof OPERATIONS)["chats.list"]>) => invoke(OPERATIONS["chats.list"], request),
+    update: (request: RequestOf<(typeof OPERATIONS)["chats.update"]>) => invoke(OPERATIONS["chats.update"], request),
   },
   messages: {
     send: (request: RequestOf<(typeof OPERATIONS)["messages.send"]>) => invoke(OPERATIONS["messages.send"], request),
+    edit: (request: RequestOf<(typeof OPERATIONS)["messages.edit"]>) => invoke(OPERATIONS["messages.edit"], request),
     react: (request: RequestOf<(typeof OPERATIONS)["messages.react"]>) => invoke(OPERATIONS["messages.react"], request),
     unreact: (request: RequestOf<(typeof OPERATIONS)["messages.unreact"]>) =>
       invoke(OPERATIONS["messages.unreact"], request),

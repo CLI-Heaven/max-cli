@@ -52,6 +52,14 @@ what exists now, and where it is described. The numbers stay reserved — commit
 
 ## MAX
 
+- **MAX-25** — `max messages edit <chat> <message> [text]` changes the text of your own message
+  (`MSG_EDIT` 67, measured 2026-09-24). The attachments go back as history gives them, since an
+  empty list removes a photo; somebody else's message and a forward are refused before MAX is asked.
+  ARCHITECTURE §6, `docs/usage.md`.
+- **MAX-26** — `max messages forward <chat> <message> --to <chat>`: `MSG_SEND` with a `FORWARD` link
+  and no text, the same one retry with the same `cid` as a send, counted by `sendsPerHour`.
+  Measured only from Saved messages to Saved messages. ARCHITECTURE §6, `docs/usage.md`.
+
 - **MAX-36** — `session start qr-chrome` and `sms` talk to the browser over
   `--remote-debugging-pipe`, not a port on 127.0.0.1 another local user could reach.
   `src/session/browser.ts`, `docs/security.md`.
