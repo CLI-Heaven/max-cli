@@ -49,9 +49,9 @@ and needs the owner's yes before it ships. Deleting messages and marking them re
 - **MAX-41** · 🟡 P2 · Measure opcode 77 (`CHAT_MEMBERS_UPDATE`). Done 2026-09-24 with a second
   person (`pnpm probe:members`): add, remove, make admin, take admin back. Left: accept and decline a
   join request — needs somebody who asks to join a group the owner runs.
-- **MAX-32** · P1 · Contacts: add, remove, import, find a person by phone number (`add_contact`,
+- **MAX-32** · 🚧 `contacts-account` · P1 · Contacts: add, remove, import, find a person by phone number (`add_contact`,
   `remove_contact`, `import_contacts`, `search_by_phone`). A phone number never reaches a log.
-- **MAX-33** · P1 · Your own account: edit the profile, manage chat folders, list your other
+- **MAX-33** · 🚧 `contacts-account` · P1 · Your own account: edit the profile, manage chat folders, list your other
   sessions and end them (`change_profile`, `get_folders`, `create_folder`, `update_folder`,
   `delete_folder`, `get_sessions`, `close_all_sessions`). Ending sessions must never end this one
   — `LOGOUT` (20) stays never-sent.
