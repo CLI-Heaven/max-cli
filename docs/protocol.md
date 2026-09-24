@@ -15,9 +15,9 @@ sources disagree.
 | `session.init` | 6 | `SESSION_INIT` | before login | measured | measured against MAX 2026-09-19; max-api-docs/protocol/auth.md; tsmax createWebAgent |
 | `session.login` | 19 | `LOGIN` | before login | measured | measured against MAX 2026-09-19; measured against MAX 2026-09-20 (`messages` is an object); measured against MAX 2026-09-22 (`token` replaces a stale credential once, then repeats) |
 | `session.logout` | 20 | `LOGOUT` | **never sent** | observed | max-api-docs/protocol/auth.md |
-| `login.qrRequest` | 288 | `GET_QR` | before login | confirmed | PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0; max-api-docs/protocol/auth.md (dac4b19) |
-| `login.qrStatus` | 289 | `GET_QR_STATUS` | before login | confirmed | PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0; max-api-docs/protocol/auth.md (dac4b19) |
-| `login.byQr` | 291 | `LOGIN_BY_QR` | before login | observed | PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0 |
+| `login.qrRequest` | 288 | `GET_QR` | before login | measured | measured against MAX 2026-09-24: `session start qr` logged in; PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0; max-api-docs/protocol/auth.md (dac4b19) |
+| `login.qrStatus` | 289 | `GET_QR_STATUS` | before login | measured | measured against MAX 2026-09-24: `session start qr` logged in; PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0; max-api-docs/protocol/auth.md (dac4b19) |
+| `login.byQr` | 291 | `LOGIN_BY_QR` | before login | measured | measured against MAX 2026-09-24: `session start qr` logged in; PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0 |
 | `login.qrApprove` | 290 | `AUTH_QR_APPROVE` | **never sent** | observed | PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0 |
 | `login.smsRequest` | 17 | `AUTH_REQUEST` | before login | confirmed | PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0; max-api-docs/protocol/auth.md (dac4b19) |
 | `login.smsCode` | 18 | `AUTH` | before login | confirmed | PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0; max-api-docs/protocol/auth.md (dac4b19) |

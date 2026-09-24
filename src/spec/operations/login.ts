@@ -25,7 +25,10 @@ export const loginQrRequest = defineOperation({
     pollingInterval: v.number(),
     expiresAt: v.number(),
   }),
-  provenance: { confidence: "confirmed", sources: [PYMAX, DOCS] },
+  provenance: {
+    confidence: "measured",
+    sources: ["measured against MAX 2026-09-24: `session start qr` logged in", PYMAX, DOCS],
+  },
 })
 
 export const loginQrStatus = defineOperation({
@@ -38,8 +41,8 @@ export const loginQrStatus = defineOperation({
     status: v.looseObject({ expiresAt: v.optional(v.number()), loginAvailable: v.optional(v.boolean()) }),
   }),
   provenance: {
-    confidence: "confirmed",
-    sources: [PYMAX, DOCS],
+    confidence: "measured",
+    sources: ["measured against MAX 2026-09-24: `session start qr` logged in", PYMAX, DOCS],
     notes:
       "`loginAvailable` is in PyMax only. The protocol notes say the token arrives as a push of opcode 18 instead.",
   },
@@ -52,7 +55,10 @@ export const loginByQr = defineOperation({
   auth: false,
   request: v.strictObject({ trackId: v.string() }),
   response: v.looseObject(Issued),
-  provenance: { confidence: "observed", sources: [PYMAX] },
+  provenance: {
+    confidence: "measured",
+    sources: ["measured against MAX 2026-09-24: `session start qr` logged in", PYMAX],
+  },
 })
 
 export const loginSmsRequest = defineOperation({
@@ -62,7 +68,12 @@ export const loginSmsRequest = defineOperation({
   auth: false,
   request: v.strictObject({ phone: v.string(), type: v.literal("START_AUTH"), language: v.string() }),
   response: v.looseObject({ token: v.string(), codeLength: v.optional(v.number()) }),
-  provenance: { confidence: "confirmed", sources: [PYMAX, DOCS] },
+  provenance: {
+    confidence: "confirmed",
+    sources: [PYMAX, DOCS],
+    notes:
+      "Measured 2026-09-24: MAX refused the first request with a captcha demand, which only the web page can solve. So `session start sms` over our socket stops there; `sms-chrome` works.",
+  },
 })
 
 export const loginSmsCode = defineOperation({
