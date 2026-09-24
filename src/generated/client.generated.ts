@@ -43,6 +43,8 @@ export const wireClient = (invoke: Invoke) => ({
   messages: {
     send: (request: RequestOf<(typeof OPERATIONS)["messages.send"]>) => invoke(OPERATIONS["messages.send"], request),
     react: (request: RequestOf<(typeof OPERATIONS)["messages.react"]>) => invoke(OPERATIONS["messages.react"], request),
+    unreact: (request: RequestOf<(typeof OPERATIONS)["messages.unreact"]>) =>
+      invoke(OPERATIONS["messages.unreact"], request),
     reactions: (request: RequestOf<(typeof OPERATIONS)["messages.reactions"]>) =>
       invoke(OPERATIONS["messages.reactions"], request),
   },

@@ -76,6 +76,8 @@ what exists now, and where it is described. The numbers stay reserved — commit
   EMPHASIZED, STRIKETHROUGH and MONOSPACED, all read back from MAX 2026-09-24 (`NEED-156`).
 - **MAX-9** — the rest of the messenger surface: reading attachments, replies, forwards; sending a
   reaction. What was left is split into `MAX-23`…`MAX-33` (2026-09-24).
+- **MAX-29** — `max reactions remove`: opcode 179 `{chatId, messageId}`, measured 2026-09-24; a second
+  call is answered the same.
 - **MAX-14** — `max messages download`: a file's link from opcode 88, a video's from 83, both measured
   2026-09-23; never overwrites (`src/download.ts`).
 - **MAX-17** — not doing: an alternative MAX client (web, mobile). Accounts on third-party clients

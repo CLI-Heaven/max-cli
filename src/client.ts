@@ -525,40 +525,15 @@ export class MaxClient {
       }
     },
 
-    /**
-     * Puts one emoji reaction on a message. Not retried: a reaction lost in transit costs a second
-     * command, and nothing about it is measured to make a blind repeat safe.
-     */
-    react: async (chatId: Id, messageId: Id, emoji: string): Promise<Reactions> => {
-      if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot react")
+    /** Puts one emoji reaction on a message; it replaces the one you had. */
+    react: (chatId: Id, messageId: Id, emoji: string): Promise<Reactions> =>
+      this.#reaction(chatId, messageId, () =>
+        this.#wire.messages.react({ chatId, messageId, reaction: { reactionType: "EMOJI", id: emoji } }),
+      ),
 
-      try {
-        this.#sends?.check(chatId, "reaction")
-      } catch (error) {
-        this.#sends?.record({ chatId, kind: "reaction", outcome: "refused", errorCode: asCliError(error).code })
-        throw error
-      }
-
-      try {
-        await this.#connectOnce()
-        const answer = await this.#wire.messages.react({
-          chatId,
-          messageId,
-          reaction: { reactionType: "EMOJI", id: emoji },
-        })
-        this.#sends?.record({ chatId, kind: "reaction", outcome: "sent", messageId })
-        return toReactions(record(answer.reactionInfo) ?? {})
-      } catch (error) {
-        this.#sends?.record({
-          chatId,
-          kind: "reaction",
-          outcome: "failed",
-          messageId,
-          errorCode: asCliError(error).code,
-        })
-        throw error
-      }
-    },
+    /** Takes your reaction off. Measured 2026-09-24: a second call is answered the same, not refused. */
+    unreact: (chatId: Id, messageId: Id): Promise<Reactions> =>
+      this.#reaction(chatId, messageId, () => this.#wire.messages.unreact({ chatId, messageId })),
   }
 
   readonly inbox = {
@@ -630,6 +605,32 @@ export class MaxClient {
         partial: !this.#cache && chats.length >= LOGIN_CHATS && changed.length === chats.length,
       }
     },
+  }
+
+  /**
+   * A reaction is seen by the other person, so it goes through the send guard and the send log like a
+   * message. Not retried: a reaction lost in transit costs a second command, and nothing about it is
+   * measured to make a blind repeat safe.
+   */
+  async #reaction(chatId: Id, messageId: Id, call: () => Promise<Payload>): Promise<Reactions> {
+    if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot react")
+
+    try {
+      this.#sends?.check(chatId, "reaction")
+    } catch (error) {
+      this.#sends?.record({ chatId, kind: "reaction", outcome: "refused", errorCode: asCliError(error).code })
+      throw error
+    }
+
+    try {
+      await this.#connectOnce()
+      const answer = await call()
+      this.#sends?.record({ chatId, kind: "reaction", outcome: "sent", messageId })
+      return toReactions(record(answer.reactionInfo) ?? {})
+    } catch (error) {
+      this.#sends?.record({ chatId, kind: "reaction", outcome: "failed", messageId, errorCode: asCliError(error).code })
+      throw error
+    }
   }
 
   async #deliver(

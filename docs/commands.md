@@ -274,6 +274,21 @@ max reactions add <chat> <message> <emoji>
 | `message` | обязательный | message id |
 | `emoji` | обязательный | one emoji, for example 👍 |
 
+### `max reactions remove`
+
+take your reaction off a message
+
+**Меняет что-то в MAX.**
+
+```sh
+max reactions remove <chat> <message>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+| `message` | обязательный | message id |
+
 ## `max recipients`
 
 the chats this profile may send to, when the list is on

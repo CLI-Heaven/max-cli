@@ -51,8 +51,6 @@ and needs the owner's yes before it ships. Deleting messages and marking them re
   `link: {type: "FORWARD", messageId, chatId}`).
 - **MAX-27** · P1 · Pin and unpin a message (`pin_message`).
 - **MAX-28** · P1 · Polls: show them when reading, and vote (`vote_poll`).
-- **MAX-29** · 🚧 `reactions-remove` · P1 · Remove your reaction (`remove_reaction`, `MSG_CANCEL_REACTION` 179). Pairs with
-  `max reactions add`.
 - **MAX-30** · P1 · Groups and channels you belong to: create a group, join or leave a group or a
   channel by link, invite and remove members (`create_group`, `join_group`, `join_channel`,
   `leave_group`, `leave_channel`, `invite_users_to_group`, `invite_users_to_channel`,

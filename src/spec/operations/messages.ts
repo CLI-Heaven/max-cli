@@ -77,6 +77,20 @@ export const messagesReact = defineOperation({
   },
 })
 
+export const messagesUnreact = defineOperation({
+  name: "messages.unreact",
+  constant: "MSG_CANCEL_REACTION",
+  opcode: 179,
+  auth: true,
+  request: v.strictObject({ chatId: id(), messageId: id() }),
+  response: v.looseObject({ reactionInfo: v.optional(v.looseObject({})) }),
+  provenance: {
+    confidence: "measured",
+    sources: ["measured against MAX 2026-09-24 in Saved messages", "tsmax removeReaction", "PyMax remove_reaction"],
+    notes: "Answers the reactions left, `{reactionInfo: {}}` when none. A second call is answered the same.",
+  },
+})
+
 export const messageDelete = reserveOpcode({
   name: "messages.delete",
   constant: "MSG_DELETE",

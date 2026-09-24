@@ -11,7 +11,13 @@ import {
   loginSmsRequest,
   qrApprove,
 } from "./operations/login.js"
-import { messageDelete, messagesReact, messagesReactions, messagesSend } from "./operations/messages.js"
+import {
+  messageDelete,
+  messagesReact,
+  messagesReactions,
+  messagesSend,
+  messagesUnreact,
+} from "./operations/messages.js"
 import { logout, sessionInit, sessionLogin } from "./operations/session.js"
 import { uploadsFile, uploadsPhoto } from "./operations/uploads.js"
 
@@ -45,6 +51,7 @@ export const spec: readonly Entry[] = [
   chatsList,
   messagesSend,
   messagesReact,
+  messagesUnreact,
   messagesReactions,
   messageDelete,
   attachmentsVideo,

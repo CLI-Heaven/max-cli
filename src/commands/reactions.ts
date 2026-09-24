@@ -24,5 +24,23 @@ export const reactionsCommand = (): Command => {
       })
     })
 
+  annotate(command.command("remove"), { mutates: true })
+    .argument("<chat>", "chat id, or part of a chat name")
+    .argument("<message>", "message id")
+    .description("take your reaction off a message")
+    .action(async function (this: Command, chat: string, messageId: string) {
+      const { renderer, createClient, run } = forCommand(this)
+
+      await run("reactions remove", async (events) => {
+        const client = createClient({ events })
+        try {
+          const chatId = await client.chats.resolve(chat)
+          renderer.result(await client.messages.unreact(chatId, messageId.trim()))
+        } finally {
+          await client.close()
+        }
+      })
+    })
+
   return command
 }

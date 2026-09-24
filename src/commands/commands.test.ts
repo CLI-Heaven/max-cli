@@ -46,7 +46,7 @@ describe("max commands", () => {
     const writing = flat(JSON.parse(stdout[0] as string).commands)
       .filter((command) => command.mutates)
       .map((command) => command.path.join(" "))
-    expect(writing).toEqual(["messages send", "reactions add"])
+    expect(writing).toEqual(["messages send", "reactions add", "reactions remove"])
   })
 
   it("publishes the exit code for every failure a script branches on", async () => {
