@@ -1,4 +1,6 @@
+import { rmSync } from "node:fs"
 import type { MaxClient } from "../client.js"
+import { refusedPath } from "../server/start.js"
 import type { SessionStore } from "./store.js"
 
 /**
@@ -29,4 +31,6 @@ export const adoptToken = async (client: MaxClient, store: SessionStore, token: 
   // whether anything is stored, is what lets a new login replace an old session at all — until
   // 2026-09-24 a profile that already held a token kept it, and the command still said "stored".
   if (store.readToken() === before) store.writeToken(token)
+  // A new session: background servers may try again at once.
+  rmSync(refusedPath(store), { force: true })
 }

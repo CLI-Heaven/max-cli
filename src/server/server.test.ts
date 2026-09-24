@@ -360,3 +360,15 @@ describe("a command through max serve", () => {
     expect(direct.sent[1]?.payload).toMatchObject({ token: "a-new-token" })
   })
 })
+
+describe("starting a server in the background", () => {
+  it("does not try again for a while after MAX refused the login", async () => {
+    const { refusedPath, startInBackground } = await import("./start.js")
+    const store = new SessionStore({ profile: "b-refused", keyring: memoryKeyring() })
+    store.writeToken("a-token")
+    writeFileSync(refusedPath(store), "")
+
+    expect(startInBackground(store, { entry: "/nonexistent/max.js" })).toBeUndefined()
+    expect(existsSync(`${store.socketPath()}.starting`)).toBe(false)
+  })
+})
