@@ -15,6 +15,9 @@
 - **Автодополнение по Tab** в zsh, bash, fish и PowerShell: `source <(max complete zsh)`. Команды,
   флаги, их значения, чаты и люди из локальной копии — без подключения к MAX
   ([installation.md](docs/installation.md#автодополнение)).
+- **`max mcp`** — тот же профиль для агентов по MCP, для клиентов без терминала (Claude Desktop,
+  Cursor). Только чтение, пока не запущен с `--allow-send`; отправка проходит те же проверки, что
+  `max messages send`. Подключение — [docs/mcp.md](docs/mcp.md).
 
 ## 0.6.0 — 24.09.2026
 

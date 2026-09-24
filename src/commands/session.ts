@@ -76,7 +76,7 @@ export const sessionCommand = (): Command => {
 
         try {
           await adoptToken(client, store, token)
-          const profile = client.account.me()
+          const profile = await client.account.me()
           renderer.result({ profile, stored: true, method })
           renderer.success(`logged in as ${profile.name ?? profile.id}`)
           if (firstLogin) renderer.note(TERMS_NOTICE)

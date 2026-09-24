@@ -78,6 +78,10 @@ and needs the owner's yes before it ships. Deleting messages and marking them re
   the device details it reports (`NEED-16`). PyMax does both (`src/pymax/telemetry/`,
   `src/pymax/fingerprint/`). Raised from P3 by the owner 2026-09-24 (`NEED-175`).
 
+- **CLI-28** · P3 · MCP: confirm a send with a form from the server itself (elicitation, `inputRequired`
+  in SDK v2) showing the recipient and the text; refuse where the client cannot show one. Waits for
+  a check of which clients support it (`NEED-151` B, `docs_ai/plans/2026-09-23-mcp-server.md`).
+
 - **RES-5** · 🟡 P2 · Does `LOGIN` move presence or read state? Reading history does not (no
   `CHAT_MARK`, tested). The login flag `interactive` is unexplained (`ARCHITECTURE.md` §4). Needs a
   second device watching.

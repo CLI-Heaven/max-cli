@@ -93,9 +93,15 @@ export interface CommandContext {
  * The cache is not opened here on purpose — only the reading commands want one, and opening it
  * would create a database file for `session end`, which will never read it.
  */
-export const forCommand = (command: Command): CommandContext => {
-  const environment = environmentOf(command)
-  const settings = resolveSettings(command.optsWithGlobals<GlobalFlags>())
+export const forCommand = (command: Command): CommandContext =>
+  contextFor(command.optsWithGlobals<GlobalFlags & { offline?: boolean }>(), environmentOf(command))
+
+/** The same context from flags already parsed — for `max mcp`, whose calls arrive without argv. */
+export const contextFor = (
+  flags: GlobalFlags & { offline?: boolean },
+  environment: Environment = {},
+): CommandContext => {
+  const settings = resolveSettings(flags)
   const { renderer, format, color, streams } = resolveOutput({
     ...settings,
     ...(environment.streams ? { streams: environment.streams } : {}),
@@ -119,7 +125,7 @@ export const forCommand = (command: Command): CommandContext => {
         store,
         timeoutMs: settings.timeoutMs,
         warn: renderer.note,
-        offline: command.optsWithGlobals().offline === true,
+        offline: flags.offline === true,
         sends: sendGuard({
           profile: settings.profile,
           readOnly: settings.readOnly,

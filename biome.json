@@ -57,7 +57,7 @@
       }
     },
     {
-      "includes": ["src/commands/**"],
+      "includes": ["src/commands/**", "src/mcp/**"],
       "linter": {
         "rules": {
           "style": {
@@ -74,7 +74,7 @@
                       "**/generated/**",
                       "../generated/*"
                     ],
-                    "message": "commands speak the domain model; only src/client.ts may reach the protocol, the specification or the generated wrappers"
+                    "message": "commands and the MCP tools speak the domain model; only src/client.ts may reach the protocol, the specification or the generated wrappers"
                   }
                 ]
               }

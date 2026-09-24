@@ -129,7 +129,7 @@ describe("MaxClient", () => {
     const { client } = clientWith(max)
 
     await client.connect()
-    expect(client.account.me()).toEqual({ id: "10000001", name: "Test Person", phone: null })
+    expect(await client.account.me()).toEqual({ id: "10000001", name: "Test Person", phone: null })
 
     const { items: chats } = await client.chats.list()
     expect(chats).toHaveLength(2)
@@ -1469,7 +1469,7 @@ describe("one event per request", () => {
     })
 
     await client.connect()
-    expect(client.account.me().id).toBe("10000001")
+    expect((await client.account.me()).id).toBe("10000001")
     await client.close()
   })
 })
