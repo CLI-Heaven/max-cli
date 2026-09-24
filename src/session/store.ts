@@ -101,6 +101,11 @@ export class SessionStore {
     return had
   }
 
+  /** Where `max serve` listens for this profile. Beside the state file, so a sandbox moves both. */
+  socketPath(): string {
+    return join(this.#stateDir, "profiles", `${this.profile}.sock`)
+  }
+
   #statePath(): string {
     return join(this.#stateDir, "profiles", `${this.profile}.json`)
   }

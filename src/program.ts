@@ -16,9 +16,11 @@ import { reactionsCommand } from "./commands/reactions.js"
 import { recipientsCommand } from "./commands/recipients.js"
 import { runsCommand } from "./commands/runs.js"
 import { sendsCommand } from "./commands/sends.js"
+import { serveCommand } from "./commands/serve.js"
 import { sessionCommand } from "./commands/session.js"
 import { skillCommand } from "./commands/skill.js"
 import { selfUpdateCommand } from "./commands/update.js"
+import { watchCommand } from "./commands/watch.js"
 import { commandWords, liftProfile } from "./profile.js"
 import { updateNotice } from "./update.js"
 import { VERSION } from "./version.js"
@@ -82,6 +84,8 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
   program.addCommand(recipientsCommand())
   program.addCommand(sendsCommand())
   program.addCommand(inboxCommand())
+  program.addCommand(serveCommand())
+  program.addCommand(watchCommand())
   program.addCommand(configCommand())
   program.addCommand(doctorCommand())
   program.addCommand(cacheCommand())

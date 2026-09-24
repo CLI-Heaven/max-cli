@@ -1140,6 +1140,35 @@ export class MaxClient {
   }
 
   /**
+   * **For a connection that stays open** (`max serve`). A one-shot command never calls these.
+   */
+  readonly live = {
+    /** The keep-alive the web client sends every 30 s; `interactive` is never true here. */
+    ping: async (): Promise<void> => {
+      await this.#connectOnce()
+      await this.#wire.session.ping({ interactive: false })
+    },
+
+    /**
+     * A message MAX pushed (opcode 128) as the same shape `messages list` prints, with its chat's
+     * name — so whoever reads `max watch` gets one schema, and no MAX type crosses this file.
+     * Anything else pushed answers `undefined`.
+     */
+    message: async (opcode: number, payload: Payload): Promise<MessageHit | undefined> => {
+      const raw = record(payload.message)
+      const chatId = asId(payload.chatId)
+      if (opcode !== NEW_MESSAGE || !raw || chatId === undefined) return undefined
+
+      const session = this.#session()
+      const [message] = await this.#nameSenders([
+        toMessage(raw, chatId, { names: namesFrom(session.contacts), ...viewer(this.#store) }),
+      ])
+      const chat = (await this.chats.list()).items.find((candidate) => candidate.id === chatId)
+      return message && { ...message, chatTitle: chat?.title ?? null }
+    },
+  }
+
+  /**
    * Opens the connection and logs in with the stored token, or with one offered for trial.
    *
    * The login response carries the profile, the chats, the contacts and recent messages, so most
@@ -1872,6 +1901,9 @@ export const timeOfMessageId = (id: Id): number | undefined => {
  * account rarely has that many chats change between two checks, and the rest are named, not lost.
  */
 const INBOX_CHATS = 20
+
+/** MAX pushes this when a message arrives in any chat. PyMax calls it `NOTIF_MESSAGE`. */
+const NEW_MESSAGE = 128
 
 /** Newest first — the chats a reader most likely came for are read before the cap. */
 const byRecency = (chats: Chat[]): Chat[] =>

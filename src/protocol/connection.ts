@@ -136,8 +136,8 @@ export class Connection {
       // "неизвестный opcode", which reads as the protocol's fault rather than ours.
       throw new Error(`refusing to send a frame with a non-integer opcode: ${String(opcode)}`)
     }
-    if (!this.#socket) throw new Error("the connection is not open")
     if (this.#closed) throw new Error("the connection is closed")
+    if (!this.#socket) throw new Error("the connection is not open")
 
     this.#seq += 1
     const seq = this.#seq
@@ -255,6 +255,13 @@ export class Connection {
   #lost(error: Error): void {
     if (this.#closed) return
     this.#closed = true
+    const socket = this.#socket
+    this.#socket = undefined
+    if (socket) {
+      // A dead connection must hear nothing more, or a reconnect's frames reach it twice.
+      socket.removeAllListeners()
+      socket.on("error", () => {})
+    }
     this.#failAll(error)
     this.#onClose?.(error)
   }
