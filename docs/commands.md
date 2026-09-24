@@ -426,6 +426,10 @@ print SKILL.md — redirect it into ~/.claude/skills/max-cli/SKILL.md for Claude
 max skill show [options]
 ```
 
+## `max commands`
+
+every command, option and exit code as JSON — what an agent reads instead of --help
+
 ## Коды возврата
 
 Скрипт ветвится по коду, а не по тексту: текст меняется, код — нет.

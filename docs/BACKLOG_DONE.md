@@ -5,6 +5,8 @@ what exists now, and where it is described. The numbers stay reserved — commit
 
 ## Foundation and repository
 
+- **CORE-8** — the command registry, `@leemour/cli-core/commands` (0.2.0): the command tree as data,
+  with `origin`, `mutates`, `state` and `examples`; `max commands --json` reads it.
 - **CLI-26** — a lint rule marks what any messenger CLI could share: the model, the cache, message
   rendering and name resolution (`src/resolve.ts`) may not import MAX's protocol, session or client.
   ARCHITECTURE §1.

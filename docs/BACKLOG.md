@@ -69,10 +69,6 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 
 ## Foundation and risks
 
-- **CORE-8** · P2 · 🚧 `core-8-command-registry` · A command registry in `@leemour/cli-core/commands`,
-  like `rails routes`: the whole command tree as data, however each command was made, with labels
-  for origin, `mutates`, `state` and `examples`; `max commands --json` on top of it. Plan:
-  `docs_ai/plans/2026-09-24-commands-manifest.md`.
 - **CORE-9** · P2 · Self-update: `max update` finds how `max` was installed (npm, pnpm or bun,
   globally) and runs that package manager, plus a once-a-day "a newer version exists" line — on
   stderr, in pretty mode only, never where an agent reads JSON. Shared in `cli-core`; the idea is

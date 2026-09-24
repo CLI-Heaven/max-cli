@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@leemour/cli-core':
-        specifier: ^0.1.1
-        version: 0.1.1(typescript@5.9.3)
+        specifier: ^0.2.0
+        version: 0.2.0(commander@15.0.0)(typescript@5.9.3)
       commander:
         specifier: ^15.0.0
         version: 15.0.0
@@ -271,9 +271,14 @@ packages:
   '@jridgewell/sourcemap-codec@1.6.0':
     resolution: {integrity: sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw==}
 
-  '@leemour/cli-core@0.1.1':
-    resolution: {integrity: sha512-rRFVp/0m2Yl4+GoI+hxPUPa9AWBbLZB0do05nSiyJnOIsNs0ETtIyqhgx8vulx7kVMx5wY25qj9F25EIrQ1gxA==}
+  '@leemour/cli-core@0.2.0':
+    resolution: {integrity: sha512-rW87R/DVfOi8I/4qpB4cOX6TiaIjSq3W8No2/GTuk1SvwpngLW3WWM4RheQAFQJl18TsmkTB/TwvutDesroWkw==}
     engines: {node: '>=22'}
+    peerDependencies:
+      commander: '>=15'
+    peerDependenciesMeta:
+      commander:
+        optional: true
 
   '@napi-rs/keyring-darwin-arm64@2.1.0':
     resolution: {integrity: sha512-j6ATTOhmPW+N5EKwi8Yzn6P4Bz/uqnxzyYvqOL73/dgzDSYG5pS5eprqpVmOLse68WUTf79ZMqz97HnfvirJ9g==}
@@ -1072,7 +1077,7 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.6.0': {}
 
-  '@leemour/cli-core@0.1.1(typescript@5.9.3)':
+  '@leemour/cli-core@0.2.0(commander@15.0.0)(typescript@5.9.3)':
     dependencies:
       cli-table3: 0.6.5
       env-paths: 4.0.0
@@ -1081,6 +1086,7 @@ snapshots:
       valibot: 1.5.0(typescript@5.9.3)
     optionalDependencies:
       '@napi-rs/keyring': 2.1.0
+      commander: 15.0.0
     transitivePeerDependencies:
       - typescript
 
