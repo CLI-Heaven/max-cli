@@ -1,4 +1,11 @@
-import { CliError, exitCodeFor, GENERIC_FAILURE, processStreams, type Streams } from "@leemour/cli-core"
+import {
+  CliError,
+  exitCodeFor,
+  GENERIC_FAILURE,
+  processStreams,
+  type Streams,
+  visibleControls,
+} from "@leemour/cli-core"
 import { Command, CommanderError } from "commander"
 import { accountCommand } from "./commands/account.js"
 import { cacheCommand } from "./commands/cache.js"
@@ -207,5 +214,5 @@ interface ReportedError {
  */
 const report = (streams: Streams, options: RunOptions, error: ReportedError): void => {
   const interactive = options.tty ?? process.stdout.isTTY === true
-  streams.diagnostic(interactive ? `\u2717 ${error.message}` : JSON.stringify({ error }))
+  streams.diagnostic(interactive ? `\u2717 ${visibleControls(error.message)}` : JSON.stringify({ error }))
 }
