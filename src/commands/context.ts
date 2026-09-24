@@ -27,6 +27,7 @@ export interface Environment {
   browser?: BrowserDoors
   ask?: Ask
   interactive?: boolean
+  columns?: number
 }
 
 /** One line from the person at the terminal; `secret` keeps it off the screen. */
@@ -71,6 +72,8 @@ export interface CommandContext {
   ask: Ask
   /** Whether a person is there to scan a code or type one: both stdin and stderr are a terminal. */
   interactive: boolean
+  /** How wide the terminal is that diagnostics go to; unknown when it is not a terminal. */
+  columns: number | undefined
 }
 
 /**
@@ -136,6 +139,7 @@ export const forCommand = (command: Command): CommandContext => {
     browser: environment.browser ?? realBrowser,
     ask: environment.ask ?? ((prompt, { secret = false } = {}) => readSecret(prompt, { echo: !secret })),
     interactive: environment.interactive ?? (process.stdin.isTTY === true && process.stderr.isTTY === true),
+    columns: environment.columns ?? process.stderr.columns,
     run: (command, body) =>
       withDeadline(settings.commandTimeoutMs, clients, () =>
         recorded(

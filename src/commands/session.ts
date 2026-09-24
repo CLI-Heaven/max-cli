@@ -1,10 +1,10 @@
-import { CliError } from "@leemour/cli-core"
 import { Argument, Command } from "commander"
 import type { MaxClientOptions } from "../client.js"
 import { commandWords, refuseCommandName, rootOf } from "../profile.js"
 import { adoptToken } from "../session/adopt.js"
 import { serveQrPage } from "../session/browser.js"
 import { readSecret } from "../session/prompt.js"
+import { terminalQr } from "../session/qr-terminal.js"
 import { type CommandContext, forCommand } from "./context.js"
 
 // NEED-149: gentle on purpose — it asks for ordinary use alongside, and does not cite blocked accounts.
@@ -17,15 +17,16 @@ export const sessionCommand = (): Command => {
   const command = new Command("session").description("the stored MAX session for this profile")
 
   /**
-   * Five ways to a token, and one way to keep it: whatever produced the token, it reaches the
+   * Four ways to a token, and one way to keep it: whatever produced the token, it reaches the
    * keyring only once MAX has accepted it (`adoptToken`).
    *
    * - `token` — pasted, or piped: `pass show max | max session start`. The default, and the escape
    *   hatch when a login meets a captcha or an unusual second factor.
-   * - `qr`, `sms` — our own connection asks MAX for the QR code or the SMS; the code is shown in
-   *   whatever browser the system opens, the SMS code is typed here.
-   * - `qr-chrome`, `sms-chrome` — web.max.ru itself does the login, in a Chromium-family browser
-   *   with a throwaway profile, and we read the token it stores. MAX sees its own web client.
+   * - `qr` — our own connection asks MAX for the code; it is drawn here, or opened in the default
+   *   browser when the terminal is too narrow for it.
+   * - `qr-chrome`, `sms` — web.max.ru itself does the login, in a Chromium-family browser with a
+   *   throwaway profile, and we read the token it stores. MAX sees its own web client. SMS has no
+   *   other door: asked over our socket, MAX demands a captcha only the page can solve (2026-09-24).
    *
    * **A token is never an argument.** argv is read by `ps` and kept by shell history.
    */
@@ -33,9 +34,7 @@ export const sessionCommand = (): Command => {
     .command("start")
     .description("log this profile in to MAX")
     .addArgument(
-      new Argument("[method]", "token (pasted or piped), qr, qr-chrome, sms or sms-chrome")
-        .choices(METHODS)
-        .default("token"),
+      new Argument("[method]", "token (pasted or piped), qr, qr-chrome or sms").choices(METHODS).default("token"),
     )
     .action(async function (this: Command, method: Method) {
       const context = forCommand(this)
@@ -115,7 +114,7 @@ export const sessionCommand = (): Command => {
   return command
 }
 
-const METHODS = ["token", "qr", "qr-chrome", "sms", "sms-chrome"] as const
+const METHODS = ["token", "qr", "qr-chrome", "sms"] as const
 type Method = (typeof METHODS)[number]
 
 /** Long enough to find the phone and type a number and a code; the profile dies with the wait. */
@@ -123,10 +122,10 @@ const BROWSER_WAIT_MS = 5 * 60_000
 
 const obtain = async (
   method: Exclude<Method, "token">,
-  { createClient, renderer, browser, track, ask }: CommandContext,
+  { createClient, renderer, browser, track, ask, streams, columns }: CommandContext,
   events: MaxClientOptions["events"],
 ): Promise<string> => {
-  if (method === "qr-chrome" || method === "sms-chrome") {
+  if (method !== "qr") {
     renderer.note(
       method === "qr-chrome"
         ? "web.max.ru is opening in a separate browser window — scan its QR code with the MAX app on your phone"
@@ -135,31 +134,27 @@ const obtain = async (
     return await browser.chromiumToken({ track, waitMs: BROWSER_WAIT_MS })
   }
 
-  const askPassword = (hint: string | undefined) =>
-    ask(hint ? `MAX password (hint: ${hint}): ` : "MAX password: ", { secret: true })
   const client = createClient({ events })
+  let page: Awaited<ReturnType<typeof serveQrPage>> | undefined
   try {
-    if (method === "sms") {
-      const phone = await ask("phone number, with the country code: ")
-      if (!phone) throw new CliError("validation_error", "no phone number given")
-      return await client.login.bySms({ phone, askCode: () => ask("code from the SMS: "), askPassword })
-    }
-
-    let page: Awaited<ReturnType<typeof serveQrPage>> | undefined
-    try {
-      return await client.login.byQr({
-        show: async (link) => {
-          page = await serveQrPage(link)
-          track(page)
-          await browser.open(page.url)
-          renderer.note("the QR code is open in your browser — scan it with the MAX app on your phone")
-        },
-        askPassword,
-      })
-    } finally {
-      await page?.close()
-    }
+    return await client.login.byQr({
+      show: async (link) => {
+        const drawn = terminalQr(link)
+        // Straight to the diagnostic stream, not through the renderer: --quiet must not hide the code.
+        if (columns !== undefined && drawn.width <= columns) {
+          streams.diagnostic(drawn.text)
+          renderer.note("scan this code with the MAX app on your phone")
+          return
+        }
+        page = await serveQrPage(link)
+        track(page)
+        await browser.open(page.url)
+        renderer.note("the terminal is too narrow for the QR code, so it is open in your browser — scan it there")
+      },
+      askPassword: (hint) => ask(hint ? `MAX password (hint: ${hint}): ` : "MAX password: ", { secret: true }),
+    })
   } finally {
+    await page?.close()
     await client.close()
   }
 }

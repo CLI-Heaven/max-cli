@@ -28,7 +28,7 @@ import { isId, pickChat, pickPerson } from "./resolve.js"
 import { countsIn, type DiagnosticEvent, idsOf } from "./runs/events.js"
 import type { SendGuard } from "./sends/guard.js"
 import { LOGIN_CHATS, startSession } from "./session/handshake.js"
-import { type QrLogin, type SmsLogin, tokenByQr, tokenBySms } from "./session/login.js"
+import { type QrLogin, tokenByQr } from "./session/login.js"
 import type { SessionStore } from "./session/store.js"
 import { WEB_USER_AGENT } from "./spec/identity.js"
 import { buildRequest, checkResponse, type Operation, type RequestOf } from "./spec/index.js"
@@ -111,7 +111,6 @@ export class MaxClient {
    */
   readonly login = {
     byQr: (options: QrLogin): Promise<string> => this.#beforeLogin(() => tokenByQr(this.#wire, options)),
-    bySms: (options: SmsLogin): Promise<string> => this.#beforeLogin(() => tokenBySms(this.#wire, options)),
   }
 
   readonly chats = {

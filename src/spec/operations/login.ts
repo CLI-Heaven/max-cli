@@ -72,7 +72,7 @@ export const loginSmsRequest = defineOperation({
     confidence: "confirmed",
     sources: [PYMAX, DOCS],
     notes:
-      "Measured 2026-09-24: MAX refused the first request with a captcha demand, which only the web page can solve. So `session start sms` over our socket stops there; `sms-chrome` works.",
+      "Measured 2026-09-24: MAX refused the first request with a captcha demand, which only the web page can solve. So `session start sms` opens web.max.ru instead of sending this; nothing sends it.",
   },
 })
 

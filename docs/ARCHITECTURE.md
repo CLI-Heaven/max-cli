@@ -142,10 +142,11 @@ message id** and **one** copy, also across two connections and logins — the ca
 
 - **The device identity is saved the first time it is read**, before any use. Otherwise a failed
   login or a second call shows MAX a new device — what brief §34 forbids. Found by a test.
-- `MAX_TOKEN` is read before the keyring (CI, probes). `max session start` takes a token five ways
-  (`token`, `qr`, `sms`, `qr-chrome`, `sms-chrome`); every one ends in `adoptToken`. The `-chrome`
-  ones let web.max.ru log in inside a throwaway Chromium profile and read `__oneme_auth` over the
-  DevTools protocol (`src/session/browser.ts`); `qr` and `sms` use our socket (`src/session/login.ts`).
+- `MAX_TOKEN` is read before the keyring (CI, probes). `max session start` takes a token four ways
+  (`token`, `qr`, `qr-chrome`, `sms`); every one ends in `adoptToken`. `qr-chrome` and `sms` let
+  web.max.ru log in inside a throwaway Chromium profile and read `__oneme_auth` over the DevTools
+  protocol (`src/session/browser.ts`); `qr` uses our socket (`src/session/login.ts`) and draws the
+  code in the terminal. SMS over our socket meets a captcha (measured 2026-09-24), so it has no socket path.
 
 In [`architecture/session.md`](architecture/session.md):
 

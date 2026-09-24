@@ -15,11 +15,6 @@ export interface QrLogin extends SecondFactor {
   sleep?: (ms: number) => Promise<void>
 }
 
-export interface SmsLogin extends SecondFactor {
-  phone: string
-  askCode: () => Promise<string>
-}
-
 /**
  * The login MAX's web client does itself when it shows a QR code: ask for a code, wait until a phone
  * approves it, then exchange it for a token. Shapes from PyMax 2.4.1 (`auth/qr.py`), not measured.
@@ -47,32 +42,6 @@ export const tokenByQr = async (
   }
 
   throw new CliError("timeout", "the QR code expired before it was scanned — run the command again")
-}
-
-/** Shapes from PyMax 2.4.1 (`auth/sms.py`) and the protocol notes, which agree; not measured. */
-export const tokenBySms = async (wire: WireClient, { phone, askCode, askPassword }: SmsLogin): Promise<string> => {
-  let started: Payload
-  try {
-    started = await wire.login.smsRequest({ phone, type: "START_AUTH", language: "ru" })
-  } catch (error) {
-    // MAX asks the web client for a VK captcha before an SMS when it is suspicious, and a captcha
-    // can only be solved on the page itself.
-    if (error instanceof CliError && /captcha/i.test(error.message)) {
-      throw new CliError(
-        "authentication_error",
-        "MAX wants a captcha before it sends the code — use `session start sms-chrome` or `qr-chrome`",
-      )
-    }
-    throw error
-  }
-
-  const code = await askCode()
-  if (!code) throw new CliError("validation_error", "no code given")
-
-  const answer = await wire.login
-    .smsCode({ token: text(started.token, "token"), verifyCode: code, authTokenType: "CHECK_CODE" })
-    .catch(refusedAs("MAX did not accept the code"))
-  return await tokenFrom(wire, answer, askPassword)
 }
 
 /**

@@ -33,7 +33,7 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   Done: attachments, replies and forwards when reading (`src/domain/models.ts:23-75`); sending a
   reaction (`max reactions add`, `NEED-141`). Left: uploads, edits; group administration
   last. Each writing operation needs its request shape measured first.
-- **MAX-16** · 🚧 `qr-login` · P2 · `max session start qr|sms|token`. `qr` and `sms` open the real
+- **MAX-16** · 🚧 `qr-login` · P2 · `max session start qr|sms|token`. `qr` draws the code in the terminal; `qr-chrome` and `sms` open the real
   web.max.ru in Chrome with a throwaway profile; the owner logs in there and the token is read from
   the page's storage, so MAX sees its own web client ask for the QR code, not our socket. `token`
   is today's behaviour and stays the default. Plan: `docs_ai/plans/2026-09-23-qr-login.md`.

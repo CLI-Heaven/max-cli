@@ -48,7 +48,7 @@ max session start [options] [method]
 
 | Аргумент | | Что это |
 |---|---|---|
-| `method` | необязательный | token (pasted or piped), qr, qr-chrome, sms or sms-chrome |
+| `method` | необязательный | token (pasted or piped), qr, qr-chrome or sms |
 
 ### `max session end`
 

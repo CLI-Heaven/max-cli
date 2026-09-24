@@ -47,6 +47,9 @@ const setUp = (login: MockMax | undefined, adopt: MockMax, extra: Partial<Enviro
     streams,
     tty: false,
     interactive: true,
+    // Narrower than any QR code, so the browser path is the default here and nothing depends on
+    // the width of whatever terminal runs the suite.
+    columns: 20,
     browser: noBrowser,
     ask: async () => {
       throw new Error("nothing was expected to be asked")
@@ -70,7 +73,27 @@ const setUp = (login: MockMax | undefined, adopt: MockMax, extra: Partial<Enviro
 const adopting = () => mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: LOGIN } })
 
 describe("max session start qr", () => {
-  it("shows the code in the browser, waits for the phone, and stores the token MAX then accepts", async () => {
+  it("draws the code here, waits for the phone, and stores the token MAX then accepts", async () => {
+    const login = mockMax({
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.GET_QR]: qrCode(),
+        [Opcode.GET_QR_STATUS]: inTurn({ status: {} }, { status: { loginAvailable: true } }),
+        [Opcode.LOGIN_BY_QR]: { tokenAttrs: { LOGIN: { token: "qr-token" } } },
+      },
+    })
+    const adopt = adopting()
+    const { start, stored, streams } = setUp(login, adopt, { columns: 200 })
+
+    expect(await start("qr", "--quiet")).toBe(0)
+
+    expect(streams.stderr.join("\n")).toMatch(/[█▀▄]/)
+    expect(streams.stdout.join("")).not.toMatch(/[█▀▄]/)
+    expect(login.sent.map(({ opcode }) => opcode)).toEqual([6, 288, 289, 289, 291])
+    expect(stored()).toBe("qr-token")
+  })
+
+  it("opens the code in the browser when the terminal is too narrow for it", async () => {
     const login = mockMax({
       answers: {
         [Opcode.SESSION_INIT]: {},
@@ -164,44 +187,7 @@ describe("max session start qr", () => {
   })
 })
 
-describe("max session start sms", () => {
-  it("asks for the number and the code here, and sends each where MAX expects it", async () => {
-    const login = mockMax({
-      answers: {
-        [Opcode.SESSION_INIT]: {},
-        [Opcode.AUTH_REQUEST]: { token: "verification-token", codeLength: 6 },
-        [Opcode.AUTH]: { tokenAttrs: { LOGIN: { token: "sms-token" } } },
-      },
-    })
-    const answers = ["+71234567890", "123456"]
-    const { start, stored } = setUp(login, adopting(), { ask: async () => answers.shift() ?? "" })
-
-    expect(await start("sms")).toBe(0)
-
-    expect(login.sent[1]?.payload).toEqual({ phone: "+71234567890", type: "START_AUTH", language: "ru" })
-    expect(login.sent[2]?.payload).toEqual({
-      token: "verification-token",
-      verifyCode: "123456",
-      authTokenType: "CHECK_CODE",
-    })
-    expect(stored()).toBe("sms-token")
-  })
-
-  it("says the code was wrong, not that a session expired", async () => {
-    const login = mockMax({
-      answers: { [Opcode.SESSION_INIT]: {}, [Opcode.AUTH_REQUEST]: { token: "verification-token" } },
-      refuse: { [Opcode.AUTH]: "auth.invalid.code" },
-    })
-    const answers = ["+71234567890", "000000"]
-    const { start, stored, streams } = setUp(login, adopting(), { ask: async () => answers.shift() ?? "" })
-
-    expect(await start("sms")).toBe(4)
-    expect(streams.stderr.join("\n")).toContain("MAX did not accept the code")
-    expect(stored()).toBeUndefined()
-  })
-})
-
-describe("max session start qr-chrome and sms-chrome", () => {
+describe("max session start qr-chrome and sms", () => {
   it("takes the token the browser logged in with, and still tries it before storing it", async () => {
     const adopt = adopting()
     const { start, stored } = setUp(undefined, adopt, {
@@ -212,10 +198,28 @@ describe("max session start qr-chrome and sms-chrome", () => {
     expect(adopt.sent.map(({ opcode }) => opcode)).toEqual([6, 19])
     expect(stored()).toBe("chrome-token")
   })
+
+  it("sends the SMS login to the browser too — over our own socket MAX demands a captcha", async () => {
+    let opened = 0
+    const { start, stored, streams } = setUp(undefined, adopting(), {
+      browser: {
+        ...noBrowser,
+        chromiumToken: async () => {
+          opened++
+          return "sms-token"
+        },
+      },
+    })
+
+    expect(await start("sms")).toBe(0)
+    expect(opened).toBe(1)
+    expect(streams.stderr.join("\n")).toContain("log in by phone number")
+    expect(stored()).toBe("sms-token")
+  })
 })
 
 describe("max session start without a person at the terminal", () => {
-  it.each(["qr", "qr-chrome", "sms", "sms-chrome"])("refuses %s before opening anything", async (method) => {
+  it.each(["qr", "qr-chrome", "sms"])("refuses %s before opening anything", async (method) => {
     const { start, connections } = setUp(undefined, adopting(), { interactive: false })
 
     expect(await start(method)).toBe(2)
@@ -233,8 +237,9 @@ describe("max session start without a person at the terminal", () => {
     expect(connections()).toBe(0)
   })
 
-  it("refuses a method it does not know", async () => {
+  it("refuses a method it does not know, including the old sms-chrome", async () => {
     const { start } = setUp(undefined, adopting())
     expect(await start("fax")).not.toBe(0)
+    expect(await start("sms-chrome")).not.toBe(0)
   })
 })
