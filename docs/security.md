@@ -42,8 +42,8 @@ max cache clear
 - **Не отмечает прочитанным.** «Получить историю» и «отметить прочитанным» — разные операции
   протокола. Вторая не отправляется никогда, и на это есть тест, а не обещание.
 - **Не отправляет ничего, чего не просили.** ~~Единственная команда, которая что-то меняет, —
-  `messages send`~~ **Поправка 2026-09-24:** что-то меняют `messages send`, `reactions add`,
-  `contacts add|remove|import`, `account update`, `account sessions end-others` и
+  `messages send`~~ **Поправка 2026-09-24:** что-то меняют `messages send|edit|forward|pin|unpin`,
+  `reactions add|remove`, `contacts add|remove|import`, `account update`, `account sessions end-others` и
   `chats folders create|update|delete` — и каждая делает только то, что написано в набранной строке.
   `max commands --json` помечает их `mutates`.
 - **Не берёт номер телефона из командной строки.** `contacts lookup` спрашивает его или читает из
