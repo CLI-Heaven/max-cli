@@ -46,8 +46,8 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 **From the PyMax comparison (2026-09-24, `NEED-175`).** Each is what PyMax's source declares
 (`MaxApiTeam/PyMax`, `src/pymax/api/`, commit `53103f0`) — a claim until measured. Every writing
 operation is measured first in Saved messages (chat 0), as replies and reactions were (`NEED-150`),
-and needs the owner's yes before it ships. Deleting messages and marking them read stay ruled out
-(`NEED-32`, REQUIREMENTS §19).
+and needs the owner's yes before it ships. Deleting messages stays ruled out (`NEED-32`); marking
+read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
 
 - **MAX-23** · 🟡 P1 · Send photos, videos and files. Done: `--file` sends photos
   (several in one message) and files (one per message, measured 2026-09-24). Left: a video as a
