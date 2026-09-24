@@ -35,11 +35,24 @@ export const installer = ({ scriptPath }: UpdateEnvironment = {}): Installer =>
 export const latest = (environment: UpdateEnvironment = {}) =>
   latestVersion(PACKAGE, environment.fetch ?? fetch, { timeoutMs: 3000 })
 
+/**
+ * npm and pnpm are `.cmd` shims on Windows, and Node starts a `.cmd` only through a shell. The
+ * words are joined rather than passed as arguments, which Node 24 deprecates alongside `shell`;
+ * that is safe only because they come from `updateCommand`, never from the person typing.
+ */
+export const spawnPlan = ([command, ...args]: string[], platform: NodeJS.Platform = process.platform) =>
+  platform === "win32"
+    ? { file: [command, ...args].join(" "), args: [], shell: true }
+    : { file: command as string, args, shell: false }
+
 /** stdout stays one result: whatever the package manager prints goes to stderr. */
-export const runUpdate = ([command, ...args]: string[], environment: UpdateEnvironment = {}): number =>
-  environment.spawn?.([command as string, ...args]) ??
-  spawnSync(command as string, args, { stdio: ["inherit", 2, 2] }).status ??
-  1
+export const runUpdate = (argv: string[], environment: UpdateEnvironment = {}): number => {
+  if (environment.spawn) return environment.spawn(argv)
+  const { file, args, shell } = spawnPlan(argv)
+  const { status, error } = spawnSync(file, args, { stdio: ["inherit", 2, 2], shell })
+  if (error) throw new Error(`could not start ${argv[0]}: ${error.message}`)
+  return status ?? 1
+}
 
 const statePath = (env: NodeJS.ProcessEnv) =>
   join(resolvePaths({ appName: "max-cli", prefix: "MAX", env }).state, "update-check.json")

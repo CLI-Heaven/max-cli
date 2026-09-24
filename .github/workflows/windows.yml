@@ -1,0 +1,24 @@
+name: Windows
+
+# By hand only (Actions → Windows → Run workflow): Windows is checked before a release, not on
+# every push.
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      # Otherwise checkout turns every line ending into CRLF and fixtures stop matching.
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm build
+      - run: node dist/bin/max.js --version
+      - run: node dist/bin/max.js update --check --json
