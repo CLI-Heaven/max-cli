@@ -162,8 +162,10 @@ export class MaxClient {
      * than on the next command.
      */
     endOtherSessions: (): Promise<AccountSession[]> =>
-      this.#change("sessions-end", async () => {
+      this.#change("sessions-end", async (done) => {
         const answer = await this.#wire.account.closeSessions({})
+        // The other devices are out from here on, whatever follows fails: the journal says so.
+        done()
         const token = answer.token
         if (typeof token === "string" && token !== "") {
           try {
@@ -1678,7 +1680,7 @@ export class MaxClient {
    * list applies, it does not count towards the hourly limit, and the journal records which kind
    * of change it was. **Never retried** — at worst the command is typed again.
    */
-  async #change<T>(action: AccountAction, body: () => Promise<T>): Promise<T> {
+  async #change<T>(action: AccountAction, body: (done: () => void) => Promise<T>): Promise<T> {
     if (this.#offline)
       throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot change the account")
 
@@ -1695,19 +1697,28 @@ export class MaxClient {
       throw error
     }
 
+    let recorded = false
+    const done = () => {
+      if (recorded) return
+      recorded = true
+      this.#sends?.record({ chatId: null, kind: "account", action, outcome: "sent" })
+    }
+
     try {
       await this.#connectOnce()
-      const result = await body()
-      this.#sends?.record({ chatId: null, kind: "account", action, outcome: "sent" })
+      const result = await body(done)
+      done()
       return result
     } catch (error) {
-      this.#sends?.record({
-        chatId: null,
-        kind: "account",
-        action,
-        outcome: "failed",
-        errorCode: asCliError(error).code,
-      })
+      if (!recorded) {
+        this.#sends?.record({
+          chatId: null,
+          kind: "account",
+          action,
+          outcome: "failed",
+          errorCode: asCliError(error).code,
+        })
+      }
       throw error
     }
   }
@@ -2000,10 +2011,15 @@ const ownNames = (profile: Payload): { firstName?: string; lastName?: string } =
 }
 
 /** `+` and digits, as the lookup was measured. ⚠ The refusal never repeats what was typed. */
-const wirePhone = (typed: string): string => {
-  const digits = typed.replace(/[\s()-]/g, "").replace(/^\+/, "")
+export const wirePhone = (typed: string): string => {
+  const compact = typed.replace(/[\s()-]/g, "")
+  const digits = compact.replace(/^\+/, "")
   if (!/^\d{7,15}$/.test(digits)) {
     throw new CliError("validation_error", "a phone number is 7 to 15 digits, with an optional + and the country code")
+  }
+  // A Russian number written the domestic way would otherwise go out as +8…, somebody else's.
+  if (!compact.startsWith("+") && /^8\d{10}$/.test(digits)) {
+    throw new CliError("validation_error", "write a number that starts with 8 with its country code instead: +7…")
   }
   return `+${digits}`
 }

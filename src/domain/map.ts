@@ -122,8 +122,7 @@ export const toProfile = (raw: Payload): Profile => {
   return {
     id: asId(contact.id) ?? "",
     name: displayName(contact.names) ?? text(contact.name),
-    // Measured 2026-09-24: the login's own profile carries `phone` as a number.
-    phone: phone(contact.phones) ?? text(contact.phone) ?? digits(contact.phone),
+    phone: phone(contact.phones) ?? text(contact.phone),
     description: text(contact.description),
   }
 }
@@ -195,9 +194,6 @@ const displayName = (value: unknown): string | null => {
   const full = entries.find((entry) => entry.type === "FULL_NAME")
   return text(full?.name) ?? text(entries[0]?.name)
 }
-
-const digits = (value: unknown): string | null =>
-  typeof value === "number" || typeof value === "bigint" ? `+${value}` : null
 
 const phone = (value: unknown): string | null => {
   if (!Array.isArray(value)) return null

@@ -4,7 +4,7 @@ import { annotate } from "@leemour/cli-core/commands"
 import { Command } from "commander"
 import { openProfileCache } from "../cache/index.js"
 import type { PersonOrder } from "../cache/store.js"
-import type { PhoneBookEntry } from "../client.js"
+import { type PhoneBookEntry, wirePhone } from "../client.js"
 import { forCommand } from "./context.js"
 import { renderPage, window, withPaging } from "./paging.js"
 
@@ -123,7 +123,7 @@ export const contactsCommand = (): Command => {
 
   for (const [name, description] of [
     ["add", "add a person to your contacts — `contacts list` still shows only people you have a dialog with"],
-    ["remove", "remove a person from your contacts; the chat with them stays"],
+    ["remove", "remove a person from your contacts; the chat stays, a name you gave them may not"],
   ] as const) {
     annotate(command.command(name), { mutates: true })
       .argument("<person>", "person id — `contacts lookup` finds one — or part of a known name")
@@ -183,7 +183,14 @@ export const phoneBook = (text: string): PhoneBookEntry[] =>
     if (!match?.[1] || !match[2]) {
       throw new CliError("validation_error", `line ${index + 1} is not "number, name"`)
     }
-    return [{ phone: match[1], name: match[2] }]
+    try {
+      return [{ phone: wirePhone(match[1]), name: match[2] }]
+    } catch (error) {
+      throw new CliError(
+        "validation_error",
+        `line ${index + 1}: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
   })
 
 /**
