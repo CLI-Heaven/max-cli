@@ -29,8 +29,6 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
   <n>`: without `--run` only the estimate (what the cache holds, what is missing, requests and
   minutes); with `--run` it fills the gaps within limits and stops on any error. One chat per call
   (`NEED-217`). Waits on `RES-9` (`MAX-44` is done). Plan: `docs_ai/plans/2026-09-24-history-backup.md`.
-- **CLI-35** · 🚧 `feat/cli-35-export-messages` · P2 · `max export messages <chat> --format jsonl|md`: writes what the cache holds,
-  never connects, file mode `0600` (photo links open without a login). Plan: same, Р6.
 - **CLI-33** · 🟡 P2 · Mark a chat read on request. Done: `max chats read <chat> [--until <id>]`,
   `messages list --mark-read`, MCP `max_chats_read` behind `--allow-mark-read`; kind `read` in the
   send guard (`src/client.ts`, `chats.markRead`). Left: measure `CHAT_MARK` (50) — the request is
