@@ -30,6 +30,10 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   (`NEED-217`). Waits on `RES-9` (`MAX-44` is done). Plan: `docs_ai/plans/2026-09-24-history-backup.md`.
 - **CLI-35** · 🚧 `export-messages` · P2 · `max export messages <chat> --format jsonl|md`: writes what the cache holds,
   never connects, file mode `0600` (photo links open without a login). Plan: same, Р6.
+- **CLI-33** · 🚧 `feat/cli-33-mark-read` · P2 · Mark a chat read on request: a flag on `max messages list` (and a `max chats read
+  <chat>`), never by default. Owner, 2026-09-24: «это же можно делать флагом (если нет, надо
+  сделать)». `CHAT_MARK` (50) is in the registry as never-sent (`src/spec/`), and a test asserts
+  reading never sends it — both change. Measure the frame in Saved messages first (`NEED-150`).
 - **CLI-22** · P2 · Scheduled send: `max messages send <chat> <text> --at <time>`. MAX schedules
   messages itself, and the official web client does it with `MSG_SEND` (64) carrying
   `message.delayedAttributes.timeToFire` in milliseconds (web.max.ru source, read 2026-09-24,
