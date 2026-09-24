@@ -7,6 +7,16 @@ import { startingPath } from "./server.js"
 /** A server a command started stops after this long unused. */
 export const IDLE_MS = 15 * 60_000
 
+/** After a background login MAX refused, commands leave the server alone this long. */
+const REFUSED_PAUSE_MS = 10 * 60_000
+
+/**
+ * Written by a background server whose login MAX refused. Without it, every command after a
+ * session expires would start a server that fails the same way — one more refused login each.
+ * `max session start` removes it.
+ */
+export const refusedPath = (store: SessionStore): string => `${store.socketPath()}.refused`
+
 /** A start that has not listened by now crashed; the next command may try again. */
 const START_GRACE_MS = 30_000
 
@@ -25,6 +35,8 @@ export const startInBackground = (
   { serveArgs = ["--idle", `${IDLE_MS / 60_000}m`, "--started-by-command"], entry = process.argv[1] } = {},
 ): number | undefined => {
   if (!entry || store.readToken() === undefined) return undefined
+  const refusedAt = statSync(refusedPath(store), { throwIfNoEntry: false })?.mtimeMs
+  if (refusedAt !== undefined && Date.now() - refusedAt < REFUSED_PAUSE_MS) return undefined
 
   const lock = startingPath(store)
   mkdirSync(dirname(lock), { recursive: true, mode: 0o700 })
