@@ -658,7 +658,7 @@ and one scheduled message to Saved messages?** **Yes, both.** «1 A».
 
 **NEED-164 · What does the first `max inbox` show, with no last check saved?** **The last 24
 hours.** «2 A, потом я бы делал B с лимитом»: the unread count as MAX keeps it, capped, comes next
-as its own item (`CLI-26`).
+as its own item (`CLI-31`; correction 2026-09-24: was `CLI-26`, a number taken three times).
 
 **NEED-165 · Does `max inbox` show the owner's own messages?** **No, other people's only.** «3 А».
 Your own still move the point of the last check.

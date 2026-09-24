@@ -113,7 +113,7 @@
                       "../client.js",
                       "./client.js"
                     ],
-                    "message": "the messenger boundary (CLI-26): what any messenger CLI could share may not know MAX — no protocol, spec, generated wrappers, session, client or commands"
+                    "message": "the messenger boundary (CLI-30): what any messenger CLI could share may not know MAX — no protocol, spec, generated wrappers, session, client or commands"
                   }
                 ]
               }

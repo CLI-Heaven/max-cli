@@ -7,9 +7,11 @@ what exists now, and where it is described. The numbers stay reserved — commit
 
 - **CORE-8** — the command registry, `@leemour/cli-core/commands` (0.2.0): the command tree as data,
   with `origin`, `mutates`, `state` and `examples`; `max commands --json` reads it.
-- **CLI-26** — a lint rule marks what any messenger CLI could share: the model, the cache, message
+- **CLI-30** — a lint rule marks what any messenger CLI could share: the model, the cache, message
   rendering and name resolution (`src/resolve.ts`) may not import MAX's protocol, session or client.
-  ARCHITECTURE §1.
+  ARCHITECTURE §1. Correction 2026-09-24: numbered `CLI-26` until then, a number taken three times.
+- **CLI-26** — the first `max session start` of a profile mentions the MAX terms, once and gently
+  (`NEED-149`, `src/commands/session.ts`).
 - **RES-1** — what moved from `braze-cli` into `cli-core`, file by file.
 - **RES-2** — our own WebSocket adapter rather than a third-party MAX client (`NEED-17`).
 - **RES-3** — the protocol spec is a TypeScript module, not TypeSpec (`NEED-7`).
@@ -70,9 +72,9 @@ what exists now, and where it is described. The numbers stay reserved — commit
 
 ## The command
 
-- **CLI-23**, **CLI-26** — `max inbox`: other people's unread messages in every chat, as MAX counts
+- **CLI-23**, **CLI-31** — `max inbox`: other people's unread messages in every chat, as MAX counts
   them; `--new` for what arrived since the last check, the point kept in the profile and moved only
-  after printing; `--since` for a one-off look (`src/commands/inbox.ts`, `NEED-171`).
+  after printing; `--since` for a one-off look (`src/commands/inbox.ts`, `NEED-171`). Correction 2026-09-24: numbered the unread half `CLI-26` until then, a number taken three times.
 - **CLI-1** — the vertical slice: session, account, chats, messages, send.
 - **CLI-2** — machine mode: stdout carries one JSON value and nothing else, tested.
 - **CLI-3** — every command closes its transport on every exit path, tested.
