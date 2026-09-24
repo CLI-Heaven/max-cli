@@ -800,8 +800,8 @@ max config set <setting> <value> [options]
 
 | Аргумент | | Что это |
 |---|---|---|
-| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour, serve, updateCheck, transcribeModel |
-| `value` | обязательный | a number, true or false |
+| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, allow, sendsPerHour, serve, updateCheck, transcribeModel |
+| `value` | обязательный | a number, true or false, or for allow a list like send,reaction |
 
 | Опция | Что делает |
 |---|---|
@@ -817,7 +817,7 @@ max config unset <setting> [options]
 
 | Аргумент | | Что это |
 |---|---|---|
-| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour, serve, updateCheck, transcribeModel |
+| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, allow, sendsPerHour, serve, updateCheck, transcribeModel |
 
 | Опция | Что делает |
 |---|---|

@@ -159,6 +159,7 @@ export const contextFor = (
           profile: settings.profile,
           readOnly: settings.readOnly,
           readOnlyFrom: settings.sources.readOnly,
+          ...(settings.allow ? { allow: settings.allow, allowFrom: settings.sources.allow } : {}),
           sendsPerHour: settings.sendsPerHour,
           journal: new SendJournal(sendsPathFor(settings.profile)),
           recipients: new RecipientList(recipientsPathFor(settings.profile)),

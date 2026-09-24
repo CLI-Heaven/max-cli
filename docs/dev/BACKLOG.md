@@ -25,10 +25,6 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
 
 ## Features
 
-- **CLI-37** · 🚧 `feat/profile-permissions` · P2 · Allow a profile only the actions it is given:
-  `allow = [...]` per profile (send, reaction, delete, …), absent means everything as today;
-  `readOnly` stays as the empty list; MCP flags apply on top (`IDEA-10`, `NEED-247`). Start at
-  `src/config.ts:48` and `src/sends/guard.ts`. Plan: `docs_ai/plans/2026-09-25-profile-permissions.md`.
 - **MAX-50** · P2 · When the keyring does not answer, say so instead of "no session — run `max session
   start`". Measured 2026-09-25 from cron on Linux: no `XDG_RUNTIME_DIR`, the keyring is unreachable,
   and `max` tells the owner to log in again although the profile's state file holds a `viewerId`

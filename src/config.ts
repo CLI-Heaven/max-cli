@@ -2,6 +2,7 @@ import { existsSync } from "node:fs"
 import { CliError, configFilePath, loadConfigFile, resolvePaths, saveConfigFile } from "@leemour/cli-core"
 import * as v from "valibot"
 import { DEFAULT_PROFILE, usableProfileName } from "./profile.js"
+import { PERMISSIONS, type Permission } from "./sends/permissions.js"
 import { DEFAULT_MODEL, MODELS } from "./transcribe/models.js"
 
 const APP = "max-cli"
@@ -17,6 +18,10 @@ const plain =
 const wholeNumber = plain("has to be a whole number, 1 or more")
 const count = v.pipe(v.number(wholeNumber), v.integer(wholeNumber), v.minValue(1, wholeNumber))
 const flag = v.boolean(plain("has to be true or false"))
+const permissionList = v.array(
+  v.picklist(PERMISSIONS, (issue) => `has to be one of ${PERMISSIONS.join(", ")}, not ${issue.received}`),
+  plain("has to be a list of actions, like send,reaction"),
+)
 
 /** valibot's own words ("Expected never but received …") mean nothing to someone editing a file. */
 const objectMessage =
@@ -46,6 +51,7 @@ const profileEntries = {
   record: v.optional(flag),
   keepRunsForDays: v.optional(count),
   readOnly: v.optional(flag),
+  allow: v.optional(permissionList),
   sendsPerHour: v.optional(count),
   /** Start `max serve` in the background when a command needs MAX and none is running (`MAX-35`). */
   serve: v.optional(flag),
@@ -137,6 +143,8 @@ export interface Settings {
   serve: boolean
   keepRunsForDays: number
   readOnly: boolean
+  /** `undefined` is every action, as before `CLI-37`; a list is only those. */
+  allow: readonly Permission[] | undefined
   sendsPerHour: number
   /** Whether a person at a terminal hears, once a day, that a newer version exists. */
   updateCheck: boolean
@@ -170,6 +178,7 @@ export type SourcedSetting =
   | "serve"
   | "keepRunsForDays"
   | "readOnly"
+  | "allow"
   | "sendsPerHour"
   | "updateCheck"
   | "transcribeModel"
@@ -275,6 +284,13 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
     ],
     false,
   )
+  const allow = first<readonly Permission[] | undefined>(
+    [
+      ["config file", configured.allow],
+      ["config defaults", shared.allow],
+    ],
+    undefined,
+  )
   const sendsPerHour = first(
     [
       ["config file", configured.sendsPerHour],
@@ -317,6 +333,7 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
     serve: serve.value,
     keepRunsForDays: keepRunsForDays.value,
     readOnly: readOnly.value,
+    allow: allow.value,
     sendsPerHour: sendsPerHour.value,
     updateCheck: updateCheck.value,
     transcribeModel: transcribeModel.value,
@@ -334,6 +351,7 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
       serve: serve.from,
       keepRunsForDays: keepRunsForDays.from,
       readOnly: readOnly.from,
+      allow: allow.from,
       sendsPerHour: sendsPerHour.from,
       updateCheck: updateCheck.from,
       transcribeModel: transcribeModel.from,
@@ -460,7 +478,7 @@ export const changeSetting = (
   const config = readConfig(path)
   const scope = { ...(profile === undefined ? config.defaults : config.profiles[profile]) } as Record<string, unknown>
   if (value === undefined) delete scope[setting]
-  else scope[setting] = parseValue(value)
+  else scope[setting] = setting === "allow" ? parseList(value) : parseValue(value)
 
   const changed =
     profile === undefined
@@ -479,6 +497,15 @@ export const changeSetting = (
   saveConfigFile(path, checked.output)
   return scope[setting] ?? null
 }
+
+/** `send,reaction` as the owner types it, or the JSON array the file holds; blank is the empty list. */
+const parseList = (value: string): unknown =>
+  value.trim().startsWith("[")
+    ? parseValue(value)
+    : value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
 
 /** `50` is a number and `true` a boolean, as they would be in the file; anything else stays text. */
 const parseValue = (value: string): unknown => {
