@@ -73,6 +73,26 @@ describe("adoptToken", () => {
     await client.close()
   })
 
+  it("**replaces the token a profile already had** once MAX has accepted the new one", async () => {
+    const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
+    const { client, store } = setup(max, "the-old-token")
+
+    await adoptToken(client, store, "the-new-token")
+    expect(store.readToken()).toBe("the-new-token")
+    await client.close()
+  })
+
+  it("keeps the rotated token over the offered one when the profile already had a token", async () => {
+    const max = mockMax({
+      answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: { ...loginAnswer, token: "the-rotated-one" } },
+    })
+    const { client, store } = setup(max, "the-old-token")
+
+    await adoptToken(client, store, "the-new-token")
+    expect(store.readToken()).toBe("the-rotated-one")
+    await client.close()
+  })
+
   it("logs in with the offered token, not with whatever was stored", async () => {
     const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
     const { client, store } = setup(max, "the-old-token")
