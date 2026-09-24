@@ -54,11 +54,11 @@ jobs:
 
       - name: wait for npm to show the version
         run: |
-          for _ in $(seq 36); do
+          for _ in $(seq 60); do
             npm view "@leemour/max-cli@$VERSION" version --prefer-online >/dev/null 2>&1 && exit 0
             sleep 5
           done
-          echo "::error::npm does not show $VERSION after three minutes — not tagging; tag v$VERSION by hand once it does"
+          echo "::error::npm does not show $VERSION after five minutes — not tagging; tag v$VERSION by hand once it does"
           exit 1
 
       - name: tag
