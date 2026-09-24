@@ -202,23 +202,32 @@ export const READS = new Set<number>([
   Opcode.MSG_GET_REACTIONS,
 ])
 
-/** Asks a running server to stop. Resolves whether or not one was there. */
-export const stopServer = (path: string): Promise<boolean> =>
+/**
+ * Asks a running server to stop. `"refused"` is a server started by hand, which only Ctrl-C
+ * stops; `"none"` is nobody listening.
+ */
+export const stopServer = (path: string): Promise<"stopped" | "refused" | "none"> =>
   new Promise((resolve) => {
     const socket = connect(path)
+    let answer: "stopped" | "refused" | "none" = "none"
     const timer = setTimeout(() => {
       socket.destroy()
-      resolve(false)
+      resolve(answer)
     }, 2000)
     socket.once("connect", () => socket.write(toLine({ id: 1, stop: true })))
-    // Nobody reads the answer, and a socket nobody reads never sees its end, so never closes.
-    socket.resume()
+    socket.on(
+      "data",
+      lineReader((line) => {
+        answer = fromLine(line).stopped === true ? "stopped" : "refused"
+      }),
+    )
     socket.once("error", () => {
       clearTimeout(timer)
-      resolve(false)
+      resolve("none")
     })
+    // After the answer, the server closes its end: stopped, it is gone once this fires.
     socket.once("close", () => {
       clearTimeout(timer)
-      resolve(true)
+      resolve(answer)
     })
   })

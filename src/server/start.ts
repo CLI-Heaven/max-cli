@@ -32,11 +32,15 @@ export const startInBackground = (store: SessionStore, entry = process.argv[1]):
   }
 
   const log = openSync(`${store.socketPath().replace(/\.sock$/, "")}.serve.log`, "a", 0o600)
-  const child = spawn(process.execPath, [entry, "--no-record", "serve", "--idle", `${IDLE_MS / 60_000}m`], {
-    detached: true,
-    stdio: ["ignore", "ignore", log],
-    env: { ...process.env, MAX_PROFILE: store.profile },
-  })
+  const child = spawn(
+    process.execPath,
+    [entry, "--no-record", "serve", "--idle", `${IDLE_MS / 60_000}m`, "--started-by-command"],
+    {
+      detached: true,
+      stdio: ["ignore", "ignore", log],
+      env: { ...process.env, MAX_PROFILE: store.profile },
+    },
+  )
   child.unref()
   closeSync(log)
   return true
