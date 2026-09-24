@@ -328,7 +328,7 @@ max contacts add <person>
 
 ### `max contacts remove`
 
-remove a person from your contacts; the chat with them stays
+remove a person from your contacts; the chat stays, a name you gave them may not
 
 **Меняет что-то в MAX.**
 

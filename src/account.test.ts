@@ -81,17 +81,23 @@ const filesUnder = (directory: string): string[] =>
     .filter((entry) => entry.isFile())
     .map((entry) => join(entry.parentPath, entry.name))
 
+/** Everywhere `max` writes: state (runs, sends, profiles) and the cache. */
+const expectNowhereOnDisk = (text: string) => {
+  const { state, cache } = resolvePaths({ appName: "max-cli", prefix: "MAX", env: process.env })
+  for (const directory of [state, cache])
+    for (const file of filesUnder(directory)) expect(readFileSync(file, "latin1"), file).not.toContain(text)
+}
+
 describe("contacts", () => {
   it("`lookup` asks for the number and never lets it reach stderr, the send journal or the run log", async () => {
     const { environment, sent } = account()
-    const found = await runWith(["a-lookup", "contacts", "lookup", "--record"], environment)
+    const found = await runWith(["a-lookup", "contacts", "lookup", "--record", "--trace"], environment)
 
     expect(found.code).toBe(0)
     expect(sent(Opcode.CONTACT_INFO_BY_PHONE)).toEqual([{ phone: PHONE }])
     expect(JSON.parse(found.stdout)).toMatchObject({ id: "20000002", name: "Found Person" })
     expect(found.stderr).not.toContain("1234567890")
-    const state = resolvePaths({ appName: "max-cli", prefix: "MAX", env: process.env }).state
-    for (const file of filesUnder(state)) expect(readFileSync(file, "utf8"), file).not.toContain("1234567890")
+    expectNowhereOnDisk("1234567890")
   })
 
   it("`lookup` refuses what is not a number without repeating it", async () => {
@@ -119,14 +125,28 @@ describe("contacts", () => {
     const file = join(process.env.TMPDIR ?? "/tmp", "phone-book.csv")
     writeFileSync(file, `${PHONE}, Found Person\n\n+7 (999) 000-33-44\tOther One\n`)
 
-    const imported = await runWith(["a-import", "contacts", "import", file], environment)
+    const imported = await runWith(["a-import", "contacts", "import", file, "--record", "--trace"], environment)
 
     expect(imported.code).toBe(0)
     expect(sent(Opcode.SYNC)).toEqual([
       { contactList: { [PHONE]: { firstName: "Found Person" }, "+79990003344": { firstName: "Other One" } } },
     ])
     expect(JSON.parse(imported.stdout)).toEqual({ sent: 2, recognised: [PHONE], contacts: [] })
-    expect(readFileSync(sendsPathFor("a-import"), "utf8")).not.toContain("1234567890")
+    expect(imported.stderr).not.toContain("1234567890")
+    for (const file of filesUnder(resolvePaths({ appName: "max-cli", prefix: "MAX", env: process.env }).state))
+      if (!file.endsWith(".csv")) expect(readFileSync(file, "latin1"), file).not.toContain("1234567890")
+  })
+
+  it("`import` refuses a number written the domestic way, by its line", async () => {
+    const { environment, sent } = account()
+    const file = join(process.env.TMPDIR ?? "/tmp", "domestic-book.csv")
+    writeFileSync(file, `${PHONE}, Found Person\n8 999 000 33 44, Other One\n`)
+
+    const refused = await runWith(["contacts", "import", file], environment)
+
+    expect(JSON.parse(refused.stderr).error.message).toContain("line 2: write a number that starts with 8")
+    expect(refused.stderr).not.toContain("999")
+    expect(sent(Opcode.SYNC)).toEqual([])
   })
 
   it("`import` names a bad line by its number only", async () => {
@@ -240,5 +260,10 @@ describe("sessions", () => {
     })
 
     expect(JSON.parse(ended.stderr).error.message).toContain("run `max session start`")
+    expect(new SendJournal(sendsPathFor("default")).entries().at(-1)).toMatchObject({
+      kind: "account",
+      action: "sessions-end",
+      outcome: "sent",
+    })
   })
 })
