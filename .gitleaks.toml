@@ -36,7 +36,8 @@ description = "Synthetic values used by tests and documentation"
 regexTarget = "match"
 regexes = [
   # Fixtures and examples must use obviously fake values; these are the ones we sanction.
-  '''\+71234567890''',
+  # With and without the plus: MAX sends a profile's own number as a bare integer (measured 2026-09-24).
+  '''\+?71234567890''',
   '''00000000-0000-0000-0000-0000000000\d\d''',
   '''(?i)your-token-here|example-token|<token>''',
 ]
