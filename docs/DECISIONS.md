@@ -593,5 +593,7 @@ The research behind it: `docs_ai/research/G3-people.md`, 3.1.
 
 **NEED-144 · Forward MAX to Telegram as a command, as a documented recipe, or not at all?**
 **Not at all.** «пересылка в ТГ — костыль, потому что не видно нормального отправителя, невозможно
-между контактами переключаться». The answer for people who will not install MAX is an open-source
-client of its own — web and mobile — which is a separate project and is not started now (`MAX-17`).
+между контактами переключаться». ~~The answer for people who will not install MAX is an open-source
+client of its own — web and mobile — which is a separate project and is not started now (`MAX-17`).~~
+Overturned the same day: «почитал, за это банят - не делаем». No alternative client either;
+`MAX-17` is closed as not doing.

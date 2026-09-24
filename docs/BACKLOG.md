@@ -101,7 +101,3 @@ which; the plan for it starts by saying so.
   beside the personal account. Reopens REQUIREMENTS §3 ("not a bot-account client"). Bots are
   issued only to verified organisations, sole traders and the self-employed
   ([dev.max.ru](https://dev.max.ru/docs/maxbusiness/connection)).
-- **MAX-17** · ⏸️ P3 · An open-source alternative MAX client — web and mobile — for people who need
-  MAX but will not install the official app. A separate project, not this repository; deferred by
-  the owner (`NEED-144`). Chosen over forwarding to Telegram, which loses the real sender and
-  cannot switch between contacts.
