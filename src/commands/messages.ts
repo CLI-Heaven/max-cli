@@ -245,9 +245,14 @@ export const messagesCommand = (): Command => {
       (value: string, previous: string[] = []) => [...previous, value],
     )
     .option("--md, --markdown", "read **bold**, _italic_, ~~struck~~ and `code` in the text; \\ keeps a mark literal")
+    .option(
+      "--at <time>",
+      "let MAX send it later, even with this machine off: 2026-09-25T09:00 (local time), or 30m, 2h, 1d from now",
+    )
     .action(async function (this: Command, chat: string, text: string | undefined) {
       const options = this.optsWithGlobals()
       const { renderer, settings, createClient, run } = forCommand(this)
+      const at = options.at === undefined ? undefined : sendTime(String(options.at))
 
       // Before the run directory and before the socket: a body we cannot read is a command that
       // never attempted anything, so there is nothing to record and nothing to close.
@@ -267,11 +272,40 @@ export const messagesCommand = (): Command => {
             ...(options.replyTo === undefined ? {} : { replyTo: String(options.replyTo).trim() }),
             ...(options.markdown === true ? { markdown: true } : {}),
             ...(files.length > 0 ? { files } : {}),
+            ...(at === undefined ? {} : { at }),
           })
+          if (at !== undefined) {
+            renderer.note(
+              `scheduled for ${sent.scheduledFor ?? new Date(at).toISOString()} — MAX sends it under a new id`,
+            )
+          }
           renderer.result(sent)
         } finally {
           await client.close()
           cache?.close()
+        }
+      })
+    })
+
+  /** Read-only: cancelling one is `MSG_DELETE`, which max does not send — that stays in the MAX app. */
+  command
+    .command("scheduled")
+    .argument("<chat>", "chat id, or part of a chat name")
+    .description("messages waiting to be sent later in a chat, soonest first; cancel one in the MAX app")
+    .action(async function (this: Command, chat: string) {
+      const context = forCommand(this)
+      const { renderer, format, streams, createClient, run } = context
+
+      await run("messages scheduled", async (events) => {
+        const client = createClient({ events })
+        try {
+          const messages = await client.messages.scheduled(await client.chats.resolve(chat))
+          if (format === "jsonl") renderer.stream(messages)
+          else if (format !== "pretty") renderer.result(messages)
+          else if (messages.length === 0) renderer.note("nothing scheduled")
+          else streams.data(feed(context)(messages.map((m) => ({ ...m, timestamp: m.scheduledFor ?? m.timestamp }))))
+        } finally {
+          await client.close()
         }
       })
     })
@@ -390,6 +424,36 @@ const offlineChat = (reference: string): Id => {
     `\`messages search --chat\` takes a chat id, not a name — searching never connects, and a name ` +
       `can only be resolved by asking MAX. \`max chats list --search ${trimmed}\` gives you the id.`,
   )
+}
+
+const MINUTE = 60_000
+const YEAR = 365 * 24 * 60 * MINUTE
+const DELAY = /^(\d+)(m|h|d)$/
+const DELAY_UNIT_MS: Record<string, number> = { m: MINUTE, h: 60 * MINUTE, d: 24 * 60 * MINUTE }
+
+/**
+ * Rounded down to the minute: MAX drops the seconds and sends at the start of the minute (measured
+ * 2026-09-24, `FIND-141`), so the time we print is the time it goes. A time without an offset is
+ * local, which is how `Date.parse` reads one with a clock and no zone. The delay has hours and days,
+ * unlike `--timeout`: nobody schedules a message 90 seconds ahead.
+ */
+export const sendTime = (value: string, now = Date.now()): number => {
+  const trimmed = value.trim()
+  const delay = DELAY.exec(trimmed)
+  const at = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(trimmed)
+    ? Date.parse(trimmed.replace(" ", "T"))
+    : delay?.[1] && delay[2]
+      ? now + Number(delay[1]) * (DELAY_UNIT_MS[delay[2]] ?? 0)
+      : Number.NaN
+  if (Number.isNaN(at)) {
+    throw new CliError(
+      "validation_error",
+      `--at takes a time like 2026-09-25T09:00 or a delay like 30m, 2h, 1d — not "${value}"`,
+    )
+  }
+  if (at < now + MINUTE) throw new CliError("validation_error", "--at has to be at least a minute from now")
+  if (at > now + YEAR) throw new CliError("validation_error", "--at can be at most a year from now, as in MAX itself")
+  return at - (at % MINUTE)
 }
 
 const count = (value: string): number => {

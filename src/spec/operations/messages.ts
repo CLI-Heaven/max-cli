@@ -29,6 +29,12 @@ export const messagesSend = defineOperation({
             v.strictObject({ type: v.literal("FORWARD"), messageId: id(), chatId: id() }),
           ]),
         ),
+        /**
+         * When MAX itself sends it, in epoch milliseconds — the message waits in the chat's DELAYED
+         * history until then. The answer adds `notifySender` and `notifyOpponents`, which we leave
+         * to MAX as the web client does (measured 2026-09-24, `FIND-139`).
+         */
+        delayedAttributes: v.optional(v.strictObject({ timeToFire: v.pipe(v.number(), v.integer()) })),
       }),
       notify: v.boolean(),
     }),
@@ -61,6 +67,7 @@ export const messagesSend = defineOperation({
       "the FORWARD link: web.max.ru `_app/immutable/chunks/5oCuRT0F.js` (2026-09-24), PyMax `api/messages/payloads.py:56-73`",
       "a forward with no `text` and no `elements` measured 2026-09-24 in Saved messages (`pnpm probe:edit-pin-forward`)",
       "group creation measured 2026-09-24 (`pnpm probe:groups`); shape from PyMax create_group",
+      "`delayedAttributes` from web.max.ru (2026-09-24, `FIND-78`), measured 2026-09-24 in Saved messages (`pnpm probe:scheduled`)",
     ],
     notes:
       "How long MAX remembers a `cid` is still unmeasured (`PROTO-2`); the two probes were seconds apart. " +

@@ -80,7 +80,13 @@ export const toMessage = (raw: Payload, chatId: Id, lookup: NameLookup = {}): Me
     attachments: attachments(raw.attaches),
     ...linked(raw.link, lookup),
     reactions: null,
+    ...scheduled(raw.delayedAttributes),
   }
+}
+
+const scheduled = (value: unknown): Pick<Message, "scheduledFor"> => {
+  const at = timestamp(asRecord(value)?.timeToFire)
+  return at ? { scheduledFor: at } : {}
 }
 
 /** Measured 2026-09-22: `link: { type: "REPLY" | "FORWARD", chatId, message: { id, sender, text, time, attaches } }`. */

@@ -505,6 +505,19 @@ max messages send <chat> [text] [options]
 | `--reply-to <message>` | answer this message id in the same chat |
 | `--file <path>` | attach a file; .jpg .png .webp .gif go as a photo. Repeat it for more than one |
 | `--md, --markdown` | read **bold**, _italic_, ~~struck~~ and `code` in the text; \ keeps a mark literal |
+| `--at <time>` | let MAX send it later, even with this machine off: 2026-09-25T09:00 (local time), or 30m, 2h, 1d from now |
+
+### `max messages scheduled`
+
+messages waiting to be sent later in a chat, soonest first; cancel one in the MAX app
+
+```sh
+max messages scheduled <chat>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
 
 ### `max messages edit`
 

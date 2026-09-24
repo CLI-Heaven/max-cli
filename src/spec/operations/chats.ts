@@ -32,14 +32,21 @@ export const chatsHistory = defineOperation({
     backward: v.number(),
     forwardTime: v.number(),
     backwardTime: v.number(),
-    itemType: v.literal("REGULAR"),
+    /** `DELAYED` is the queue of scheduled messages, read with `from: 1` and `forward` (measured 2026-09-24). */
+    itemType: v.picklist(["REGULAR", "DELAYED"]),
     getChat: v.boolean(),
     getMessages: v.boolean(),
     /** False for the same reason as on login: a script reading is not a person looking. */
     interactive: v.literal(false),
   }),
   response: v.looseObject({ messages: v.optional(v.array(v.looseObject({}))) }),
-  provenance: { confidence: "measured", sources: ["measured against MAX 2026-09-19"] },
+  provenance: {
+    confidence: "measured",
+    sources: [
+      "measured against MAX 2026-09-19",
+      "`DELAYED` from web.max.ru (2026-09-24, `FIND-78`), measured 2026-09-24 in Saved messages (`pnpm probe:scheduled`)",
+    ],
+  },
 })
 
 export const chatsMark = defineOperation({

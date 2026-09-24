@@ -625,6 +625,33 @@ export class MaxClient {
     },
 
     /**
+     * The chat's queue of scheduled messages, soonest first. Read-only: cancelling is `MSG_DELETE`,
+     * which nothing here sends. Never cached — the queue empties by itself as messages go out.
+     */
+    scheduled: async (chatId: Id): Promise<Message[]> => {
+      if (this.#offline)
+        throw new CliError("validation_error", "`--offline` has no record of the queue; it lives on MAX")
+      await this.#connectOnce()
+      const session = this.#session()
+      const answer = await this.#wire.chats.history({
+        chatId,
+        from: 1,
+        forward: 100,
+        backward: 0,
+        forwardTime: 0,
+        backwardTime: 0,
+        itemType: "DELAYED",
+        getChat: false,
+        getMessages: true,
+        interactive: false,
+      })
+      const lookup = { names: namesFrom(session.contacts), ...viewer(this.#store) }
+      return asArray(answer.messages)
+        .map((raw) => toMessage(raw, chatId, lookup))
+        .sort((a, b) => (a.scheduledFor ?? "").localeCompare(b.scheduledFor ?? ""))
+    },
+
+    /**
      * **Paged backwards through time, not by page number.** MAX's history is already anchored —
      * it takes a moment and answers with what came before it — so `--before` is exact where a page
      * number over a live conversation would repeat and skip rows.
@@ -760,13 +787,30 @@ export class MaxClient {
      * server remembers a `cid`; the two probes were seconds apart. If the retry also fails the
      * answer is `outcome_unknown` — never failed, never sent — and it names the `cid`, because
      * `max messages send … --cid <n>` can then repeat the attempt without risking a second message.
+     *
+     * **`at` queues it on MAX** (epoch ms), which sends it then even with this machine off. That is
+     * never retried: deduplication by `cid` was measured for ordinary messages only, and a second
+     * copy would surface later, where nobody is watching. The guard counts it now, when it is queued.
      */
     send: async (
       chatId: Id,
       text: string,
-      options: { cid?: number; notify?: boolean; replyTo?: Id; markdown?: boolean; files?: string[] } = {},
+      options: { cid?: number; notify?: boolean; replyTo?: Id; markdown?: boolean; files?: string[]; at?: number } = {},
     ): Promise<Message> => {
       if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot send")
+      if (options.at !== undefined && options.notify === false) {
+        // The web client always sends a scheduled message with `notify: true`; §34.
+        throw new CliError(
+          "validation_error",
+          "a scheduled message cannot be silent — MAX's own client never sends one",
+        )
+      }
+      if (options.at !== undefined && options.cid !== undefined) {
+        throw new CliError(
+          "validation_error",
+          `--cid repeats an ambiguous send, which is not safe for a scheduled one — \`max messages scheduled ${chatId}\` shows whether it is queued`,
+        )
+      }
 
       // Before connecting: a refused send never opens a socket when the chat was given as an id.
       try {
@@ -791,7 +835,10 @@ export class MaxClient {
         kind: photo ? ("photo" as const) : ("file" as const),
         bytes: bytes.length,
       }))
-      const summary = attachments.length > 0 ? { attachments } : {}
+      const summary = {
+        ...(attachments.length > 0 ? { attachments } : {}),
+        ...(options.at === undefined ? {} : { scheduledFor: new Date(options.at).toISOString() }),
+      }
       try {
         const sent = await this.#deliver(chatId, text, cid, { ...options, files })
         this.#sends?.record({ chatId, outcome: "sent", messageId: sent.id, cid, length: text.length, ...summary })
@@ -1136,6 +1183,7 @@ export class MaxClient {
       files?: { path: string; bytes: Buffer; photo: boolean }[]
       /** The command that repeats this attempt, named in `outcome_unknown`. */
       repeat?: string
+      at?: number
     },
   ): Promise<Message> {
     await this.#connectOnce()
@@ -1151,7 +1199,8 @@ export class MaxClient {
           elements: markup,
           ...(options.replyTo ? { link: { type: "REPLY" as const, messageId: options.replyTo } } : {}),
         }
-    const request = { chatId, message: { cid, attaches, ...content }, notify: options.notify ?? true }
+    const delayed = options.at === undefined ? {} : { delayedAttributes: { timeToFire: options.at } }
+    const request = { chatId, message: { cid, attaches, ...content, ...delayed }, notify: options.notify ?? true }
 
     let answer: Payload
     try {
@@ -1159,6 +1208,14 @@ export class MaxClient {
     } catch (error) {
       const failure = asCliError(error)
       if (failure.code !== "timeout" && failure.code !== "network_error") throw failure
+      if (options.at !== undefined) {
+        throw new CliError(
+          "outcome_unknown",
+          `the message may or may not have been scheduled (${failure.message}) — ` +
+            `\`max messages scheduled ${chatId}\` shows the queue; sending it again could queue a second copy`,
+          { cid },
+        )
+      }
 
       // No answer came back, so MAX may already have delivered it. Repeating the identical `cid`
       // is what makes asking again safe rather than reckless.
