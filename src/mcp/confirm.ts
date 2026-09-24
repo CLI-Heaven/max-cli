@@ -49,18 +49,14 @@ export const confirmer = () => {
         inputRequests: {
           confirm: inputRequired.elicit({
             message: `Send to "${chat.title ?? chat.id}" (${chat.id})?\n\n${args.text}`,
-            requestedSchema: {
-              type: "object",
-              properties: { confirm: { type: "boolean", title: "Send this message" } },
-              required: ["confirm"],
-            },
+            requestedSchema: { type: "object", properties: {} },
           }),
         },
         requestState: expected.toString("base64url"),
       })
     }
 
-    if (answer.kind !== "elicit" || answer.action !== "accept" || answer.content?.confirm !== true) {
+    if (answer.kind !== "elicit" || answer.action !== "accept") {
       throw new CliError(
         "confirmation_required",
         "the owner did not confirm this send — nothing was sent; do not retry it",

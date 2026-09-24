@@ -12,10 +12,10 @@ const fakeClient = () => {
   return { client, send }
 }
 
-const retry = (state: string | undefined, content: Record<string, unknown>) =>
+const retry = (state: string | undefined) =>
   ({
     mcpReq: {
-      inputResponses: { confirm: { action: "accept", content } },
+      inputResponses: { confirm: { action: "accept", content: {} } },
       requestState: () => state,
     },
   }) as unknown as ServerContext
@@ -30,9 +30,7 @@ describe("the send confirmation", () => {
     const asked = await confirm(client, { chat: "111", text: "the text shown" }, firstCall)
     const state = isInputRequiredResult(asked) ? asked.requestState : undefined
 
-    await expect(
-      confirm(client, { chat: "111", text: "another text" }, retry(state, { confirm: true })),
-    ).rejects.toMatchObject({
+    await expect(confirm(client, { chat: "111", text: "another text" }, retry(state))).rejects.toMatchObject({
       code: "confirmation_required",
     })
     expect(send).not.toHaveBeenCalled()
@@ -46,9 +44,7 @@ describe("the send confirmation", () => {
 
     const confirm = confirmer()
     for (const state of [undefined, foreign]) {
-      await expect(
-        confirm(client, { chat: "111", text: "hello" }, retry(state, { confirm: true })),
-      ).rejects.toMatchObject({
+      await expect(confirm(client, { chat: "111", text: "hello" }, retry(state))).rejects.toMatchObject({
         code: "confirmation_required",
       })
     }
@@ -61,7 +57,7 @@ describe("the send confirmation", () => {
 
     const asked = await confirm(client, { chat: "111", text: "hello" }, firstCall)
     const state = isInputRequiredResult(asked) ? asked.requestState : undefined
-    await confirm(client, { chat: "111", text: "hello" }, retry(state, { confirm: true }))
+    await confirm(client, { chat: "111", text: "hello" }, retry(state))
 
     expect(send).toHaveBeenCalledWith("111", "hello", {})
   })

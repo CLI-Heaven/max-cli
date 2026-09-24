@@ -274,7 +274,7 @@ describe("the MCP server", () => {
       async (era) => {
         const { client, max, forms } = await connect(
           { allowSend: true, confirmSend: true },
-          { answers: sendAnswer, era, form: () => ({ action: "accept", content: { confirm: true } }) },
+          { answers: sendAnswer, era, form: () => ({ action: "accept", content: {} }) },
         )
 
         const { isError } = await call(client, "max_messages_send", { chat: "Alpha", text: "hello" })
@@ -288,7 +288,6 @@ describe("the MCP server", () => {
     it.each([
       ["declined", { action: "decline" }],
       ["cancelled", { action: "cancel" }],
-      ["answered no", { action: "accept", content: { confirm: false } }],
     ] as const)("sends nothing when the owner %s", async (_, answer) => {
       const { client, max } = await connect(
         { allowSend: true, confirmSend: true },
