@@ -448,6 +448,10 @@ max skill show [options]
 
 every command, option and exit code as JSON — what an agent reads instead of --help
 
+```sh
+max commands [options]
+```
+
 ## Коды возврата
 
 Скрипт ветвится по коду, а не по тексту: текст меняется, код — нет.

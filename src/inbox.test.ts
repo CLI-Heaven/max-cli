@@ -46,6 +46,7 @@ const inboxMax = (
         contacts: [{ id: 10000002, names: [{ name: "Someone Else", type: "FULL_NAME" }] }],
       },
       [Opcode.CHAT_HISTORY]: (request: Payload) => ({ messages: histories[Number(request.chatId)] ?? [] }),
+      [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
     },
   })
   const keyring = memoryKeyring()
