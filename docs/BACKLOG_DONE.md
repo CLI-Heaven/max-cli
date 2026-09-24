@@ -59,6 +59,10 @@ what exists now, and where it is described. The numbers stay reserved — commit
 - **MAX-26** — `max messages forward <chat> <message> --to <chat>`: `MSG_SEND` with a `FORWARD` link
   and no text, the same one retry with the same `cid` as a send, counted by `sendsPerHour`.
   Measured only from Saved messages to Saved messages. ARCHITECTURE §6, `docs/usage.md`.
+- **MAX-27** — `max messages pin <chat> <message> [--notify]` and `max messages unpin <chat>`:
+  `CHAT_UPDATE` (55), `pinMessageId: 0` unpins, no notification unless asked (`NEED-196`). Measured
+  2026-09-24 in a group. MAX never pins in a personal chat, so the command refuses one before asking.
+  `docs/usage.md`.
 
 - **MAX-36** — `session start qr-chrome` and `sms` talk to the browser over
   `--remote-debugging-pipe`, not a port on 127.0.0.1 another local user could reach.

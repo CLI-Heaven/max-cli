@@ -28,7 +28,7 @@ sources disagree.
 | `chats.history` | 49 | `CHAT_HISTORY` | after login | measured | measured against MAX 2026-09-19 |
 | `chats.mark` | 50 | `CHAT_MARK` | **never sent** | confirmed | tsmax; max-api-docs/protocol/chats.md |
 | `chats.list` | 53 | `CHATS_LIST` | after login | measured | measured against MAX 2026-09-19; max-api-docs/protocol/chats.md |
-| `chats.update` | 55 | `CHAT_UPDATE` | after login | confirmed | web.max.ru `_app/immutable/chunks/5oCuRT0F.js` (2026-09-24); PyMax `api/messages/payloads.py:95-98` (53103f0) |
+| `chats.update` | 55 | `CHAT_UPDATE` | after login | measured | measured against MAX 2026-09-24 in a group the owner named (`pnpm probe:edit-pin-forward`, `PIN_CHAT`); web.max.ru `_app/immutable/chunks/5oCuRT0F.js` (2026-09-24); PyMax `api/messages/payloads.py:95-98` (53103f0) |
 | `messages.send` | 64 | `MSG_SEND` | after login | measured | measured against MAX 2026-09-19, including deduplication by `cid` across two connections; `link` and `elements` measured 2026-09-23 in Saved messages (`pnpm probe:reply`); shapes from tsmax and PyMax; the FORWARD link: web.max.ru `_app/immutable/chunks/5oCuRT0F.js` (2026-09-24), PyMax `api/messages/payloads.py:56-73`; a forward with no `text` and no `elements` measured 2026-09-24 in Saved messages (`pnpm probe:edit-pin-forward`) |
 | `messages.edit` | 67 | `MSG_EDIT` | after login | measured | measured against MAX 2026-09-24 in Saved messages (`pnpm probe:edit-pin-forward`); web.max.ru `_app/immutable/chunks/5oCuRT0F.js` (2026-09-24); PyMax `api/messages/payloads.py:21-28` (53103f0) |
 | `messages.react` | 178 | `MSG_REACTION` | after login | measured | measured against MAX 2026-09-23 in Saved messages (`pnpm probe:reply`); tsmax addReaction; PyMax add_reaction |
