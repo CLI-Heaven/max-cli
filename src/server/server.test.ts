@@ -27,6 +27,7 @@ const scripted = () =>
       },
       [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
       [Opcode.MSG_SEND]: { message: { id: 116762160362694599n, time: 1789776001000, sender: ME, text: "sent" } },
+      [Opcode.MSG_DELETE]: {},
     },
   })
 
@@ -345,6 +346,18 @@ describe("a command through max serve", () => {
 
     expect(max.sent.filter((call) => call.opcode === Opcode.LOGIN)).toHaveLength(2)
     expect(opened()).toBe(0)
+  })
+
+  it("logs in again after a deletion sent through it, since MAX does not push that back either", async () => {
+    const { store, max } = await serve("c-delete", scripted(), { refreshEveryMs: 0 })
+    const { client } = commandClient(store)
+
+    await client.messages.delete("111", ["116762160362694583"])
+    await client.close()
+    await settle(60)
+
+    expect(max.sent.filter((call) => call.opcode === Opcode.MSG_DELETE)).toHaveLength(1)
+    expect(max.sent.filter((call) => call.opcode === Opcode.LOGIN)).toHaveLength(2)
   })
 
   it("follows a chat read on another device: the unread count becomes what MAX says", async () => {

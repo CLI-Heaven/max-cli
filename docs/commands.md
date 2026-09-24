@@ -539,6 +539,26 @@ max messages edit <chat> <message> [text] [options]
 |---|---|
 | `--md, --markdown` | read **bold**, _italic_, ~~struck~~ and `code` in the text; \ keeps a mark literal |
 
+### `max messages delete`
+
+delete messages for you only; with --for-everyone, for everyone in the chat
+
+**Меняет что-то в MAX.**
+
+```sh
+max messages delete <chat> <messages> [options]
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+| `messages` | обязательный | ids of the messages, at most 10 |
+
+| Опция | Что делает |
+|---|---|
+| `--for-everyone` | delete for everyone in the chat, not only for you — they cannot get it back |
+| `--allow-dangerous` | yes, delete — it cannot be undone |
+
 ### `max messages forward`
 
 forward one message to another chat
@@ -908,6 +928,7 @@ max mcp [options]
 | `--allow-send` | offer the send tool; without it the server can only read |
 | `--confirm-send` | show the owner each send in a form from the server — the chat it resolved to and the text |
 | `--allow-mark-read` | offer the tool that marks a chat read; the other person sees it |
+| `--allow-delete` | offer the tool that deletes messages for you only; it cannot be undone |
 
 ## Коды возврата
 

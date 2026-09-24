@@ -6,7 +6,7 @@ import type { Id } from "../domain/models.js"
 export type SendOutcome = "sent" | "outcome_unknown" | "refused" | "failed"
 
 /** Absent in the journal means a message: that is every line written before reactions were guarded. */
-export type SendKind = "message" | "reaction" | "edit" | "forward" | "pin" | "read" | "chat" | "account"
+export type SendKind = "message" | "reaction" | "edit" | "forward" | "pin" | "read" | "delete" | "chat" | "account"
 
 /** What a `chat` entry did. Never a title, a description or a link — only which action. */
 export type ChatAction =
@@ -46,6 +46,9 @@ export interface SendEntry {
   /** How many people a `chat` entry added or removed. */
   people?: number
   messageId?: Id
+  /** How many messages a `delete` entry named — each one counts toward the hourly limit. */
+  count?: number
+  forEveryone?: boolean
   cid?: number
   length?: number
   /** What was attached, by kind and size — never a file name. */

@@ -19,6 +19,10 @@
 - **`max export messages <чат> --format jsonl|md`** — выгрузить переписку из локальной копии в
   JSONL или Markdown, с `--since` и `--output`. В MAX не ходит; чего в копии нет, называет в stderr.
   Файл из `--output` доступен только вам ([usage.md](docs/usage.md#выгрузка)).
+- **`max messages delete <чат> <id…> --allow-dangerous`** — удалить сообщения, до 10 за раз. По
+  умолчанию только у вас; с `--for-everyone` — у всех в чате. Без `--allow-dangerous` команда
+  отказывает. Каждое удалённое сообщение считается в `sendsPerHour`. Для MCP — `max mcp
+  --allow-delete`, только «у меня» ([usage.md](docs/usage.md#удаление)).
 
 ### Что исправлено
 

@@ -140,6 +140,10 @@ message id** and **one** copy, also across two connections and logins — the ca
   retry with the same `cid` and counts against the hourly limit. **An edit and a pin are not
   retried**, like a reaction, and are not counted: they put no new message in anybody's chat
   (`NEED-168`). The guard's other two checks apply to all of them.
+- **A deletion is guarded like a send, and each deleted message counts toward the hourly limit**
+  (`MAX-47`): it wakes nobody, but many at once is what MAX bans for. At most 10 per call, and
+  `--allow-dangerous` on every one. Not retried. `max serve` logs in again after one, since MAX does
+  not push a connection's own deletion back to it and the chat's last message may be gone.
 - **An edit sends the message's attachments back as history gives them.** Measured 2026-09-24:
   an edit with `attachments: []` removes a photo. So `messages edit` reads the message first, and
   refuses somebody else's message or a forward before asking MAX.

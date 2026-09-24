@@ -25,7 +25,7 @@ import {
   qrApprove,
 } from "./operations/login.js"
 import {
-  messageDelete,
+  messagesDelete,
   messagesEdit,
   messagesReact,
   messagesReactions,
@@ -84,7 +84,7 @@ export const spec: readonly Entry[] = [
   messagesReact,
   messagesUnreact,
   messagesReactions,
-  messageDelete,
+  messagesDelete,
   attachmentsVideo,
   attachmentsFile,
   uploadsPhoto,

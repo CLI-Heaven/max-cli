@@ -1,5 +1,5 @@
 import * as v from "valibot"
-import { defineOperation, reserveOpcode } from "../define.js"
+import { defineOperation } from "../define.js"
 import { id } from "../scalars.js"
 
 export const messagesSend = defineOperation({
@@ -159,11 +159,18 @@ export const messagesUnreact = defineOperation({
   },
 })
 
-export const messageDelete = reserveOpcode({
+export const messagesDelete = defineOperation({
   name: "messages.delete",
   constant: "MSG_DELETE",
   opcode: 66,
-  reason:
-    "Deliberately never called. Giving this tool the ability to destroy somebody's messages, in order to tidy up after a test, is a poor trade (`NEED-32`).",
-  provenance: { confidence: "observed", sources: ["tsmax"] },
+  auth: true,
+  request: v.strictObject({ chatId: id(), messageIds: v.array(id()), forMe: v.boolean() }),
+  response: v.looseObject({}),
+  provenance: {
+    confidence: "observed",
+    sources: ["PyMax 2.4.1 `delete_message`", "tsmax"],
+    notes:
+      "`forMe: true` removes the messages for this account only, `false` for everyone in the chat. Sent only by " +
+      "`max messages delete`, on the owner's word each time (`NEED-32` corrected, `MAX-47`). Not yet measured.",
+  },
 })

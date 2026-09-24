@@ -11,11 +11,13 @@ export const mcpCommand = (): Command =>
       "show the owner each send in a form from the server — the chat it resolved to and the text",
     )
     .option("--allow-mark-read", "offer the tool that marks a chat read; the other person sees it")
+    .option("--allow-delete", "offer the tool that deletes messages for you only; it cannot be undone")
     .action(async function (this: Command) {
-      const { allowSend, confirmSend, allowMarkRead } = this.opts<{
+      const { allowSend, confirmSend, allowMarkRead, allowDelete } = this.opts<{
         allowSend?: boolean
         confirmSend?: boolean
         allowMarkRead?: boolean
+        allowDelete?: boolean
       }>()
       if (confirmSend && !allowSend) {
         throw new CliError(
@@ -29,5 +31,6 @@ export const mcpCommand = (): Command =>
         allowSend: allowSend === true,
         confirmSend: confirmSend === true,
         allowMarkRead: allowMarkRead === true,
+        allowDelete: allowDelete === true,
       })
     })

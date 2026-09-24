@@ -9,7 +9,7 @@ import {
 import { toStandardJsonSchema } from "@valibot/to-json-schema"
 import * as v from "valibot"
 import { openProfileCache } from "../cache/index.js"
-import type { MaxClient } from "../client.js"
+import { DELETE_AT_ONCE, type MaxClient } from "../client.js"
 import { sendTime } from "../config.js"
 import { maskedProfile } from "../domain/map.js"
 import type { Page } from "../domain/models.js"
@@ -349,6 +349,23 @@ const MARK_READ_TOOLS = {
   }),
 }
 
+/**
+ * Registered only with `--allow-delete`, which `--allow-send` does not imply, and only for the owner:
+ * deleting for everyone is the command's alone (`NEED-240`). The server's flag is the owner's word.
+ */
+const DELETE_TOOLS = {
+  max_messages_delete: tool({
+    title: "Delete messages for the owner",
+    description:
+      `Delete up to ${DELETE_AT_ONCE} messages from the owner's view of a chat; the other people still see them. ` +
+      "Cannot be undone. Only when the owner asked for these exact messages to be deleted.",
+    input: v.object({ chat, messages: v.pipe(v.array(message), v.minLength(1), v.maxLength(DELETE_AT_ONCE)) }),
+    annotations: WRITE,
+    _meta: APPROVE,
+    answer: async (client, args) => client.messages.delete(await client.chats.resolve(args.chat), args.messages),
+  }),
+}
+
 const answered = (value: object): CallToolResult => ({
   content: [{ type: "text", text: JSON.stringify(value) }],
   structuredContent: value as Record<string, unknown>,
@@ -373,6 +390,7 @@ export const registerTools = (
     allowSend,
     confirmSend = false,
     allowMarkRead = false,
+    allowDelete = false,
     defaultLimit,
     profile,
     transcribeModel = DEFAULT_MODEL,
@@ -380,6 +398,7 @@ export const registerTools = (
     allowSend: boolean
     confirmSend?: boolean
     allowMarkRead?: boolean
+    allowDelete?: boolean
     defaultLimit: number
     profile: string
     transcribeModel?: string
@@ -391,6 +410,7 @@ export const registerTools = (
     ...READ_TOOLS,
     ...(allowSend ? SEND_TOOLS : {}),
     ...(allowMarkRead ? MARK_READ_TOOLS : {}),
+    ...(allowDelete ? DELETE_TOOLS : {}),
   }
 
   for (const [name, definition] of Object.entries(tools)) {

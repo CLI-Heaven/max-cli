@@ -20,6 +20,7 @@ import type {
   ChatKind,
   Contact,
   ContactImport,
+  Deletion,
   Folder,
   GroupCard,
   GroupSettings,
@@ -955,6 +956,43 @@ export class MaxClient {
     },
 
     /**
+     * Deletes messages — for this account only, or with `forEveryone` for everyone in the chat. The
+     * owner's word is the command's `--allow-dangerous`; here it is the guard, and each message
+     * counts toward the hourly limit (`MAX-47`). Whose message it is, MAX decides: an admin may
+     * delete somebody else's in a group. Not retried, like an edit.
+     */
+    delete: async (chatId: Id, messageIds: Id[], { forEveryone = false } = {}): Promise<Deletion> => {
+      if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot delete")
+      if (messageIds.length === 0) throw new CliError("validation_error", "name at least one message to delete")
+      if (messageIds.length > DELETE_AT_ONCE) {
+        throw new CliError(
+          "validation_error",
+          `${messageIds.length} messages at once — at most ${DELETE_AT_ONCE} per call, so MAX sees deletions spread out`,
+        )
+      }
+      const count = messageIds.length
+      this.#guard(chatId, "delete", undefined, count)
+
+      try {
+        await this.#connectOnce()
+        await this.#wire.messages.delete({ chatId, messageIds, forMe: !forEveryone })
+        this.#cache?.messages.forget(chatId, messageIds)
+        this.#sends?.record({ chatId, kind: "delete", outcome: "sent", count, forEveryone })
+        return { chatId, deleted: messageIds, forEveryone }
+      } catch (error) {
+        this.#sends?.record({
+          chatId,
+          kind: "delete",
+          outcome: "failed",
+          count,
+          forEveryone,
+          errorCode: asCliError(error).code,
+        })
+        throw error
+      }
+    },
+
+    /**
      * Pins one message in a chat, or with `null` unpins whatever is pinned — `pinMessageId: 0` is
      * how the web client unpins. No notification unless asked (`NEED-196`). Not retried.
      *
@@ -1132,9 +1170,9 @@ export class MaxClient {
   }
 
   /** Asks the send guard, and writes a refusal to the send journal before passing it on. */
-  #guard(chatId: Id, kind: SendKind, messageId?: Id): void {
+  #guard(chatId: Id, kind: SendKind, messageId?: Id, count?: number): void {
     try {
-      this.#sends?.check(chatId, kind)
+      this.#sends?.check(chatId, kind, undefined, count)
     } catch (error) {
       this.#sends?.record({
         chatId,
@@ -2060,6 +2098,8 @@ const INBOX_CHATS = 20
 
 /** MAX pushes this when a message arrives in any chat. PyMax calls it `NOTIF_MESSAGE`. */
 const NEW_MESSAGE = 128
+/** Bounded so that deleting a long history is many spread-out calls, never one sweep (`MAX-47`). */
+export const DELETE_AT_ONCE = 10
 
 /** Read up to a point — by us on another device, or by somebody else. */
 const READ_MARK = 130

@@ -10,6 +10,7 @@ export interface ServerOptions extends SessionOptions {
   allowSend: boolean
   confirmSend?: boolean
   allowMarkRead?: boolean
+  allowDelete?: boolean
 }
 
 /**
@@ -19,18 +20,27 @@ export interface ServerOptions extends SessionOptions {
  */
 export const createMaxServer = (
   context: CommandContext,
-  { allowSend, confirmSend = false, allowMarkRead = false, ...sessionOptions }: ServerOptions,
+  { allowSend, confirmSend = false, allowMarkRead = false, allowDelete = false, ...sessionOptions }: ServerOptions,
 ) => {
   const session = new MaxSession(context, sessionOptions)
   const build = (): McpServer => {
     const server = new McpServer(
       { name: "max", version: VERSION },
-      { instructions: instructions({ allowSend, confirmSend, allowMarkRead, profile: context.settings.profile }) },
+      {
+        instructions: instructions({
+          allowSend,
+          confirmSend,
+          allowMarkRead,
+          allowDelete,
+          profile: context.settings.profile,
+        }),
+      },
     )
     registerTools(server, session, {
       allowSend,
       confirmSend,
       allowMarkRead,
+      allowDelete,
       defaultLimit: context.settings.limit,
       profile: context.settings.profile,
       transcribeModel: context.settings.transcribeModel,

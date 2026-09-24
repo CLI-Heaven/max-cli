@@ -24,6 +24,7 @@ import {
   loginSmsRequest,
 } from "../spec/operations/login.js"
 import {
+  messagesDelete,
   messagesEdit,
   messagesReact,
   messagesReactions,
@@ -68,6 +69,7 @@ export const OPERATIONS = {
   "messages.react": messagesReact,
   "messages.unreact": messagesUnreact,
   "messages.reactions": messagesReactions,
+  "messages.delete": messagesDelete,
   "attachments.video": attachmentsVideo,
   "attachments.file": attachmentsFile,
   "uploads.photo": uploadsPhoto,

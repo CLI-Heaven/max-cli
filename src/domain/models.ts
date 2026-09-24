@@ -56,6 +56,13 @@ export interface Pin {
   pinned: Id | null
 }
 
+/** What `messages delete` asked MAX to remove, and for whom. */
+export interface Deletion {
+  chatId: Id
+  deleted: Id[]
+  forEveryone: boolean
+}
+
 /** A chat marked read up to `messageId`, inclusive. `unread` is what MAX says is left, or `null`. */
 export interface ReadMark {
   chatId: Id
