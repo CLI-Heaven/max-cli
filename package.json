@@ -50,7 +50,8 @@
     "probe:inbox": "pnpm build && node --experimental-strip-types scripts/probe-inbox.ts",
     "probe:edit-pin-forward": "pnpm build && node --experimental-strip-types scripts/probe-edit-pin-forward.ts",
     "probe:groups": "pnpm build && node --experimental-strip-types scripts/probe-groups.ts",
-    "probe:members": "pnpm build && node --experimental-strip-types scripts/probe-members.ts"
+    "probe:members": "pnpm build && node --experimental-strip-types scripts/probe-members.ts",
+    "probe:account": "pnpm build && node --experimental-strip-types scripts/probe-account.ts"
   },
   "dependencies": {
     "@bomb.sh/tab": "0.0.22",

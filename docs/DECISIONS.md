@@ -711,3 +711,13 @@ groups and channels alike, as `chats list --kind` already is.
 **NEED-207 · Does a recipient list refuse `chats join` and `chats create`?** **No.** «1 B». They have
 no chat yet for a list to name, so only a read-only profile refuses them; every change to an
 existing chat is still held to the list.
+**NEED-202 · Build "end all other sessions", and who runs it first?** **Build it; the owner runs the
+first real one.** «1 A». `max account sessions end-others` refuses without `--yes`, is not in MCP,
+and writes a token MAX returns to the keyring before it reports success (`RISK-25`: PyMax reads a new
+token from the answer, the web client does not).
+
+**NEED-203 · Contact import from a phone book now, tested on the owner's own number only?** **Yes.**
+«2 A». One witness (PyMax, `SYNC` 21); numbers come from stdin, never argv.
+
+**NEED-204 · May a probe rewrite the profile with its current values and create, rename and delete a
+test folder?** **Yes, both.** «3 A».

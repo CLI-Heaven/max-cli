@@ -1,17 +1,10 @@
 // Generated from src/spec/ by scripts/generate.ts. Do not edit; run `pnpm generate`.
 
+import { accountCloseSessions, accountSessions, accountUpdate } from "../spec/operations/account.js"
 import { attachmentsFile, attachmentsVideo } from "../spec/operations/attachments.js"
-import {
-  chatsHistory,
-  chatsJoin,
-  chatsLeave,
-  chatsLinkInfo,
-  chatsList,
-  chatsMembers,
-  chatsUpdate,
-  chatsUpdateMembers,
-} from "../spec/operations/chats.js"
-import { contactsInfo } from "../spec/operations/contacts.js"
+import { chatsHistory, chatsList, chatsUpdate } from "../spec/operations/chats.js"
+import { contactsByPhone, contactsImport, contactsInfo, contactsUpdate } from "../spec/operations/contacts.js"
+import { foldersDelete, foldersList, foldersUpdate } from "../spec/operations/folders.js"
 import {
   loginByQr,
   loginPassword,
@@ -41,14 +34,18 @@ export const OPERATIONS = {
   "login.smsCode": loginSmsCode,
   "login.password": loginPassword,
   "contacts.info": contactsInfo,
+  "contacts.byPhone": contactsByPhone,
+  "contacts.update": contactsUpdate,
+  "contacts.import": contactsImport,
+  "account.update": accountUpdate,
+  "account.sessions": accountSessions,
+  "account.closeSessions": accountCloseSessions,
+  "folders.list": foldersList,
+  "folders.update": foldersUpdate,
+  "folders.delete": foldersDelete,
   "chats.history": chatsHistory,
   "chats.list": chatsList,
-  "chats.linkInfo": chatsLinkInfo,
-  "chats.join": chatsJoin,
-  "chats.leave": chatsLeave,
   "chats.update": chatsUpdate,
-  "chats.members": chatsMembers,
-  "chats.updateMembers": chatsUpdateMembers,
   "messages.send": messagesSend,
   "messages.edit": messagesEdit,
   "messages.react": messagesReact,

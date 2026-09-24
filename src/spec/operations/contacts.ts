@@ -16,13 +16,53 @@ export const contactsInfo = defineOperation({
   },
 })
 
-export const profile = reserveOpcode({
-  name: "account.update",
-  constant: "PROFILE",
-  opcode: 16,
-  reason:
-    "It does not read a profile, it updates one, and it refuses an empty payload. Your own profile arrives with the login response, so nothing needs to send this. It is declared here so that fact keeps a home.",
-  provenance: { confidence: "measured", sources: ["measured against MAX 2026-09-19: refused an empty payload"] },
+const webClient = "web.max.ru chunk `_app/immutable/chunks/5oCuRT0F.js`, read 2026-09-24"
+
+export const contactsByPhone = defineOperation({
+  name: "contacts.byPhone",
+  constant: "CONTACT_INFO_BY_PHONE",
+  opcode: 46,
+  auth: true,
+  request: v.strictObject({ phone: v.pipe(v.string(), v.minLength(1)) }),
+  response: v.looseObject({ contact: v.optional(v.looseObject({})) }),
+  provenance: {
+    confidence: "confirmed",
+    sources: [webClient, "PyMax 53103f0 `search_by_phone`"],
+    notes: "⚠ The request carries a phone number: nothing may log it, print it in an error or keep it in a fixture.",
+  },
+})
+
+export const contactsUpdate = defineOperation({
+  name: "contacts.update",
+  constant: "CONTACT_UPDATE",
+  opcode: 34,
+  auth: true,
+  request: v.strictObject({ contactId: id(), action: v.picklist(["ADD", "REMOVE"]) }),
+  response: v.looseObject({ contact: v.optional(v.looseObject({})) }),
+  provenance: {
+    confidence: "confirmed",
+    sources: [webClient, "PyMax 53103f0 `add_contact`, `remove_contact`"],
+    notes:
+      "The web client also sends `UPDATE` (a name of your own for the person), `BLOCK` and `UNBLOCK` here. Only adding and removing are declared.",
+  },
+})
+
+export const contactsImport = defineOperation({
+  name: "contacts.import",
+  constant: "SYNC",
+  opcode: 21,
+  auth: true,
+  request: v.strictObject({
+    /** Phone number to the name it was saved under. */
+    contactList: v.record(v.string(), v.strictObject({ firstName: v.string() })),
+  }),
+  response: v.looseObject({ contacts: v.optional(v.array(v.looseObject({}))) }),
+  provenance: {
+    confidence: "observed",
+    sources: ["PyMax 53103f0 `import_contacts`"],
+    notes:
+      "One witness, under a generic name: not found in the entry chunks of web.max.ru (2026-09-24), whose lazy chunks were not read. It uploads other people's numbers to MAX (`NEED-203`).",
+  },
 })
 
 export const unidentified36 = reserveOpcode({
