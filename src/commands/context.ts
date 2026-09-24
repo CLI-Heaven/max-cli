@@ -2,13 +2,15 @@ import type { Renderer, RenderFormat, Streams } from "@leemour/cli-core"
 import type { Command } from "commander"
 import { MaxClient, type MaxClientOptions } from "../client.js"
 import { type GlobalFlags, resolveSettings, type Settings } from "../config.js"
-import { withDeadline } from "../deadline.js"
+import { type Closeable, withDeadline } from "../deadline.js"
 import { resolveOutput } from "../output.js"
 import { rootOf } from "../profile.js"
 import { recorded } from "../runs/recording.js"
 import { sendGuard } from "../sends/guard.js"
 import { SendJournal, sendsPathFor } from "../sends/journal.js"
 import { RecipientList, recipientsPathFor } from "../sends/recipients.js"
+import { type BrowserDoors, realBrowser } from "../session/browser.js"
+import { readSecret } from "../session/prompt.js"
 import { SessionStore } from "../session/store.js"
 
 /**
@@ -22,7 +24,13 @@ export interface Environment {
   store?: (profile: string) => SessionStore
   /** A fresh connection per client — to a scripted MAX in a test. */
   connection?: () => NonNullable<MaxClientOptions["connection"]>
+  browser?: BrowserDoors
+  ask?: Ask
+  interactive?: boolean
 }
+
+/** One line from the person at the terminal; `secret` keeps it off the screen. */
+export type Ask = (prompt: string, options?: { secret?: boolean }) => Promise<string>
 
 const environments = new WeakMap<Command, Environment>()
 
@@ -57,6 +65,12 @@ export interface CommandContext {
    * either. The body gets the emitter to hand to `createClient`.
    */
   run: <T>(command: string, body: (events: MaxClientOptions["events"]) => Promise<T>) => Promise<T>
+  /** Anything else holding the process open — a browser, a local page — for `--timeout` to shut too. */
+  track: (closeable: Closeable) => void
+  browser: BrowserDoors
+  ask: Ask
+  /** Whether a person is there to scan a code or type one: both stdin and stderr are a terminal. */
+  interactive: boolean
 }
 
 /**
@@ -86,7 +100,7 @@ export const forCommand = (command: Command): CommandContext => {
 
   // Every client this command builds, so the deadline can shut them. There is always one; relying
   // on that is what makes the second one, some day, the leak that keeps the process alive.
-  const clients: MaxClient[] = []
+  const clients: Closeable[] = []
 
   return {
     settings,
@@ -116,6 +130,12 @@ export const forCommand = (command: Command): CommandContext => {
       clients.push(client)
       return client
     },
+    track: (closeable) => {
+      clients.push(closeable)
+    },
+    browser: environment.browser ?? realBrowser,
+    ask: environment.ask ?? ((prompt, { secret = false } = {}) => readSecret(prompt, { echo: !secret })),
+    interactive: environment.interactive ?? (process.stdin.isTTY === true && process.stderr.isTTY === true),
     run: (command, body) =>
       withDeadline(settings.commandTimeoutMs, clients, () =>
         recorded(

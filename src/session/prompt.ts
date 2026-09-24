@@ -4,6 +4,8 @@ import { Writable } from "node:stream"
 export interface SecretInput {
   input?: NodeJS.ReadableStream & { isTTY?: boolean }
   output?: NodeJS.WritableStream
+  /** For a phone number or an SMS code, which a person needs to see while typing. */
+  echo?: boolean
 }
 
 /**
@@ -18,7 +20,7 @@ export interface SecretInput {
  */
 export const readSecret = async (
   prompt: string,
-  { input = process.stdin, output = process.stderr }: SecretInput = {},
+  { input = process.stdin, output = process.stderr, echo = false }: SecretInput = {},
 ): Promise<string> => {
   if (!input.isTTY) {
     const chunks: Buffer[] = []
@@ -38,7 +40,7 @@ export const readSecret = async (
   try {
     const answer = await new Promise<string>((resolve) => {
       reader.question(prompt, resolve)
-      muted = true
+      muted = !echo
     })
     return answer.trim()
   } finally {
