@@ -50,6 +50,8 @@ what exists now, and where it is described. The numbers stay reserved — commit
 - **MAX-13** — `max messages search`, over the local index; it never connects. §16.
 - **MAX-14** — `max messages download`: a file's link from opcode 88, a video's from 83, both measured
   2026-09-23; never overwrites (`src/download.ts`).
+- **MAX-17** — not doing: an alternative MAX client (web, mobile). Accounts on third-party clients
+  get banned, the owner found on 2026-09-24 (`NEED-144`).
 
 ## The command
 

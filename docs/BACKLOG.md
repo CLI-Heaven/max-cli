@@ -22,6 +22,18 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 
 ## Features
 
+- **CLI-22** · P2 · Scheduled send: `max messages send <chat> <text> --at <time>`. MAX schedules
+  messages itself, and the official web client does it with `MSG_SEND` (64) carrying
+  `message.delayedAttributes.timeToFire` in milliseconds (web.max.ru source, read 2026-09-24,
+  `FIND-78`), so the message leaves even with this machine off. Plan:
+  `docs_ai/plans/2026-09-24-latest-and-scheduled.md`. Builds on `MSG_SEND` as #56 leaves it.
+  Correction 2026-09-24: this line first asked whether MAX can schedule at all, with the OS
+  scheduler as the fallback. It can.
+- **CLI-23** · P2 · Check the latest messages across all chats in one command, readable by default
+  and `--json` for scripts. `messages list` reads one chat only (`docs/commands.md`,
+  `max messages list`). Remembers the last check in the profile on its own, so a scheduled run
+  shows only what is new; `--since <time>` overrides it for a one-off look (`NEED-162`). Must not mark anything read (REQUIREMENTS §19). The one
+  feature both target users need (`NEED-143`).
 - **MAX-9** · 🟡 P2 · The rest of the messenger surface, in the order of REQUIREMENTS §35.
   Done: attachments, replies and forwards when reading (`src/domain/models.ts:23-75`). Left:
   reactions when reading (`MAX-15`, needs its own request), then uploads, sending reactions, edits; group administration
@@ -72,3 +84,21 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   the owner.
 - **RISK-2** · P3 · A login per command may exhaust the session. One source claims a reset after
   30–50 logins; 65 on the real account broke nothing (2026-09-21). `max doctor` shows the count.
+
+## Later — each reopens a ruling
+
+Added by the owner on 2026-09-24. Each one goes against REQUIREMENTS §3 or §18, and the line says
+which; the plan for it starts by saying so.
+
+- **MAX-16** · P3 · A watching server: one long-running process that keeps the connection open and
+  hands new messages to other tools as they arrive. Reopens REQUIREMENTS §3 and §18 (one command,
+  one operation, no daemon) and §34 (traffic like the official client's). A separate package beside
+  the CLI, not a mode of it (`NEED-137`). Unlocks what a scheduled run cannot do: a reply within
+  seconds, a trigger on an incoming message.
+- **CLI-24** · P3 · Voice messages to text with a local speech model (Whisper, Parakeet or
+  similar), downloaded on first use and never bundled. Builds on `max messages download`.
+  The model runs on this machine; audio never leaves it.
+- **CLI-25** · P3 · `max bot …` — work with a MAX bot through the official bot API and a bot token,
+  beside the personal account. Reopens REQUIREMENTS §3 ("not a bot-account client"). Bots are
+  issued only to verified organisations, sole traders and the self-employed
+  ([dev.max.ru](https://dev.max.ru/docs/maxbusiness/connection)).
