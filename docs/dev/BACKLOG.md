@@ -36,7 +36,7 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
   send guard (`src/client.ts`, `chats.markRead`). Left: measure `CHAT_MARK` (50) — the request is
   PyMax's shape (`READ_MESSAGE`, `mark` in ms), never sent to the real MAX; the owner was logged
   out on 2026-09-24 (`NEED-226`). Plan: `docs_ai/plans/2026-09-24-cli-33-mark-read.md`.
-- **CLI-22** · P2 · Scheduled send: `max messages send <chat> <text> --at <time>`. MAX schedules
+- **CLI-22** · 🚧 `feat/cli-22-scheduled-send` · P2 · Scheduled send: `max messages send <chat> <text> --at <time>`. MAX schedules
   messages itself, and the official web client does it with `MSG_SEND` (64) carrying
   `message.delayedAttributes.timeToFire` in milliseconds (web.max.ru source, read 2026-09-24,
   `FIND-78`), so the message leaves even with this machine off. Plan:
