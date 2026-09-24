@@ -66,6 +66,10 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 
 ## Foundation and risks
 
+- **CORE-12** · P3 · 🚧 `core-12-completion` · Shell completion from the command registry:
+  `@leemour/cli-core/completion` suggests from the tree; `max complete` prints the scripts
+  (`@bomb.sh/tab`) and answers with chat and person names from the local cache, never the network.
+  Plan: `docs_ai/plans/2026-09-24-completion.md`.
 - **CORE-9** · P2 · Self-update: `max update` finds how `max` was installed (npm, pnpm or bun,
   globally) and runs that package manager, plus a once-a-day "a newer version exists" line — on
   stderr, in pretty mode only, never where an agent reads JSON. Shared in `cli-core`; the idea is
