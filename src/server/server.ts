@@ -5,6 +5,7 @@ import { CliError } from "@leemour/cli-core"
 import type { CacheStore } from "../cache/store.js"
 import { MaxClient, type MaxClientOptions } from "../client.js"
 import type { MessageHit } from "../domain/models.js"
+import { Opcode } from "../generated/opcodes.generated.js"
 import { Connection, type ConnectionOptions, ProtocolError } from "../protocol/connection.js"
 import type { SessionStore } from "../session/store.js"
 import { fromLine, lineReader, toLine } from "./lines.js"
@@ -43,6 +44,9 @@ export interface MaxServerOptions {
 /** The web client's keep-alive interval (web.max.ru bundle, 2026-09-24). A different one is a fingerprint. */
 const PING_EVERY_MS = 30_000
 
+/** A message arrived — what MAX pushes, and what a send through this server is handed on as. */
+const NEW_MESSAGE = 128
+
 /** A login MAX counts; after one, the next background login waits at least this long. */
 const REFRESH_EVERY_MS = 60_000
 
@@ -71,6 +75,8 @@ export class MaxServer {
   #stopped = false
   /** Every client on the socket — a command, `max mcp`, `max watch`. Idle means none at all. */
   readonly #open = new Set<Socket>()
+  /** Message ids already handed to watchers, newest last. */
+  readonly #seen = new Set<string>()
   /** Settles when a connection is up; replaced while the server reconnects. */
   #up: Promise<void>
   #markUp: () => void = () => {}
@@ -250,6 +256,12 @@ export class MaxServer {
   }
 
   #broadcast(event: ServerEvent): void {
+    if (event.event === "message") {
+      // A retried send answers with the same message, and MAX repeats pushes after a hiccup.
+      if (this.#seen.has(event.message.id)) return
+      this.#seen.add(event.message.id)
+      if (this.#seen.size > 500) this.#seen.delete(this.#seen.values().next().value as string)
+    }
     const line = toLine(event)
     for (const socket of this.#subscribers) socket.write(line)
   }
@@ -351,7 +363,16 @@ export class MaxServer {
     }
     if (!client) return { error: { code: "unavailable", message: "not connected" } }
     try {
-      return { payload: await client.live.forward(opcode, (payload ?? {}) as Record<string, unknown>) }
+      const request = (payload ?? {}) as Record<string, unknown>
+      const answer = await client.live.forward(opcode, request)
+      // MAX does not push a message back to the connection that sent it, and every send now comes
+      // through this one — so `max watch` would never see what `max` itself sent. The answer
+      // carries the message; hand it on as if it had been pushed. A scheduled one is not sent yet.
+      const scheduled = (request.message as { delayedAttributes?: unknown } | undefined)?.delayedAttributes
+      if (opcode === Opcode.MSG_SEND && answer.message && !scheduled) {
+        this.#pushed(client, NEW_MESSAGE, { chatId: request.chatId, message: answer.message })
+      }
+      return { payload: answer }
     } catch (error) {
       if (error instanceof ProtocolError) {
         return { error: { code: "refused", message: error.message, payload: error.payload } }
