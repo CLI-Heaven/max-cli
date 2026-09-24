@@ -12,6 +12,7 @@ import { RecipientList, recipientsPathFor } from "../sends/recipients.js"
 import { type BrowserDoors, realBrowser } from "../session/browser.js"
 import { readSecret } from "../session/prompt.js"
 import { SessionStore } from "../session/store.js"
+import type { UpdateEnvironment } from "../update.js"
 
 /**
  * What a command writes to and talks through, when it is not the real terminal, keyring and MAX.
@@ -28,6 +29,7 @@ export interface Environment {
   ask?: Ask
   interactive?: boolean
   columns?: number
+  update?: UpdateEnvironment
 }
 
 /** One line from the person at the terminal; `secret` keeps it off the screen. */
@@ -39,7 +41,7 @@ export const provide = (program: Command, environment: Environment): void => {
   environments.set(program, environment)
 }
 
-const environmentOf = (command: Command): Environment => environments.get(rootOf(command)) ?? {}
+export const environmentOf = (command: Command): Environment => environments.get(rootOf(command)) ?? {}
 
 /** For the commands that print but never need settings or a client. */
 export const outputFor = (command: Command) => {

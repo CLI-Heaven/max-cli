@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { pathsAreOverridden, resolvePaths } from "@leemour/cli-core"
 import { Command } from "commander"
-import { changeSetting, PROFILE_SETTINGS, type SourcedSetting } from "../config.js"
+import { ALL_SETTINGS, changeSetting, type SourcedSetting } from "../config.js"
 import { forCommand } from "./context.js"
 
 const SHOWN: SourcedSetting[] = [
@@ -15,6 +15,7 @@ const SHOWN: SourcedSetting[] = [
   "keepRunsForDays",
   "readOnly",
   "sendsPerHour",
+  "updateCheck",
 ]
 
 export const configCommand = (): Command => {
@@ -56,7 +57,7 @@ export const configCommand = (): Command => {
   for (const action of ["set", "unset"] as const) {
     const sub = command
       .command(action)
-      .argument("<setting>", `one of: ${PROFILE_SETTINGS.join(", ")}`)
+      .argument("<setting>", `one of: ${ALL_SETTINGS.join(", ")}`)
       .option("--defaults", "change what every profile gets, rather than this profile")
     if (action === "set")
       sub.argument("<value>", "a number, true or false").description("save a setting to the configuration file")

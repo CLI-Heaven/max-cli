@@ -17,7 +17,9 @@ import { runsCommand } from "./commands/runs.js"
 import { sendsCommand } from "./commands/sends.js"
 import { sessionCommand } from "./commands/session.js"
 import { skillCommand } from "./commands/skill.js"
+import { selfUpdateCommand } from "./commands/update.js"
 import { commandWords, liftProfile } from "./profile.js"
+import { updateNotice } from "./update.js"
 import { VERSION } from "./version.js"
 
 export interface RunOptions extends Environment {
@@ -85,6 +87,7 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
   program.addCommand(runsCommand())
   program.addCommand(skillCommand())
   program.addCommand(commandsCommand())
+  program.addCommand(selfUpdateCommand())
   program.addCommand(completeCommand(), { hidden: true })
 
   // Depth-first: Commander does not pass `configureOutput` down to a command added with
@@ -151,8 +154,12 @@ export const run = async (argv: string[], options: RunOptions = {}): Promise<num
     return exitCodeFor("validation_error")
   }
 
+  const notice = updateNotice(rest, { tty: options.tty, environment: options.update })
+
   try {
     await program.parseAsync(rest, { from: "user" })
+    const line = await notice
+    if (line) streams.diagnostic(line)
     return process.exitCode === undefined ? 0 : Number(process.exitCode)
   } catch (error) {
     if (error instanceof CommanderError) {

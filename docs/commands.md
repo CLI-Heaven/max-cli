@@ -369,7 +369,7 @@ max config set <setting> <value> [options]
 
 | Аргумент | | Что это |
 |---|---|---|
-| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour |
+| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour, updateCheck |
 | `value` | обязательный | a number, true or false |
 
 | Опция | Что делает |
@@ -386,7 +386,7 @@ max config unset <setting> [options]
 
 | Аргумент | | Что это |
 |---|---|---|
-| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour |
+| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour, updateCheck |
 
 | Опция | Что делает |
 |---|---|
@@ -471,6 +471,18 @@ every command, option and exit code as JSON — what an agent reads instead of -
 ```sh
 max commands
 ```
+
+## `max update`
+
+update max with the package manager that installed it; --check only looks
+
+```sh
+max update [options]
+```
+
+| Опция | Что делает |
+|---|---|
+| `--check` | say whether a newer version exists, and install nothing |
 
 ## Коды возврата
 
