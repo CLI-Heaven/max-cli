@@ -34,7 +34,11 @@ afterEach(async () => {
   await Promise.all(running.splice(0).map((server) => server.stop()))
 })
 
-const serve = async (profile: string, max = scripted(), extra: { pingEveryMs?: number } = {}) => {
+const serve = async (
+  profile: string,
+  max = scripted(),
+  extra: { pingEveryMs?: number; refreshEveryMs?: number } = {},
+) => {
   const store = new SessionStore({ profile, keyring: memoryKeyring() })
   store.writeToken("a-token")
   const notes: string[] = []
@@ -219,9 +223,9 @@ describe("a command through max serve", () => {
     expect(direct.sent.map((call) => call.opcode)).toEqual([Opcode.SESSION_INIT, Opcode.LOGIN])
   })
 
-  it("does not hand out a login a push has made stale; the command logs in itself", async () => {
+  it("does not hand out a login a deletion has made stale; the command logs in itself", async () => {
     const { store, max } = await serve("c-stale")
-    max.push(130, { chatId: 111 }, 9)
+    max.push(142, { chatId: 111, messageIds: [1] }, 9)
     await settle()
     const { client, direct } = commandClient(store)
 
@@ -229,6 +233,37 @@ describe("a command through max serve", () => {
     await client.close()
 
     expect(direct.sent.map((call) => call.opcode)).toEqual([Opcode.SESSION_INIT, Opcode.LOGIN])
+  })
+
+  it("logs in again in the background once its login went stale, and hands that one out", async () => {
+    const { store, max } = await serve("c-refresh", scripted(), { refreshEveryMs: 0 })
+    max.push(142, { chatId: 111, messageIds: [1] }, 9)
+    await settle(60)
+    const { client, opened } = commandClient(store)
+
+    await client.chats.list()
+    await client.close()
+
+    expect(max.sent.filter((call) => call.opcode === Opcode.LOGIN)).toHaveLength(2)
+    expect(opened()).toBe(0)
+  })
+
+  it("follows a chat read on another device: the unread count becomes what MAX says", async () => {
+    const { store, max } = await serve("c-read-elsewhere")
+    max.push(
+      128,
+      { chatId: 111, message: { id: 116762160362694590n, time: 1789776500000, sender: 10000002, text: "new" } },
+      3,
+    )
+    max.push(130, { chatId: 111, userId: ME, mark: 1789776500000, unread: 0 }, 4)
+    await settle()
+    const { client, opened } = commandClient(store)
+
+    const [chat] = (await client.chats.list()).items
+    await client.close()
+
+    expect(chat).toMatchObject({ id: "111", unreadCount: 0 })
+    expect(opened()).toBe(0)
   })
 
   it("keeps its login current from a new message: the chat's unread count goes up", async () => {

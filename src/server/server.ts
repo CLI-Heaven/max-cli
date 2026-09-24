@@ -23,6 +23,8 @@ export interface MaxServerOptions {
   /** Tests hand in a scripted MAX; the hooks must reach it. */
   connection?: (hooks: Pick<ConnectionOptions, "onEvent" | "onClose">) => Connection
   pingEveryMs?: number
+  /** The least time between two background logins after the snapshot went stale. */
+  refreshEveryMs?: number
   retryAfterMs?: (attempt: number) => number
   /** One event per request, for `--trace` and the run log — pings included. */
   events?: MaxClientOptions["events"]
@@ -30,6 +32,9 @@ export interface MaxServerOptions {
 
 /** The web client's keep-alive interval (web.max.ru bundle, 2026-09-24). A different one is a fingerprint. */
 const PING_EVERY_MS = 30_000
+
+/** A login MAX counts; after one, the next background login waits at least this long. */
+const REFRESH_EVERY_MS = 60_000
 
 /**
  * **One logged-in connection per profile, kept open** (`MAX-16`), and a Unix socket beside the
@@ -56,6 +61,8 @@ export class MaxServer {
   #stopped = false
   /** A push touched the chats in a way the login snapshot cannot follow; it is not handed out. */
   #stale = false
+  #refresh: ReturnType<typeof setTimeout> | undefined
+  #lastRefresh = 0
   #finish: ((error?: Error) => void) | undefined
   /** Settles when the server stops — cleanly, or with the error that stopped it. */
   readonly done: Promise<void>
@@ -82,6 +89,7 @@ export class MaxServer {
     this.#stopped = true
     clearInterval(this.#ping)
     clearTimeout(this.#retry)
+    clearTimeout(this.#refresh)
     for (const socket of this.#subscribers) socket.destroy()
     this.#subscribers.clear()
     await new Promise<void>((resolve) => (this.#listener ? this.#listener.close(() => resolve()) : resolve()))
@@ -91,16 +99,27 @@ export class MaxServer {
     this.#finish?.(error)
   }
 
+  /**
+   * Logs in on a new connection and, once that worked, makes it the server's — closing the one it
+   * replaces, if any. Pushes that arrive before the login finishes are held and replayed, not
+   * dropped: `Connection` has already acknowledged them, so MAX will not send them again.
+   */
   async #connect(): Promise<void> {
-    const { store, cache, timeoutMs } = this.#options
+    const { store, cache, timeoutMs, events } = this.#options
+    let mine: MaxClient | undefined
+    const early: [number, Record<string, unknown>][] = []
     const connection = (
       this.#options.connection ??
       ((hooks) => new Connection({ ...hooks, live: true, ...(timeoutMs ? { timeoutMs } : {}) }))
     )({
-      onEvent: (frame) => this.#pushed(frame.opcode, frame.payload ?? {}),
-      onClose: (error) => this.#lost(error),
+      onEvent: (frame) => {
+        if (mine) this.#pushed(mine, frame.opcode, frame.payload ?? {})
+        else early.push([frame.opcode, frame.payload ?? {}])
+      },
+      onClose: (error) => {
+        if (mine && mine === this.#client) this.#lost(error)
+      },
     })
-    const { events } = this.#options
     const client = new MaxClient({
       store,
       connection,
@@ -117,23 +136,45 @@ export class MaxServer {
       throw error
     }
 
+    const replaced = this.#client
+    mine = client
     this.#client = client
     this.#attempt = 0
     this.#stale = false
-    this.#broadcast({ event: "status", connected: true, at: new Date().toISOString() })
+    this.#lastRefresh = Date.now()
+    clearInterval(this.#ping)
     this.#ping = setInterval(() => {
       client.live.ping().catch(() => {})
     }, this.#options.pingEveryMs ?? PING_EVERY_MS)
+    if (replaced) await replaced.close().catch(() => {})
+    else this.#broadcast({ event: "status", connected: true, at: new Date().toISOString() })
+    for (const [opcode, payload] of early) this.#pushed(client, opcode, payload)
   }
 
-  #pushed(opcode: number, payload: Record<string, unknown>): void {
-    const client = this.#client
-    if (!client) return
-    if (!client.live.patch(opcode, payload)) this.#stale = true
+  #pushed(client: MaxClient, opcode: number, payload: Record<string, unknown>): void {
+    if (!client.live.patch(opcode, payload)) this.#goneStale()
     client.live
       .message(opcode, payload)
       .then((message) => message && this.#broadcast({ event: "message", message }))
       .catch((error: Error) => this.#options.note(`a pushed message could not be read: ${error.message}`))
+  }
+
+  /**
+   * The login can no longer be handed out. Rather than wait for a drop that may be hours away, log
+   * in again in the background — at most once a minute, since each is a login MAX counts.
+   */
+  #goneStale(): void {
+    this.#stale = true
+    if (this.#refresh || this.#stopped) return
+    const every = this.#options.refreshEveryMs ?? REFRESH_EVERY_MS
+    const wait = Math.max(0, this.#lastRefresh + every - Date.now())
+    this.#refresh = setTimeout(() => {
+      this.#connect()
+        .catch((error: Error) => this.#options.note(`could not log in again: ${error.message}`))
+        .finally(() => {
+          this.#refresh = undefined
+        })
+    }, wait)
   }
 
   #lost(error: Error): void {

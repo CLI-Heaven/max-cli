@@ -1,7 +1,7 @@
 import { connect, type Socket } from "node:net"
 import { Opcode } from "../generated/opcodes.generated.js"
 import { Connection, ProtocolError, type Wire, type WireEvent } from "../protocol/connection.js"
-import type { Payload } from "../protocol/frame.js"
+import { asId, type Payload } from "../protocol/frame.js"
 import { startSession } from "../session/handshake.js"
 import type { SessionStore } from "../session/store.js"
 import { buildRequest } from "../spec/index.js"
@@ -65,8 +65,11 @@ export class ServerConnection implements Wire {
       return {}
     }
     if (opcode === Opcode.LOGIN) {
-      // A token being tried out (`max session start`) is not the one the server logged in with.
-      if (!this.#login || payload.token !== this.#store.readToken()) return this.#fallBack(opcode, payload, watch)
+      // A token being tried out (`max session start`) is not the one the server logged in with, and
+      // a server still logged in as the account this profile had before is not this profile's.
+      if (!this.#login || payload.token !== this.#store.readToken() || !this.#sameAccount(this.#login)) {
+        return this.#fallBack(opcode, payload, watch)
+      }
       return this.#login
     }
     if (!READS.has(opcode)) return this.#ownRequest(opcode, payload, watch)
@@ -75,6 +78,12 @@ export class ServerConnection implements Wire {
     const answer = await this.#ask({ opcode, payload })
     watch?.({ phase: "received", seq: this.#id, opcode, bytes: 0 })
     return answer
+  }
+
+  #sameAccount(login: Payload): boolean {
+    const profile = login.profile as { contact?: { id?: unknown } } | undefined
+    const viewerId = this.#store.readState().viewerId
+    return viewerId === undefined || asId(profile?.contact?.id) === viewerId
   }
 
   async close(): Promise<void> {
