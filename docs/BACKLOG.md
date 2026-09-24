@@ -24,10 +24,6 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 
 ## Features
 
-- **MAX-36** · 🚧 `browser-pipe` · P2 · `session start qr-chrome` and `sms` read the token over a
-  DevTools port on 127.0.0.1, which any local user can reach while the window is open. Use
-  `--remote-debugging-pipe` instead, so only our process can talk to the browser
-  (`src/session/browser.ts`).
 - **CLI-22** · P2 · Scheduled send: `max messages send <chat> <text> --at <time>`. MAX schedules
   messages itself, and the official web client does it with `MSG_SEND` (64) carrying
   `message.delayedAttributes.timeToFire` in milliseconds (web.max.ru source, read 2026-09-24,

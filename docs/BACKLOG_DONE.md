@@ -46,6 +46,9 @@ what exists now, and where it is described. The numbers stay reserved — commit
 
 ## MAX
 
+- **MAX-36** — `session start qr-chrome` and `sms` talk to the browser over
+  `--remote-debugging-pipe`, not a port on 127.0.0.1 another local user could reach.
+  `src/session/browser.ts`, `docs/security.md`.
 - **MAX-23** — `max session start qr | qr-chrome | sms | token`. `qr` draws the code in the terminal
   over our own socket (opcodes 288 → 289 → 291, measured 2026-09-24); `qr-chrome` and `sms` let
   web.max.ru log in inside a throwaway Chromium profile and read its token. SMS over our socket meets
