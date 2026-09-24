@@ -120,12 +120,14 @@ and needs the owner's yes before it ships. Deleting messages and marking them re
 Added by the owner on 2026-09-24. Each one goes against REQUIREMENTS §3 or §18, and the line says
 which; the plan for it starts by saying so.
 
-- **MAX-35** · P3 · A watching server: one long-running process that keeps the connection open and
-  hands new messages to other tools as they arrive. Reopens REQUIREMENTS §3 and §18 (one command,
-  one operation, no daemon) and §34 (traffic like the official client's). A separate package beside
-  the CLI, not a mode of it (`NEED-137`). Unlocks what a scheduled run cannot do: a reply within
-  seconds, a trigger on an incoming message.
+- **MAX-35** · 🚧 `max-16-server` · P2 · `max serve`: one long-running process per profile that
+  keeps one logged-in connection open, lets every other command reuse it for reads, and streams
+  new messages (`max watch`). Reopens REQUIREMENTS §3 and §18 (one command, one operation, no
+  daemon) and touches §34 (traffic like the official client's). Asked for by the owner 2026-09-24.
+  Handoff: `docs_ai/plans/2026-09-24-max-16-server-handoff.md`.
   Correction 2026-09-24: numbered `MAX-16` until then, which `qr-login` had claimed on 2026-09-23.
+  Correction 2026-09-24: this line said "a separate package (`NEED-137`)"; that question was asked
+  and never answered.
 - **CLI-24** · P3 · Voice messages to text with a local speech model (Whisper, Parakeet or
   similar), downloaded on first use and never bundled. Builds on `max messages download`.
   The model runs on this machine; audio never leaves it.
