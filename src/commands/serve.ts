@@ -1,4 +1,4 @@
-import { Command } from "commander"
+import { Command, Option } from "commander"
 import { openProfileCache } from "../cache/index.js"
 import { parseDuration } from "../config.js"
 import { asFirstWord } from "../profile.js"
@@ -16,8 +16,9 @@ export const serveCommand = (): Command =>
   new Command("serve")
     .description("stay connected to MAX and stream new messages to `max watch`, until Ctrl-C")
     .option("--idle <duration>", "stop after this long with nobody using it — 15m, 1h is 60m")
+    .addOption(new Option("--started-by-command").hideHelp())
     .action(async function (this: Command) {
-      const { idle } = this.opts<{ idle?: string }>()
+      const { idle, startedByCommand = false } = this.opts<{ idle?: string; startedByCommand?: boolean }>()
       const { renderer, settings, store, run } = forCommand(this)
       const idleMs = idle === undefined ? undefined : parseDuration(idle, "--idle")
       const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
@@ -30,6 +31,7 @@ export const serveCommand = (): Command =>
           ...(cache ? { cache } : {}),
           ...(settings.timeoutMs ? { timeoutMs: settings.timeoutMs } : {}),
           ...(idleMs === undefined ? {} : { idleMs }),
+          startedByCommand,
         })
 
         const stop = () => void server.stop()

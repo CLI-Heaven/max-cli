@@ -37,7 +37,7 @@ afterEach(async () => {
 const serve = async (
   profile: string,
   max = scripted(),
-  extra: { pingEveryMs?: number; refreshEveryMs?: number; idleMs?: number } = {},
+  extra: { pingEveryMs?: number; refreshEveryMs?: number; idleMs?: number; startedByCommand?: boolean } = {},
 ) => {
   const store = new SessionStore({ profile, keyring: memoryKeyring() })
   store.writeToken("a-token")
@@ -124,6 +124,7 @@ describe("max serve", () => {
   it("refuses a second server for the same profile, but takes over a file a crashed one left", async () => {
     const { store } = await serve("s-twice")
     await expect(serve("s-twice")).rejects.toThrow("already running")
+    await expect(serve("s-twice", scripted(), { startedByCommand: true })).rejects.toThrow("already running")
 
     const stale = new SessionStore({ profile: "s-stale", keyring: memoryKeyring() })
     writeFileSync(stale.socketPath(), "")
@@ -156,11 +157,26 @@ describe("max serve", () => {
     await watch.listening
   })
 
-  it("stops when `max session end` asks it to", async () => {
-    const { server, store } = await serve("s-asked")
+  it("stops when asked, if a command started it", async () => {
+    const { server, store } = await serve("s-asked", scripted(), { startedByCommand: true })
 
-    expect(await stopServer(store.socketPath())).toBe(true)
+    expect(await stopServer(store.socketPath())).toBe("stopped")
     await expect(server.done).resolves.toBeUndefined()
+  })
+
+  it("keeps running when asked to stop, if it was started by hand", async () => {
+    const { server, store } = await serve("s-by-hand")
+
+    expect(await stopServer(store.socketPath())).toBe("refused")
+    expect(server.connected).toBe(true)
+  })
+
+  it("started by hand, takes over from one a command started", async () => {
+    const { server: first } = await serve("s-take-over", scripted(), { startedByCommand: true })
+    const { server: second } = await serve("s-take-over")
+
+    await expect(first.done).resolves.toBeUndefined()
+    expect(second.connected).toBe(true)
   })
 
   it("removes its socket when it stops, and says it stopped", async () => {

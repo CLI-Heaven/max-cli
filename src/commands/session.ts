@@ -105,8 +105,11 @@ export const sessionCommand = (): Command => {
       // "when did this profile stop working" is a question the record is kept to answer.
       await run("session end", async () => {
         // A server still logged in with the forgotten session would keep using it.
-        await stopServer(store.socketPath())
+        const server = await stopServer(store.socketPath())
         const had = store.forget()
+        if (server === "refused") {
+          renderer.note("a `max serve` you started by hand is still running with that session — Ctrl-C it")
+        }
 
         renderer.result({ profile: store.profile, forgotten: had, revokedOnServer: false })
         if (had) renderer.success(`forgot the session for "${store.profile}" on this machine`)

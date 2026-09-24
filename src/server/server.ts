@@ -8,7 +8,7 @@ import type { MessageHit } from "../domain/models.js"
 import { Connection, type ConnectionOptions, ProtocolError } from "../protocol/connection.js"
 import type { SessionStore } from "../session/store.js"
 import { fromLine, lineReader, toLine } from "./lines.js"
-import { READS } from "./server-connection.js"
+import { READS, stopServer } from "./server-connection.js"
 
 export type ServerEvent =
   | { event: "message"; message: MessageHit }
@@ -26,6 +26,11 @@ export interface MaxServerOptions {
   /** The least time between two background logins after the snapshot went stale. */
   refreshEveryMs?: number
   retryAfterMs?: (attempt: number) => number
+  /**
+   * **A command started it**, not a person. Only such a server stops when asked over its socket;
+   * one started by hand runs until Ctrl-C, whoever asks (the owner's rule, 2026-09-24).
+   */
+  startedByCommand?: boolean
   /**
    * Stop after this long with nobody using it — no request, no `max watch`. Absent, it runs until
    * stopped; a server started by a command gets one, or it would outlive every reason it had.
@@ -232,7 +237,8 @@ export class MaxServer {
 
   async #listen(): Promise<void> {
     const path = this.#options.store.socketPath()
-    if (await answers(path)) {
+    // A server a command started gives way to one started by hand; one started by hand does not.
+    if ((await answers(path)) && !(!this.#options.startedByCommand && (await stopServer(path)) === "stopped")) {
       throw new CliError("validation_error", `a server is already running for profile "${this.#options.store.profile}"`)
     }
     // Nobody answers on it, so it is what a crashed server left behind.
@@ -280,8 +286,12 @@ export class MaxServer {
     } else if (request.status === true) {
       socket.write(toLine(status))
     } else if (request.stop === true) {
-      // Only the owner can reach this socket (mode 600); `max session end` asks, so a forgotten
-      // session is not kept alive by a server still logged in with it.
+      // Only the owner can reach this socket (mode 600). `max session end` asks, so a forgotten
+      // session is not kept alive by a server a command started — one started by hand stays.
+      if (!this.#options.startedByCommand) {
+        socket.end(toLine({ id, stopped: false, reason: "started by hand; only Ctrl-C stops it" }))
+        return
+      }
       socket.end(toLine({ id, stopped: true }))
       await this.stop()
     } else if (request.login === true) {
