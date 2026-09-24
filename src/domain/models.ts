@@ -92,6 +92,11 @@ export interface Message {
   attachments: Attachment[]
   replyTo: QuotedMessage | null
   forwardedFrom: QuotedMessage | null
+  /**
+   * `null` when nobody asked — `--offline`, or the request failed. History does not carry
+   * reactions; they come from a request of their own, and the cache does not keep them.
+   */
+  reactions: Reactions | null
 }
 
 /**

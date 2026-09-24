@@ -241,7 +241,12 @@ describe("MaxClient", () => {
 
   it("**never marks anything read while reading history**", async () => {
     const max = mockMax({
-      answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer, [Opcode.CHAT_HISTORY]: historyAnswer },
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: loginAnswer,
+        [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
+        [Opcode.CHAT_HISTORY]: historyAnswer,
+      },
     })
     const { client } = clientWith(max)
 
@@ -250,7 +255,51 @@ describe("MaxClient", () => {
     await client.close()
 
     expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.CHAT_MARK)
-    expect(max.sent.at(-1)?.payload.interactive).toBe(false)
+    expect(max.sent.find((call) => call.opcode === Opcode.CHAT_HISTORY)?.payload.interactive).toBe(false)
+  })
+
+  describe("reactions", () => {
+    const reading = (reactions: Record<number, unknown> = {}) =>
+      mockMax({
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.LOGIN]: loginAnswer,
+          [Opcode.CHAT_HISTORY]: historyAnswer,
+          ...reactions,
+        },
+        refuse: Opcode.MSG_GET_REACTIONS in reactions ? {} : { [Opcode.MSG_GET_REACTIONS]: "proto.payload" },
+      })
+
+    it("**asks once per page** for the messages it read, and puts them on each", async () => {
+      const max = reading({
+        [Opcode.MSG_GET_REACTIONS]: {
+          messagesReactions: {
+            "116762160362694583": { totalCount: 3, counters: [{ reaction: "🔥", count: 3 }], yourReaction: "🔥" },
+          },
+        },
+      })
+      const { client } = clientWith(max)
+
+      const { items } = await client.messages.list("111", { limit: 5 })
+      await client.close()
+
+      expect(items[0]?.reactions).toEqual({ counts: [{ reaction: "🔥", count: 3 }], mine: "🔥", total: 3 })
+      const asked = max.sent.filter((call) => call.opcode === Opcode.MSG_GET_REACTIONS)
+      expect(asked).toHaveLength(1)
+      expect(asked[0]?.payload.messageIds).toEqual([116762160362694583n])
+    })
+
+    it("**still reads when reactions cannot be**, and says why", async () => {
+      const max = reading()
+      const { client, notes } = clientWith(max)
+
+      const { items } = await client.messages.list("111", { limit: 5 })
+      await client.close()
+
+      expect(items[0]?.text).toBe("hi")
+      expect(items[0]?.reactions).toBeNull()
+      expect(notes.join("\n")).toContain("reactions are not shown")
+    })
   })
 
   describe("a window around one message", () => {
@@ -266,7 +315,12 @@ describe("MaxClient", () => {
 
     it("**asks from the message's own time**, one more back for the message itself, and marks it", async () => {
       const max = mockMax({
-        answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer, [Opcode.CHAT_HISTORY]: window },
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.LOGIN]: loginAnswer,
+          [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
+          [Opcode.CHAT_HISTORY]: window,
+        },
       })
       const { client } = clientWith(max)
 
@@ -283,7 +337,12 @@ describe("MaxClient", () => {
     it("**refuses a message that is gone** rather than passing a neighbour off as it", async () => {
       const neighbours = { messages: window.messages.filter((m) => m.id !== target) }
       const max = mockMax({
-        answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer, [Opcode.CHAT_HISTORY]: neighbours },
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.LOGIN]: loginAnswer,
+          [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
+          [Opcode.CHAT_HISTORY]: neighbours,
+        },
       })
       const { client } = clientWith(max)
 
@@ -303,7 +362,12 @@ describe("MaxClient", () => {
 
   it("names a sender it was told about, and knows which messages are ours", async () => {
     const max = mockMax({
-      answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer, [Opcode.CHAT_HISTORY]: historyAnswer },
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: loginAnswer,
+        [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
+        [Opcode.CHAT_HISTORY]: historyAnswer,
+      },
     })
     const { client } = clientWith(max)
 
@@ -483,6 +547,7 @@ describe("when MAX answers with something we did not declare", () => {
       answers: {
         [Opcode.SESSION_INIT]: {},
         [Opcode.LOGIN]: loginAnswer,
+        [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
         [Opcode.CHAT_HISTORY]: { messages: SENTINEL },
       },
     })
@@ -504,6 +569,7 @@ describe("when MAX answers with something we did not declare", () => {
       answers: {
         [Opcode.SESSION_INIT]: {},
         [Opcode.LOGIN]: loginAnswer,
+        [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
         [Opcode.CHAT_HISTORY]: { messages: SENTINEL },
       },
     })
@@ -521,6 +587,7 @@ describe("when MAX answers with something we did not declare", () => {
       answers: {
         [Opcode.SESSION_INIT]: {},
         [Opcode.LOGIN]: loginAnswer,
+        [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
         [Opcode.CHAT_HISTORY]: { ...historyAnswer, reactionsSummary: { total: 3 } },
       },
     })
@@ -688,6 +755,7 @@ describe("with a cache", () => {
         answers: {
           [Opcode.SESSION_INIT]: {},
           [Opcode.LOGIN]: loginAnswer,
+          [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
           [Opcode.CHAT_HISTORY]: group,
           [Opcode.CONTACT_INFO]: info,
         },
@@ -702,7 +770,12 @@ describe("with a cache", () => {
       expect(asked.at(-1)?.payload.contactIds).toEqual(expect.arrayContaining([10000009, 10000008]))
 
       const again = mockMax({
-        answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer, [Opcode.CHAT_HISTORY]: group },
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.LOGIN]: loginAnswer,
+          [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
+          [Opcode.CHAT_HISTORY]: group,
+        },
       })
       const second = clientSharing(cache, again)
       expect((await second.messages.list("111", { limit: 5 })).items.map((m) => m.senderName)).toEqual([
@@ -715,7 +788,12 @@ describe("with a cache", () => {
 
     it("**still answers when the names cannot be looked up**, showing ids and saying why", async () => {
       const max = mockMax({
-        answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer, [Opcode.CHAT_HISTORY]: group },
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.LOGIN]: loginAnswer,
+          [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
+          [Opcode.CHAT_HISTORY]: group,
+        },
         refuse: { [Opcode.CONTACT_INFO]: "proto.payload" },
       })
       const { client, notes } = clientWith(max)
@@ -792,6 +870,7 @@ describe("with a cache", () => {
         attachments: [],
         replyTo: null,
         forwardedFrom: null,
+        reactions: null,
       })),
     )
     const max = mockMax({ answers: {} })
@@ -1069,6 +1148,7 @@ describe("with a cache", () => {
           [Opcode.SESSION_INIT]: {},
           [Opcode.CONTACT_INFO]: { contacts: [] },
           [Opcode.LOGIN]: syncing(),
+          [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
           [Opcode.CHAT_HISTORY]: historyAnswer,
         },
       })
@@ -1267,6 +1347,7 @@ describe("with a cache", () => {
       answers: {
         [Opcode.SESSION_INIT]: {},
         [Opcode.LOGIN]: loginAnswer,
+        [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
         [Opcode.CHAT_HISTORY]: historyAnswer,
         [Opcode.MSG_SEND]: { message: { id: 9, time: 1789776000001, text: "sent" } },
       },
@@ -1306,7 +1387,12 @@ describe("one event per request", () => {
 
   it("carries the opcode, the seq and what the round trip cost", async () => {
     const max = mockMax({
-      answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer, [Opcode.CHAT_HISTORY]: historyAnswer },
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: loginAnswer,
+        [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
+        [Opcode.CHAT_HISTORY]: historyAnswer,
+      },
     })
     const { client, events } = clientWith(max)
 
@@ -1327,6 +1413,7 @@ describe("one event per request", () => {
       answers: {
         [Opcode.SESSION_INIT]: {},
         [Opcode.LOGIN]: loginAnswer,
+        [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
         [Opcode.CHAT_HISTORY]: {
           messages: [{ id: 116762160362694583n, time: 1, sender: 10000002, text: RECEIVED, attaches: [] }],
         },

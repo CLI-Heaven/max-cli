@@ -18,6 +18,7 @@ const scriptedMax = ({ token = true } = {}) => {
         profile: { contact: { id: 10000001, names: [{ name: "Test Person", type: "FULL_NAME" }] } },
         chats: [{ id: 111, title: "First", type: "CHAT", lastEventTime: 1789776000000 }],
       },
+      [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
       [Opcode.CHAT_HISTORY]: {
         messages: [{ id: 116762160362694583n, time: 1789776000000, sender: 10000002, text: "hi", attaches: [] }],
       },
@@ -74,6 +75,7 @@ const acquaintedMax = () => {
       },
       [Opcode.CONTACT_INFO]: { contacts: [{ id: 10000003, names: [{ name: "Another Person", type: "FULL_NAME" }] }] },
       // As MAX answers a forward read: starting with the message it was given, whose id holds its time.
+      [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
       [Opcode.CHAT_HISTORY]: {
         messages: [
           { id: 116762160362694583n, time: 1781649175456, sender: 10000002, text: "anchor", attaches: [] },

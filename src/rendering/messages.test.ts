@@ -15,6 +15,7 @@ const message = (over: Partial<Message> = {}): Message => ({
   attachments: [],
   replyTo: null,
   forwardedFrom: null,
+  reactions: null,
   ...over,
 })
 
@@ -35,6 +36,19 @@ const ESC = "\u001b"
 describe("a message, as a person reads it", () => {
   it("puts time and sender on one line and the text under them", () => {
     expect(renderMessage(message(), plain)).toBe("10:05:12  Анна\n          созвонимся в четверг?")
+  })
+
+  it("shows reactions under the message, and which one is yours", () => {
+    const reactions = {
+      counts: [
+        { reaction: "👍", count: 3 },
+        { reaction: "🔥", count: 1 },
+      ],
+      mine: "🔥",
+      total: 4,
+    }
+    expect(renderMessage(message({ reactions }), plain)).toContain("👍 3  🔥 1  (you: 🔥)")
+    expect(renderMessage(message({ reactions: { counts: [], mine: null, total: 0 } }), plain)).not.toContain("you:")
   })
 
   it("keeps line breaks, each line aligned with the text", () => {
