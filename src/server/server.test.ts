@@ -26,6 +26,7 @@ const scripted = () =>
         messages: [{ id: 116762160362694583n, time: 1789776000000, sender: 10000002, text: "hi", attaches: [] }],
       },
       [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
+      [Opcode.MSG_SEND]: { message: { id: 116762160362694599n, time: 1789776001000, sender: ME, text: "sent" } },
     },
   })
 
@@ -252,17 +253,44 @@ describe("a command through max serve", () => {
     expect(opened()).toBe(0)
   })
 
-  it("sends on a connection of its own, logged in there, never through the server", async () => {
+  it("sends through the server too: one connection to MAX for everything", async () => {
     const { store, max } = await serve("c-send")
-    const { client, direct, opened } = commandClient(store)
+    const { client, opened } = commandClient(store)
 
     const sent = await client.messages.send("111", "sent")
     await client.close()
 
     expect(sent.id).toBe("116762160362694599")
-    expect(opened()).toBe(1)
-    expect(direct.sent.map((call) => call.opcode)).toEqual([Opcode.SESSION_INIT, Opcode.LOGIN, Opcode.MSG_SEND])
-    expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.MSG_SEND)
+    expect(opened()).toBe(0)
+    expect(max.sent.filter((call) => call.opcode === Opcode.MSG_SEND)).toHaveLength(1)
+    expect(max.sent.filter((call) => call.opcode === Opcode.LOGIN)).toHaveLength(1)
+  })
+
+  it("starts a server when none answers and uses it, rather than a connection of its own", async () => {
+    const store = new SessionStore({ profile: "c-ensure", keyring: memoryKeyring() })
+    store.writeToken("a-token")
+    let started = 0
+    const client = new MaxClient({
+      store,
+      connection: new ServerConnection({
+        path: store.socketPath(),
+        store,
+        timeoutMs: 200,
+        direct: () => {
+          throw new Error("a connection of its own was opened")
+        },
+        ensure: async () => {
+          started += 1
+          await serve("c-ensure")
+          return true
+        },
+      }),
+    })
+
+    await client.chats.list()
+    await client.close()
+
+    expect(started).toBe(1)
   })
 
   it("with no server running, the whole command uses its own connection", async () => {
@@ -276,16 +304,16 @@ describe("a command through max serve", () => {
     expect(direct.sent.map((call) => call.opcode)).toEqual([Opcode.SESSION_INIT, Opcode.LOGIN])
   })
 
-  it("does not hand out a login a deletion has made stale; the command logs in itself", async () => {
+  it("still hands out a login a deletion made stale, rather than send the command to log in itself", async () => {
     const { store, max } = await serve("c-stale")
     max.push(142, { chatId: 111, messageIds: [1] }, 9)
     await settle()
-    const { client, direct } = commandClient(store)
+    const { client, opened } = commandClient(store)
 
     await client.chats.list()
     await client.close()
 
-    expect(direct.sent.map((call) => call.opcode)).toEqual([Opcode.SESSION_INIT, Opcode.LOGIN])
+    expect(opened()).toBe(0)
   })
 
   it("logs in again in the background once its login went stale, and hands that one out", async () => {
@@ -336,17 +364,17 @@ describe("a command through max serve", () => {
     expect(Date.parse(chat?.lastMessageAt ?? "")).toBe(1789776500000)
   })
 
-  it("refuses anything that is not a read, whoever asks the socket directly", async () => {
+  it("does not pass on a login, whoever asks the socket directly", async () => {
     const { store, max } = await serve("c-raw")
     const socket = await import("node:net").then(({ connect }) => connect(store.socketPath()))
     const answer = await new Promise<string>((resolve) => {
       socket.once("data", (data) => resolve(String(data)))
-      socket.write(`${JSON.stringify({ id: 1, opcode: Opcode.MSG_SEND, payload: { chatId: 111 } })}\n`)
+      socket.write(`${JSON.stringify({ id: 1, opcode: Opcode.LOGIN, payload: { token: "x" } })}\n`)
     })
     socket.destroy()
 
     expect(answer).toContain("not_allowed")
-    expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.MSG_SEND)
+    expect(max.sent.filter((call) => call.opcode === Opcode.LOGIN)).toHaveLength(1)
   })
 
   it("a token being tried out goes to MAX itself, not to the server's login", async () => {

@@ -8,7 +8,7 @@ import type { MessageHit } from "../domain/models.js"
 import { Connection, type ConnectionOptions, ProtocolError } from "../protocol/connection.js"
 import type { SessionStore } from "../session/store.js"
 import { fromLine, lineReader, toLine } from "./lines.js"
-import { READS, stopServer } from "./server-connection.js"
+import { forwarded, stopServer } from "./server-connection.js"
 
 export type ServerEvent =
   | { event: "message"; message: MessageHit }
@@ -69,8 +69,11 @@ export class MaxServer {
   #retry: ReturnType<typeof setTimeout> | undefined
   #attempt = 0
   #stopped = false
-  /** A push touched the chats in a way the login snapshot cannot follow; it is not handed out. */
-  #stale = false
+  /** Every client on the socket — a command, `max mcp`, `max watch`. Idle means none at all. */
+  readonly #open = new Set<Socket>()
+  /** Settles when a connection is up; replaced while the server reconnects. */
+  #up: Promise<void>
+  #markUp: () => void = () => {}
   #refresh: ReturnType<typeof setTimeout> | undefined
   #lastRefresh = 0
   #lastUse = Date.now()
@@ -81,6 +84,9 @@ export class MaxServer {
 
   constructor(options: MaxServerOptions) {
     this.#options = options
+    this.#up = new Promise((resolve) => {
+      this.#markUp = resolve
+    })
     this.done = new Promise((resolve, reject) => {
       this.#finish = (error) => (error ? reject(error) : resolve())
     })
@@ -92,9 +98,14 @@ export class MaxServer {
 
   /** Logs in first: a token that does not work should fail here, before anything listens. */
   async start(): Promise<void> {
+    // The socket first: whoever binds it is the profile's one server, and a second one learns it
+    // before it has logged in — not after, with a login MAX has already counted.
     try {
-      await this.#connect()
       await this.#listen()
+      await this.#connect()
+    } catch (error) {
+      await this.stop()
+      throw error
     } finally {
       rmSync(startingPath(this.#options.store), { force: true })
     }
@@ -102,7 +113,7 @@ export class MaxServer {
     if (idleMs !== undefined) {
       this.#idle = setInterval(
         () => {
-          if (this.#subscribers.size === 0 && Date.now() - this.#lastUse >= idleMs) {
+          if (this.#open.size === 0 && Date.now() - this.#lastUse >= idleMs) {
             this.#options.note(`nobody has used it for ${Math.round(idleMs / 60_000)} min — stopping`)
             void this.stop()
           }
@@ -115,14 +126,20 @@ export class MaxServer {
   async stop(error?: Error): Promise<void> {
     if (this.#stopped) return
     this.#stopped = true
+    // Anyone still waiting for a connection gets "not connected" rather than waiting forever.
+    this.#markUp()
     clearInterval(this.#ping)
     clearTimeout(this.#retry)
     clearTimeout(this.#refresh)
     clearInterval(this.#idle)
-    for (const socket of this.#subscribers) socket.destroy()
+    for (const socket of this.#open) socket.destroy()
     this.#subscribers.clear()
-    await new Promise<void>((resolve) => (this.#listener ? this.#listener.close(() => resolve()) : resolve()))
-    rmSync(this.#options.store.socketPath(), { force: true })
+    // Only the server that bound the socket removes it: one refused as "already running" would
+    // otherwise delete the running server's socket and let a third start beside it.
+    if (this.#listener) {
+      await new Promise<void>((resolve) => this.#listener?.close(() => resolve()))
+      rmSync(this.#options.store.socketPath(), { force: true })
+    }
     await this.#client?.close()
     this.#client = undefined
     this.#finish?.(error)
@@ -168,8 +185,8 @@ export class MaxServer {
     const replaced = this.#client
     mine = client
     this.#client = client
+    this.#markUp()
     this.#attempt = 0
-    this.#stale = false
     this.#lastRefresh = Date.now()
     clearInterval(this.#ping)
     this.#ping = setInterval(() => {
@@ -193,7 +210,6 @@ export class MaxServer {
    * in again in the background — at most once a minute, since each is a login MAX counts.
    */
   #goneStale(): void {
-    this.#stale = true
     if (this.#refresh || this.#stopped) return
     const every = this.#options.refreshEveryMs ?? REFRESH_EVERY_MS
     const wait = Math.max(0, this.#lastRefresh + every - Date.now())
@@ -210,6 +226,9 @@ export class MaxServer {
     clearInterval(this.#ping)
     const client = this.#client
     this.#client = undefined
+    this.#up = new Promise((resolve) => {
+      this.#markUp = resolve
+    })
     client?.close().catch(() => {})
     if (this.#stopped) return
 
@@ -255,9 +274,11 @@ export class MaxServer {
   }
 
   #serve(socket: Socket): void {
+    this.#open.add(socket)
     socket.on("error", () => this.#subscribers.delete(socket))
     socket.on("close", () => {
       this.#subscribers.delete(socket)
+      this.#open.delete(socket)
       this.#lastUse = Date.now()
     })
     socket.on(
@@ -301,12 +322,16 @@ export class MaxServer {
       socket.end(toLine({ id, stopped: true }))
       await this.stop()
     } else if (request.login === true) {
+      // A request that arrives while the server logs in, or logs in again, waits for it: the
+      // command's own timeout is what gives up, not this. A login a deletion made stale is still
+      // handed out — only a deleted last message can be wrong in it — while a fresh one is fetched.
+      await this.#up
       const client = this.#client
       socket.write(
         toLine(
-          client && !this.#stale
+          client
             ? { id, payload: client.live.snapshot() }
-            : { id, error: { code: "unavailable", message: this.#stale ? "the login went stale" : "not connected" } },
+            : { id, error: { code: "unavailable", message: "not connected" } },
         ),
       )
     } else if (typeof request.opcode === "number") {
@@ -317,10 +342,11 @@ export class MaxServer {
   }
 
   async #forward(opcode: number, payload: unknown): Promise<Record<string, unknown>> {
+    await this.#up
     const client = this.#client
-    if (!READS.has(opcode)) {
+    if (!forwarded(opcode)) {
       return {
-        error: { code: "not_allowed", message: `opcode ${opcode} is not a read; send it on your own connection` },
+        error: { code: "not_allowed", message: `opcode ${opcode} is a login; the server does its own` },
       }
     }
     if (!client) return { error: { code: "unavailable", message: "not connected" } }

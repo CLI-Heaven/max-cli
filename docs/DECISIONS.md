@@ -736,7 +736,7 @@ over to another message. A client that cannot show a form gets an error and noth
 
 ## 2026-09-24 — `max serve` (`MAX-35`)
 
-**NEED-185 · Which requests may a command send through `max serve`?** **Reads only.** «2 A».
+**NEED-185 · Which requests may a command send through `max serve`?** ~~**Reads only.** «2 A».~~ Overturned by `NEED-229` the same day.
 Sending and reacting log in on the command's own connection and go through the send guards, which
 live in the client and nowhere else. The server refuses anything else on its socket.
 
@@ -753,3 +753,12 @@ unused — added so that no command leaves a connection to MAX open for good.
 Refined the same day: **a server started by hand is stopped only by Ctrl-C** — not by the idle
 timer, a stop request or `max session end`. «if the server was started explicitly eg serve - then
 don't stop it». The idle time stays 15 minutes, with no setting («2 A»).
+
+**NEED-229 · One connection to MAX per profile, whoever asks?** **Yes: every `max` process of a
+profile — commands, `max mcp`, `max watch` — goes through one `max serve`, sends included; never
+two servers for one profile.** «убедись, что все процессы макс используют одного демона/сервер. не
+давать поднимать 2 serve для одного профиля итд, mcp переиспользуют один сервер тоже». Came after
+the owner was logged out of every device twice in one day, with four `max mcp` processes and
+several servers holding connections at once; the cause is not established. The send guards stay
+where they are, in the command's client, before the wire. A connection of a command's own is left
+for `serve: false` with no server running, and for `max session start`.
