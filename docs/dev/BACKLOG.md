@@ -47,17 +47,34 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
 **From the PyMax comparison (2026-09-24, `NEED-175`).** Each is what PyMax's source declares
 (`MaxApiTeam/PyMax`, `src/pymax/api/`, commit `53103f0`) — a claim until measured. Every writing
 operation is measured first in Saved messages (chat 0), as replies and reactions were (`NEED-150`),
-and needs the owner's yes before it ships. Deleting messages stays ruled out (`NEED-32`); marking
+and needs the owner's yes before it ships. Deleting messages was ruled out (`NEED-32`) until the owner asked for it on 2026-09-24 (`MAX-47`); marking
 read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
 
 - **MAX-23** · 🟡 P1 · Send photos, videos and files. Done: `--file` sends photos
   (several in one message) and files (one per message, measured 2026-09-24). Left: a video as a
-  video, not as a file (`upload_video`, opcode 82 with `type: 1`).
+  video, not as a file: opcode 82 with `type: 0`, POST, wait for push 136, then `_type: "VIDEO"`
+  with `videoType: 0` (PyMax 2.4.1 `upload_video`, code; a user reports it works, PyMax #94).
+  Correction 2026-09-24: this line said `type: 1`, which is a round video note (`MAX-48`).
 - **MAX-24** · 🚩 P1 · Send a voice message. The upload works (opcode 82, `uploaderType: 1` for
   .ogg); the message does not: the web client sends `{_type: "AUDIO", audioId, duration, wave, token}`
   with `wave` as 80 raw bytes in a binary MessagePack frame, and none of six JSON forms was accepted
   (`FIND-104`). Waits on `MAX-40`.
-- **MAX-28** · P1 · Polls: show them when reading, and vote (`vote_poll`).
+- **MAX-28** · P1 · Polls: show them when reading, and vote (`vote_poll`, `SEND_VOTE` 304
+  `{chatId, messageId, pollId, answersIds}`). Creating one is a `_type: "POLL"` attachment on
+  `MSG_SEND` 64 (PyMax 2.4.1, code; no user report).
+- **MAX-47** · P2 · Delete messages: `MSG_DELETE` 66 `{chatId, messageIds, forMe}` — `forMe: true`
+  for this account only, `false` for everyone (PyMax 2.4.1 `delete_message`, code; no user report).
+  Reopens `NEED-32` and the "66 is never sent" rule in the opcode registry: the owner asked for it
+  on 2026-09-24. A mutating command, so it goes through the send guards and needs the owner's
+  explicit word per call.
+- **MAX-48** · P3 · Send a round video note ("кружок"): opcode 82 `{type: 1, uploaderType: 1}`,
+  `thumbhash` from the upload answer, `_type: "VIDEO"` with `videoType: 1`. MAX refuses a file that
+  is not 480×480, `yuv420p`, limited range, bt709, baseline, AAC 48 kHz mono (PyMax #94). `thumbhash`
+  is bytes — may need `MAX-40`.
+- **MAX-49** · P3 · Two-step password: log in when MAX asks for it (`passwordChallenge` in the login
+  answer, then `AUTH_LOGIN_CHECK_PASSWORD` 115 `{trackId, password}`), and set or remove one
+  (112 → 107 → 111). PyMax 2.4.1, code; a user logged in with it on the mobile client (PyMax #106).
+  The password is typed at a prompt, never an argument.
 - **MAX-41** · 🟡 P2 · Measure opcode 77 (`CHAT_MEMBERS_UPDATE`). Done 2026-09-24 with a second
   person (`pnpm probe:members`): add, remove, make admin, take admin back. Left: accept and decline a
   join request — needs somebody who asks to join a group the owner runs.
@@ -65,6 +82,14 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   (`PHOTO_UPLOAD` 80 with `profile: true`, then `photoToken` and `avatarType: "USER_AVATAR"` in
   `PROFILE` 16 — web.max.ru `Q8r`), the short name (`link` in 16), a name of your own for a contact
   and blocking (`CONTACT_UPDATE` 34 with `UPDATE`, `BLOCK`, `UNBLOCK` — web.max.ru). Code, not measured.
+- **MAX-45** · P2 · Real migrations for the cache instead of "drop and refill". `MAX-44` keeps
+  `messages` and `ranges` by copying shared columns; any change beyond adding a nullable column
+  (a rename, a type change, a split table) still has no path. Owner, 2026-09-24: migrations, maybe
+  with an ORM such as Drizzle. Its docs describe both drivers we use, `drizzle-orm/node-sqlite` and
+  `drizzle-orm/bun-sqlite`, and a runtime `migrate()` over generated SQL files — not tried here.
+  The plan weighs it against the smaller option: numbered `.sql` files and a ~30-line runner on
+  the `user_version` we already keep. Either way: the FTS5 tables and triggers are hand-written
+  SQL, and the migration files have to ship inside the npm package. Starts at `src/cache/schema.ts`.
 - **MAX-40** · P3 · Speak the official web client's binary protocol: frames with version 10, a
   binary header and a MessagePack payload, instead of our JSON text frames (version 11,
   `src/protocol/frame.ts`). Read in the web.max.ru bundle 2026-09-24 (`nre()` in its socket code).
@@ -139,11 +164,13 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
 Added by the owner on 2026-09-24. Each one goes against REQUIREMENTS §3 or §18, and the line says
 which; the plan for it starts by saying so.
 
-- **CLI-24** · ⏸️ P3 · Voice messages to text with a local speech model, downloaded on first use
+- **CLI-24** · P1 · Voice messages to text with a local speech model, downloaded on first use
   and never bundled. Builds on `max messages download`. The model runs on this machine; audio never
   leaves it. Model: **GigaAM v3** (int8, ~230 MB) through the WebAssembly build of `sherpa-onnx`,
   Silero VAD for audio over 25 s, `ogg-opus-decoder` — no native module (owner, 2026-09-24,
-  `NEED-213`; research G5 §3.13). Deferred by the owner the same day.
+  `NEED-213`; research G5 §3.13). Deferred by the owner the same day, then made the most important
+  next item the same evening. Measured 2026-09-24 on Node 24 and Bun 1.3.14: 5 min of Ogg Opus in
+  42 s through VAD, ~700 MB peak; without VAD it crashes at 5 min.
 - **CLI-25** · P3 · `max bot …` — work with a MAX bot through the official bot API and a bot token,
   beside the personal account. Reopens REQUIREMENTS §3 ("not a bot-account client"). Bots are
   issued only to verified organisations, sole traders and the self-employed
