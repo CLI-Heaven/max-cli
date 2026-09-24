@@ -8,9 +8,12 @@ importers:
 
   .:
     dependencies:
+      '@bomb.sh/tab':
+        specifier: 0.0.22
+        version: 0.0.22(cac@6.7.14)(commander@15.0.0)
       '@leemour/cli-core':
-        specifier: ^0.2.0
-        version: 0.2.0(commander@15.0.0)(typescript@5.9.3)
+        specifier: ^0.3.0
+        version: 0.3.0(commander@15.0.0)(typescript@5.9.3)
       commander:
         specifier: ^15.0.0
         version: 15.0.0
@@ -110,6 +113,21 @@ packages:
     engines: {node: '>=14.21.3'}
     cpu: [x64]
     os: [win32]
+
+  '@bomb.sh/tab@0.0.22':
+    resolution: {integrity: sha512-l5IuWpV7szqG4MM6A7I+qPMmP2qPMq2TD4veIXaOH0sD53dV0Tv8WZPARp5O5Kp4+y4fnVCl3VL1HZKNghO1yg==}
+    hasBin: true
+    peerDependencies:
+      cac: ^6.7.14 || ^7.0.0
+      citty: ^0.1.6 || ^0.2.0
+      commander: ^13.1.0 || ^14.0.0 || ^15.0.0
+    peerDependenciesMeta:
+      cac:
+        optional: true
+      citty:
+        optional: true
+      commander:
+        optional: true
 
   '@colors/colors@1.5.0':
     resolution: {integrity: sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==}
@@ -274,8 +292,8 @@ packages:
   '@jridgewell/sourcemap-codec@1.6.0':
     resolution: {integrity: sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw==}
 
-  '@leemour/cli-core@0.2.0':
-    resolution: {integrity: sha512-rW87R/DVfOi8I/4qpB4cOX6TiaIjSq3W8No2/GTuk1SvwpngLW3WWM4RheQAFQJl18TsmkTB/TwvutDesroWkw==}
+  '@leemour/cli-core@0.3.0':
+    resolution: {integrity: sha512-hrl1yMTQEi+WqZFrYPjYydWMZIFDMvAPfxvPuxVQ/PY4DIsg3FGDhsZutl8mFLIxl+NuGJNDyo3feLlujRDEDQ==}
     engines: {node: '>=22'}
     peerDependencies:
       commander: '>=15'
@@ -1000,6 +1018,11 @@ snapshots:
   '@biomejs/cli-win32-x64@2.5.14':
     optional: true
 
+  '@bomb.sh/tab@0.0.22(cac@6.7.14)(commander@15.0.0)':
+    optionalDependencies:
+      cac: 6.7.14
+      commander: 15.0.0
+
   '@colors/colors@1.5.0':
     optional: true
 
@@ -1083,7 +1106,7 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.6.0': {}
 
-  '@leemour/cli-core@0.2.0(commander@15.0.0)(typescript@5.9.3)':
+  '@leemour/cli-core@0.3.0(commander@15.0.0)(typescript@5.9.3)':
     dependencies:
       cli-table3: 0.6.5
       env-paths: 4.0.0
