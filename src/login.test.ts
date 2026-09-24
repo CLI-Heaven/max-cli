@@ -222,6 +222,17 @@ describe("max session start without a person at the terminal", () => {
     expect(connections()).toBe(0)
   })
 
+  it("refuses while MAX_TOKEN is set, because it would outrank the new session", async () => {
+    const { start, connections } = setUp(undefined, adopting())
+    process.env.MAX_TOKEN = "an-exported-token"
+    try {
+      expect(await start("qr-chrome")).toBe(2)
+    } finally {
+      delete process.env.MAX_TOKEN
+    }
+    expect(connections()).toBe(0)
+  })
+
   it("refuses a method it does not know", async () => {
     const { start } = setUp(undefined, adopting())
     expect(await start("fax")).not.toBe(0)

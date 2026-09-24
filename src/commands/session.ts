@@ -51,6 +51,14 @@ export const sessionCommand = (): Command => {
         return
       }
 
+      // It outranks the keyring, so every later command would still log in with it and the new
+      // session would look as if it had not worked.
+      if (method !== "token" && process.env.MAX_TOKEN) {
+        renderer.failure("MAX_TOKEN is set, and it would outrank the new session — unset it first")
+        process.exitCode = 2
+        return
+      }
+
       const pasted = method === "token" ? process.env.MAX_TOKEN?.trim() || (await readSecret("MAX token: ")) : undefined
 
       // Before the run directory: nothing was attempted, so there is nothing to record.

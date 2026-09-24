@@ -197,15 +197,17 @@ export const tokenFromChromium = async ({
   }
 }
 
-class ChromiumSession implements Closeable {
+export class ChromiumSession implements Closeable {
   readonly #child: ChildProcess
   readonly #profile: string
   readonly #port: number
   readonly #exited: Promise<void>
+  readonly #graceMs: number
   #closing: Promise<void> | undefined
 
-  constructor(child: ChildProcess, profile: string, port: number) {
+  constructor(child: ChildProcess, profile: string, port: number, graceMs = 5_000) {
     this.#child = child
+    this.#graceMs = graceMs
     this.#profile = profile
     this.#port = port
     this.#exited = new Promise((resolve) => {
@@ -241,7 +243,7 @@ class ChromiumSession implements Closeable {
     const endpoint = typeof version?.webSocketDebuggerUrl === "string" ? version.webSocketDebuggerUrl : undefined
     if (endpoint) await evaluateOver(endpoint, "Browser.close", {}).catch(() => undefined)
 
-    const exited = await Promise.race([this.#exited.then(() => true), delay(5_000).then(() => false)])
+    const exited = await Promise.race([this.#exited.then(() => true), delay(this.#graceMs).then(() => false)])
     if (!exited && this.#child.pid !== undefined) {
       this.#child.kill()
       await Promise.race([this.#exited, delay(2_000)])
@@ -266,7 +268,7 @@ class ChromiumSession implements Closeable {
 
   // biome-ignore lint/suspicious/noExplicitAny: the DevTools answers are read defensively, field by field.
   async #json(path: string): Promise<any> {
-    const response = await fetch(`http://127.0.0.1:${this.#port}${path}`)
+    const response = await fetch(`http://127.0.0.1:${this.#port}${path}`, { signal: AbortSignal.timeout(2_000) })
     return await response.json()
   }
 }
@@ -318,8 +320,9 @@ const closeOnSignal = (closeable: Closeable): (() => void) => {
   const onSignal = () => {
     void closeable.close().finally(() => process.exit(130))
   }
-  process.once("SIGINT", onSignal)
-  process.once("SIGTERM", onSignal)
+  // `on`, not `once`: a second Ctrl-C during the shutdown would otherwise exit before the profile goes.
+  process.on("SIGINT", onSignal)
+  process.on("SIGTERM", onSignal)
   return () => {
     process.off("SIGINT", onSignal)
     process.off("SIGTERM", onSignal)
