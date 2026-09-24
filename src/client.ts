@@ -24,6 +24,7 @@ import { asFirstWord } from "./profile.js"
 import { Connection, ProtocolError } from "./protocol/connection.js"
 import type { Payload } from "./protocol/frame.js"
 import { countsIn, type DiagnosticEvent, idsOf } from "./runs/events.js"
+import type { SendGuard } from "./sends/guard.js"
 import { startSession } from "./session/handshake.js"
 import type { SessionStore } from "./session/store.js"
 import { buildRequest, checkResponse, type Operation, type RequestOf } from "./spec/index.js"
@@ -54,6 +55,8 @@ export interface MaxClientOptions {
    * client reports what it did and never decides where that goes. Absent means nothing is kept.
    */
   events?: (event: DiagnosticEvent) => void
+  /** Asked before every send and told its outcome. Absent in tests that are not about it. */
+  sends?: SendGuard
 }
 
 /**
@@ -75,6 +78,7 @@ export class MaxClient {
   readonly #cache: CacheStore | undefined
   readonly #offline: boolean
   readonly #events: (event: DiagnosticEvent) => void
+  readonly #sends: SendGuard | undefined
   readonly #invoke = ((operation, request) => this.#send(operation, request)) as Invoke
   readonly #wire = wireClient(this.#invoke)
   #login: Payload | undefined
@@ -82,13 +86,14 @@ export class MaxClient {
   #people: Map<Id, Contact> | undefined
   #merged: SyncSummary | undefined
 
-  constructor({ store, timeoutMs, connection, warn, cache, offline = false, events }: MaxClientOptions) {
+  constructor({ store, timeoutMs, connection, warn, cache, offline = false, events, sends }: MaxClientOptions) {
     this.#store = store
     this.#connection = connection ?? new Connection(timeoutMs === undefined ? {} : { timeoutMs })
     this.#warn = warn ?? ((message) => process.stderr.write(`${message}\n`))
     this.#cache = cache
     this.#offline = offline
     this.#events = events ?? (() => {})
+    this.#sends = sends
   }
 
   readonly account = {
@@ -461,48 +466,30 @@ export class MaxClient {
     ): Promise<Message> => {
       if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot send")
 
-      await this.#connectOnce()
-      const session = this.#session()
-      const cid = options.cid ?? this.#nextCid()
-      const { text: plain, markup } = options.markdown ? parseMarkdown(text) : { text, markup: [] }
-      const request = {
-        chatId,
-        message: {
-          text: plain,
-          cid,
-          elements: markup,
-          attaches: [],
-          ...(options.replyTo ? { link: { type: "REPLY" as const, messageId: options.replyTo } } : {}),
-        },
-        notify: options.notify ?? true,
+      // Before connecting: a refused send never opens a socket when the chat was given as an id.
+      try {
+        this.#sends?.check(chatId)
+      } catch (error) {
+        this.#sends?.record({ chatId, outcome: "refused", errorCode: asCliError(error).code })
+        throw error
       }
 
-      let answer: Payload
+      const cid = options.cid ?? this.#nextCid()
       try {
-        answer = await this.#wire.messages.send(request)
+        const sent = await this.#deliver(chatId, text, cid, options)
+        this.#sends?.record({ chatId, outcome: "sent", messageId: sent.id, cid, length: text.length })
+        return sent
       } catch (error) {
         const failure = asCliError(error)
-        if (failure.code !== "timeout" && failure.code !== "network_error") throw failure
-
-        // No answer came back, so MAX may already have delivered it. Repeating the identical `cid`
-        // is what makes asking again safe rather than reckless.
-        try {
-          answer = await this.#wire.messages.send(request)
-        } catch {
-          throw new CliError(
-            "outcome_unknown",
-            `the message may or may not have been sent (${failure.message}) — ` +
-              `\`max messages send <chat> <text> --cid ${cid}\` repeats the attempt without risking a second copy`,
-            { cid },
-          )
-        }
+        this.#sends?.record({
+          chatId,
+          outcome: failure.code === "outcome_unknown" ? "outcome_unknown" : "failed",
+          cid,
+          length: text.length,
+          errorCode: failure.code,
+        })
+        throw error
       }
-
-      // What the cache holds for this chat is now one message short of the truth.
-      this.#cache?.messages.invalidate(chatId)
-
-      const sent = record(answer.message) ?? answer
-      return toMessage(sent, chatId, { names: namesFrom(session.contacts), ...viewer(this.#store) })
     },
 
     /**
@@ -511,14 +498,83 @@ export class MaxClient {
      */
     react: async (chatId: Id, messageId: Id, emoji: string): Promise<Reactions> => {
       if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot react")
-      await this.#connectOnce()
-      const answer = await this.#wire.messages.react({
-        chatId,
-        messageId,
-        reaction: { reactionType: "EMOJI", id: emoji },
-      })
-      return toReactions(record(answer.reactionInfo) ?? {})
+
+      try {
+        this.#sends?.check(chatId, "reaction")
+      } catch (error) {
+        this.#sends?.record({ chatId, kind: "reaction", outcome: "refused", errorCode: asCliError(error).code })
+        throw error
+      }
+
+      try {
+        await this.#connectOnce()
+        const answer = await this.#wire.messages.react({
+          chatId,
+          messageId,
+          reaction: { reactionType: "EMOJI", id: emoji },
+        })
+        this.#sends?.record({ chatId, kind: "reaction", outcome: "sent", messageId })
+        return toReactions(record(answer.reactionInfo) ?? {})
+      } catch (error) {
+        this.#sends?.record({
+          chatId,
+          kind: "reaction",
+          outcome: "failed",
+          messageId,
+          errorCode: asCliError(error).code,
+        })
+        throw error
+      }
     },
+  }
+
+  async #deliver(
+    chatId: Id,
+    text: string,
+    cid: number,
+    options: { notify?: boolean; replyTo?: Id; markdown?: boolean },
+  ): Promise<Message> {
+    await this.#connectOnce()
+    const session = this.#session()
+    const { text: plain, markup } = options.markdown ? parseMarkdown(text) : { text, markup: [] }
+    const request = {
+      chatId,
+      message: {
+        text: plain,
+        cid,
+        elements: markup,
+        attaches: [],
+        ...(options.replyTo ? { link: { type: "REPLY" as const, messageId: options.replyTo } } : {}),
+      },
+      notify: options.notify ?? true,
+    }
+
+    let answer: Payload
+    try {
+      answer = await this.#wire.messages.send(request)
+    } catch (error) {
+      const failure = asCliError(error)
+      if (failure.code !== "timeout" && failure.code !== "network_error") throw failure
+
+      // No answer came back, so MAX may already have delivered it. Repeating the identical `cid`
+      // is what makes asking again safe rather than reckless.
+      try {
+        answer = await this.#wire.messages.send(request)
+      } catch {
+        throw new CliError(
+          "outcome_unknown",
+          `the message may or may not have been sent (${failure.message}) — ` +
+            `\`max messages send <chat> <text> --cid ${cid}\` repeats the attempt without risking a second copy`,
+          { cid },
+        )
+      }
+    }
+
+    // What the cache holds for this chat is now one message short of the truth.
+    this.#cache?.messages.invalidate(chatId)
+
+    const sent = record(answer.message) ?? answer
+    return toMessage(sent, chatId, { names: namesFrom(session.contacts), ...viewer(this.#store) })
   }
 
   /**

@@ -9,7 +9,9 @@ import { type Environment, provide } from "./commands/context.js"
 import { doctorCommand } from "./commands/doctor.js"
 import { messagesCommand } from "./commands/messages.js"
 import { reactionsCommand } from "./commands/reactions.js"
+import { recipientsCommand } from "./commands/recipients.js"
 import { runsCommand } from "./commands/runs.js"
+import { sendsCommand } from "./commands/sends.js"
 import { sessionCommand } from "./commands/session.js"
 import { skillCommand } from "./commands/skill.js"
 import { commandWords, liftProfile } from "./profile.js"
@@ -71,6 +73,8 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
   program.addCommand(contactsCommand())
   program.addCommand(messagesCommand())
   program.addCommand(reactionsCommand())
+  program.addCommand(recipientsCommand())
+  program.addCommand(sendsCommand())
   program.addCommand(configCommand())
   program.addCommand(doctorCommand())
   program.addCommand(cacheCommand())

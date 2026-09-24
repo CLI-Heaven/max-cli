@@ -46,8 +46,6 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 - **MAX-8** · P3 · Telemetry as the official client sends it — only once our own traffic is
   understood (`NEED-16`).
 
-## Research and protocol unknowns
-
 - **MAX-15** · P3 · Show reactions when reading. History does not carry them: after the owner
   reacted in Saved messages, 653 messages from 25 chats (Saved included) had no reaction field
   (`pnpm probe:reactions`, 2026-09-23). **Found and measured 2026-09-23:** opcode 180

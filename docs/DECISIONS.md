@@ -630,3 +630,25 @@ JSON mode's stdout (`CLI-26`).
 **NEED-156 · How is markup typed when sending?** **Markdown, behind `--markdown`.** «1 A». Without
 the flag a message goes as typed, so text that happens to hold `*` or `_` is never reshaped. Inside a
 word `_` and `*` are not marks (`src/markdown.ts`).
+
+**NEED-159 · Refuse a send to a chat that is not on the profile's recipient list?** **Yes — and the
+list is optional.** «1 the list of allowed recipients should be optional». No list means no check;
+the first `max recipients add` turns it on; an empty list that is on means nowhere. The list is a
+state file, not a setting: the configuration has deliberately no place for a chat id. Scripts may
+change it too — «3 B» over the recommendation to require a terminal for `add` and `off`.
+
+**NEED-160 · Check on the account whether a draft saved through the protocol reaches the phone?**
+**No; the idea of a draft instead of a send is dropped.** «2 B».
+
+**NEED-161 · Build an MCP server?** **No.** «3 don't build mcp». Instead, four guards in the CLI: an
+optional recipient list (code 7), a read-only profile (`readOnly`, code 5), an hourly limit
+(`sendsPerHour`, code 8) and a journal of every send attempt without its text (`max sends list`).
+The limit is on by default at 30 an hour — «1 A» — because a limit that is off protects nobody from
+a loop. The recipient commands are their own word, `max recipients` — «2 A». The research behind
+it: MAX's one direct competitor sends with no check at all, and the published attack on a
+messenger agent is an incoming message that tells the agent where to send the conversation.
+
+**NEED-168 · Do the send guards also cover `max reactions add`?** **Yes.** «1 А». A read-only
+profile and the recipient list refuse a reaction, and it goes in the send journal as
+`kind: "reaction"`; the hourly limit counts messages only. A read-only profile that can still react
+is not read-only, and the other person sees the reaction.

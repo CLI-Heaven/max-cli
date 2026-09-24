@@ -6,6 +6,8 @@ import { DEFAULT_PROFILE, usableProfileName } from "./profile.js"
 const APP = "max-cli"
 const DEFAULT_LIMIT = 20
 const DEFAULT_KEEP_RUNS_FOR_DAYS = 30
+/** On by default (`NEED-159` answers): a limit that is off protects nobody from a loop. */
+const DEFAULT_SENDS_PER_HOUR = 30
 
 const plain =
   (rule: string) =>
@@ -42,6 +44,8 @@ const profileEntries = {
   /** The run log reads these two; nothing records anything until it exists. */
   record: v.optional(flag),
   keepRunsForDays: v.optional(count),
+  readOnly: v.optional(flag),
+  sendsPerHour: v.optional(count),
 }
 const profileSettings = v.strictObject(profileEntries, objectMessage(Object.keys(profileEntries)))
 
@@ -109,6 +113,8 @@ export interface Settings {
   commandTimeoutMs: number | undefined
   record: boolean
   keepRunsForDays: number
+  readOnly: boolean
+  sendsPerHour: number
   /** Named in errors and in `max --help`, so a person can find the file that decided this. */
   configPath: string
   configFound: boolean
@@ -135,6 +141,8 @@ export type SourcedSetting =
   | "senderColors"
   | "record"
   | "keepRunsForDays"
+  | "readOnly"
+  | "sendsPerHour"
 
 /** The first given value wins, and says which it was. */
 const first = <T>(candidates: [Source, T | undefined][], fallback: T): { value: T; from: Source } => {
@@ -222,6 +230,20 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
     ],
     DEFAULT_KEEP_RUNS_FOR_DAYS,
   )
+  const readOnly = first(
+    [
+      ["config file", configured.readOnly],
+      ["config defaults", shared.readOnly],
+    ],
+    false,
+  )
+  const sendsPerHour = first(
+    [
+      ["config file", configured.sendsPerHour],
+      ["config defaults", shared.sendsPerHour],
+    ],
+    DEFAULT_SENDS_PER_HOUR,
+  )
 
   /**
    * ⚠ **The only setting with no `config file` row, on purpose.** A budget for one command is
@@ -252,6 +274,8 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
     commandTimeoutMs: durationMs(timeout.value, timeout.from),
     record: record.value,
     keepRunsForDays: keepRunsForDays.value,
+    readOnly: readOnly.value,
+    sendsPerHour: sendsPerHour.value,
     configPath,
     configFound: existsSync(configPath),
     configuredProfiles: Object.keys(config.profiles),
@@ -264,6 +288,8 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
       senderColors: senderColors.from,
       record: record.from,
       keepRunsForDays: keepRunsForDays.from,
+      readOnly: readOnly.from,
+      sendsPerHour: sendsPerHour.from,
     },
   }
 

@@ -66,6 +66,8 @@ max config show --json     # то же одним объектом
 | `senderColors` | в `max messages` свой цвет у каждого автора; `вы` — всегда голубым. Без `color` не действует | `false` |
 | `record` | записывать ли каждый запуск, как будто передан `--record` | `false` |
 | `keepRunsForDays` | сколько дней хранятся записи запусков | `30` |
+| `readOnly` | профиль только для чтения: `max messages send` отказывает с кодом `5` | `false` |
+| `sendsPerHour` | сколько сообщений профиль может отправить за час; сверх — отказ с кодом `8` | `30` |
 
 ⚠ **`timeoutMs` и `--timeout` — разные вещи, и перепутать их дорого.** `timeoutMs` — это сколько
 ждать **один ответ** от MAX. `--timeout` — сколько отведено **команде целиком**. Одно чтение это
@@ -98,6 +100,7 @@ max config set limit 50                 # профилю по умолчанию
 max work config set record true         # профилю work
 max config set keepRunsForDays 7 --defaults   # всем профилям сразу
 max work config unset limit             # убрать; снова решает defaults или встроенное
+max agent config set readOnly true      # профиль agent ничего не отправит
 ```
 
 Значение проверяется той же схемой, что и при чтении, **до записи**: `max config set limit 0`
@@ -109,7 +112,7 @@ max work config unset limit             # убрать; снова решает 
 Неизвестное поле отвергается с именем поля и кодом `configuration_error` (возврат `3`):
 
 ```json
-{"error":{"code":"configuration_error","message":"/home/you/.config/max-cli/config.json is not a valid config:\n  profiles.default.limitt: unknown setting — the known ones are limit, timeoutMs, color, senderColors, record, keepRunsForDays"}}
+{"error":{"code":"configuration_error","message":"/home/you/.config/max-cli/config.json is not a valid config:\n  profiles.default.limitt: unknown setting — the known ones are limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour"}}
 ```
 
 Значение не того вида называет поле и то, что допустимо: `profiles.default.limit: has to be a

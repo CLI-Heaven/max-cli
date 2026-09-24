@@ -259,6 +259,64 @@ max reactions add [options] <chat> <message> <emoji>
 | `message` | обязательный | message id |
 | `emoji` | обязательный | one emoji, for example 👍 |
 
+## `max recipients`
+
+the chats this profile may send to, when the list is on
+### `max recipients list`
+
+the chats on the list; empty and off until the first add
+
+```sh
+max recipients list [options]
+```
+
+### `max recipients add`
+
+allow sending to this chat; the first add turns the list on
+
+```sh
+max recipients add [options] <chat>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+
+### `max recipients remove`
+
+stop allowing this chat; the list stays on
+
+```sh
+max recipients remove [options] <chat>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or the title as the list shows it |
+
+### `max recipients off`
+
+turn the list off: this profile may send to any chat again
+
+```sh
+max recipients off [options]
+```
+
+## `max sends`
+
+every attempt to send from this profile — never the text
+### `max sends list`
+
+attempts to send, newest first: sent, refused, failed, or not known
+
+```sh
+max sends list [options]
+```
+
+| Опция | Что делает |
+|---|---|
+| `--limit <n>` | how many to show По умолчанию: `20`. |
+
 ## `max config`
 
 the settings in force, and where each one came from
@@ -280,7 +338,7 @@ max config set [options] <setting> <value>
 
 | Аргумент | | Что это |
 |---|---|---|
-| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays |
+| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour |
 | `value` | обязательный | a number, true or false |
 
 | Опция | Что делает |
@@ -297,7 +355,7 @@ max config unset [options] <setting>
 
 | Аргумент | | Что это |
 |---|---|---|
-| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays |
+| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour |
 
 | Опция | Что делает |
 |---|---|

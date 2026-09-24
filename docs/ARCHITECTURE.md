@@ -121,6 +121,11 @@ message id** and **one** copy, also across two connections and logins — the ca
 - `--silent` sends `notify: false` (normally `true`). ⚠ **Only `true` is measured**; what MAX does
   with `false` has never been observed (that means messaging somebody), so it may be ignored. The
   first use against a real chat settles it.
+- **Every send passes a guard first** (`src/sends/guard.ts`, handed to `MaxClient` by
+  `createClient`): a read-only profile (code 5), an optional recipient list (7), an hourly limit
+  (8) — all before the socket when the chat is an id. Every outcome, refusals included, goes to
+  `<state>/sends/<profile>.jsonl` without the text; the limit counts that file. These stop a model
+  talked into sending by what it read, not an agent that edits the configuration (`NEED-159`).
 
 ## 7. The session is a token and a stable identity
 
