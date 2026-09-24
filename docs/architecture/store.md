@@ -36,16 +36,23 @@ all carry a username or description, and overwriting with an omission would blan
 whole membership with the chat, so a missing member has left; a missing *person* in a delta is just
 unchanged. Clearing the whole table would empty it on one quiet login.
 
-## A version bump is a rebuild, and that is a re-sync
+## A version bump is a rebuild, except for the history
 
 - `migrate` drops every table (names from `sqlite_master`, not a list of what old versions wrote)
-  and recreates them. Everything comes back from MAX; a column-by-column migration would run once,
-  never be tested, and corrupt somebody's file on the second change.
+  and recreates them. Chats, people and memberships come back from MAX with one login; a
+  column-by-column migration of them would run once, never be tested, and corrupt somebody's file
+  on the second change.
+- **Correction 2026-09-24 (`MAX-44`): `messages` and `ranges` are kept.** History comes back only a
+  request per page, and a backup (`CLI-34`) must survive the next upgrade. They are renamed aside,
+  the new tables are created, and the rows are copied by the columns both versions share; the
+  insert trigger rebuilds the search index as they go. The whole upgrade is one transaction. A column
+  added to either table must therefore be nullable or have a default — `src/cache/schema.test.ts`
+  migrates a schema-1 `messages` table to hold that. Measured the same day on Node and on Bun 1.3.14.
 - A file from a **newer** `max` is refused, not written to.
 - The `fetched` row is dropped too; kept, it would claim a just-emptied collection is complete, and
   the offline path would believe it.
-- ⚠ **This stops being right once the store holds something MAX cannot re-send** — contacts in no
-  chat (`RES-7`). Then v2→v3 becomes `ALTER TABLE … ADD COLUMN` and this section is rewritten.
+- ⚠ Contacts in no chat (`RES-7`) are the next thing MAX cannot re-send cheaply; when they arrive,
+  their table joins `KEPT` in `src/cache/schema.ts`.
 
 ## It never fails the command
 

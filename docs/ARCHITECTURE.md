@@ -398,7 +398,7 @@ construction site cannot.
 
 ## 15. The store: people, and the chats they are in
 
-The cache database (`<cache dir>/<profile>.db`, mode `0600`, `SCHEMA_VERSION` 2) is **a record and
+The cache database (`<cache dir>/<profile>.db`, mode `0600`, `SCHEMA_VERSION` 4) is **a record and
 an offline source, never a way to skip a request**. Every read still asks MAX, since the login
 returns chats, contacts and recent messages anyway; `--offline` alone answers from the record
 without connecting. No freshness window: a stored person is valid until told otherwise.
@@ -411,8 +411,9 @@ In [`architecture/store.md`](architecture/store.md):
 - [A group member is a person, not a contact](architecture/store.md#a-group-member-is-a-person-not-a-contact)
   (`NEED-105`): `people` + `chat_members`; a contact is whoever shares a `dialog`, decided by the
   query. Group members are stored but never in `contacts list`. `chat_members` alone deletes, per chat.
-- [A version bump is a rebuild](architecture/store.md#a-version-bump-is-a-rebuild-and-that-is-a-re-sync):
-  `migrate` drops and recreates every table; a newer file is refused.
+- [A version bump is a rebuild, except for the history](architecture/store.md#a-version-bump-is-a-rebuild-except-for-the-history):
+  `migrate` drops and recreates every table but `messages` and `ranges`, whose rows are carried
+  over (`MAX-44`); a newer file is refused.
 - [It never fails the command](architecture/store.md#it-never-fails-the-command): falls back to the
   login's data and says why on stderr (`NEED-97`).
 

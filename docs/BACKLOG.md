@@ -27,7 +27,7 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 - **CLI-34** · 🚧 `cache-keeps-messages` · P2 · `max backup messages <chat> --since <date> | --last
   <n>`: without `--run` only the estimate (what the cache holds, what is missing, requests and
   minutes); with `--run` it fills the gaps within limits and stops on any error. One chat per call
-  (`NEED-217`). Waits on `MAX-44` and `RES-9`. Plan: `docs_ai/plans/2026-09-24-history-backup.md`.
+  (`NEED-217`). Waits on `RES-9` (`MAX-44` is done). Plan: `docs_ai/plans/2026-09-24-history-backup.md`.
 - **CLI-35** · P2 · `max export messages <chat> --format jsonl|md`: writes what the cache holds,
   never connects, file mode `0600` (photo links open without a login). Plan: same, Р6.
 - **CLI-22** · P2 · Scheduled send: `max messages send <chat> <text> --at <time>`. MAX schedules
@@ -102,10 +102,6 @@ and needs the owner's yes before it ships. Deleting messages and marking them re
 
 ## Foundation and risks
 
-- **MAX-44** · 🚧 `cache-keeps-messages` · P1 · The cache keeps messages through a schema upgrade.
-  `rebuild` (`src/cache/schema.ts:222`) drops every table, so each new `max` throws away the
-  history read so far — and would throw away a backup (`CLI-34`). `messages` and `ranges` are
-  carried over; the search index is rebuilt over them. Plan: `docs_ai/plans/2026-09-24-history-backup.md` Р5.
 - **RES-9** · P2 · How web.max.ru pages history while scrolling: `backward`/`forward` of opcode 49
   and the pauses between requests, captured by the owner in DevTools on a chat already read (opening
   an unread one marks it read). Sets the defaults of `CLI-34` (`NEED-216`).
