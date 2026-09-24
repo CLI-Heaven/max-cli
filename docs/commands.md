@@ -420,7 +420,7 @@ max runs path [options] <run-id>
 the instructions an agent is given for this tool
 ### `max skill show`
 
-print SKILL.md — `max skill show > ~/.claude/skills/max-cli/SKILL.md` installs it
+print SKILL.md — redirect it into ~/.claude/skills/max-cli/SKILL.md for Claude Code, or ~/.agents/skills/max-cli/SKILL.md for Codex and Gemini CLI
 
 ```sh
 max skill show [options]

@@ -10,7 +10,10 @@ export const skillCommand = (): Command => {
 
   command
     .command("show")
-    .description("print SKILL.md — `max skill show > ~/.claude/skills/max-cli/SKILL.md` installs it")
+    .description(
+      "print SKILL.md — redirect it into ~/.claude/skills/max-cli/SKILL.md for Claude Code, " +
+        "or ~/.agents/skills/max-cli/SKILL.md for Codex and Gemini CLI",
+    )
     .action(function (this: Command) {
       const { settings, renderer, streams } = forCommand(this)
       const content = readFileSync(SKILL, "utf8").trimEnd()
