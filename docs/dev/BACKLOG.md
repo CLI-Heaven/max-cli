@@ -116,6 +116,14 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
 - **MAX-8** · P1 · Look like the official client beyond the user agent: the telemetry it sends and
   the device details it reports (`NEED-16`). PyMax does both (`src/pymax/telemetry/`,
   `src/pymax/fingerprint/`). Raised from P3 by the owner 2026-09-24 (`NEED-175`).
+  Correction 2026-09-24 (PyMax 2.4.1 code, web.max.ru bundle read the same day): PyMax's
+  fingerprint goes out only when it poses as the Android app (`deviceType` other than `WEB`), so it
+  does not apply to us. The telemetry does apply. The web client sends opcode 5 `{events}` in
+  batches of up to 100, at least every 20 s. Its first event is `NAV` `COLD_START` onto the chat
+  list, its `sessionId` is `Date.now()` of the connection, and `WARM_START` follows after 60 s
+  idle. PyMax's web mode sends the Android shape instead: `sessionId` 1–70, a `PERF login` with
+  mobile fields, and no `COLD_START`. It also waits 15–90 s before the first event, which a one-shot
+  command never reaches. The first step is a capture from a real tab, not a copy of PyMax.
 
 - **RES-5** · 🟡 P2 · Does `LOGIN` move presence or read state? Reading history does not (no
   `CHAT_MARK`, tested). The login flag `interactive` is unexplained (`ARCHITECTURE.md` §4). Needs a
