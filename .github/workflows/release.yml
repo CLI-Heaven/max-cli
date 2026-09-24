@@ -1,0 +1,76 @@
+name: Release
+
+# Started by bin/release. npm trusts this file by name (trusted publishing), so there is no npm
+# token anywhere in this repository and renaming the file breaks publishing until npm is told.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          # npm's own guidance for release builds: no cache that could carry credentials in.
+          package-manager-cache: false
+      - uses: oven-sh/setup-bun@v2
+
+      - name: version not yet on npm
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          if npm view "@leemour/max-cli@$version" version --prefer-online >/dev/null 2>&1; then
+            echo "::error::$version is already on npm — raise the version first"
+            exit 1
+          fi
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm version:check
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm smoke:bun
+      # commands.md and protocol.md must describe the version being released, not the previous one.
+      - run: pnpm generate
+      - run: git diff --exit-code
+
+      # npm, not pnpm: npm's trusted publishing is the documented path, and this package has no
+      # workspace: dependencies for pnpm to rewrite.
+      - run: npm publish --access public
+
+      - name: wait for npm to show the version
+        run: |
+          for _ in $(seq 36); do
+            npm view "@leemour/max-cli@$VERSION" version --prefer-online >/dev/null 2>&1 && exit 0
+            sleep 5
+          done
+          echo "::error::npm does not show $VERSION after three minutes — not tagging; tag v$VERSION by hand once it does"
+          exit 1
+
+      - name: tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$VERSION" -m "$VERSION"
+          git push origin "v$VERSION"
+
+      - name: GitHub release from the changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          awk -v v="$VERSION" '$0 ~ "^## "v" " {on=1; next} /^## / && on {exit} on' CHANGELOG.md |
+            gh release create "v$VERSION" --title "$VERSION" --notes-file -
