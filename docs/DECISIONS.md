@@ -652,3 +652,16 @@ messenger agent is an incoming message that tells the agent where to send the co
 profile and the recipient list refuse a reaction, and it goes in the send journal as
 `kind: "reaction"`; the hourly limit counts messages only. A read-only profile that can still react
 is not read-only, and the other person sees the reaction.
+
+**NEED-163 · May the account be used for two measurements — the order of LOGIN's chats (read only)
+and one scheduled message to Saved messages?** **Yes, both.** «1 A».
+
+**NEED-164 · What does the first `max inbox` show, with no last check saved?** **The last 24
+hours.** «2 A, потом я бы делал B с лимитом»: the unread count as MAX keeps it, capped, comes next
+as its own item (`CLI-26`).
+
+**NEED-165 · Does `max inbox` show the owner's own messages?** **No, other people's only.** «3 А».
+Your own still move the point of the last check.
+
+**NEED-166 · The command's name.** **`max inbox`**, taken by default: the question went unanswered,
+and `messages` is the group for one chat.
