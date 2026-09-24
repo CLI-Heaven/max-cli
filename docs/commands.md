@@ -593,6 +593,28 @@ max messages unpin <chat>
 |---|---|---|
 | `chat` | обязательный | chat id, or part of a chat name |
 
+## `max export`
+
+write what this machine holds to a file; never connects
+
+### `max export messages`
+
+a chat's messages from the local copy, oldest first, as JSON lines or Markdown
+
+```sh
+max export messages <chat> [options]
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name this machine has listed |
+
+| Опция | Что делает |
+|---|---|
+| `--format <format>` | jsonl or md |
+| `--since <id-or-time>` | only from this message id or ISO 8601 time on |
+| `--output <file>` | write to this file, readable only by you, instead of stdout |
+
 ## `max models`
 
 models that run on this machine

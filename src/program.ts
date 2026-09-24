@@ -16,6 +16,7 @@ import { configCommand } from "./commands/config.js"
 import { contactsCommand } from "./commands/contacts.js"
 import { type Environment, provide } from "./commands/context.js"
 import { doctorCommand } from "./commands/doctor.js"
+import { exportCommand } from "./commands/export.js"
 import { inboxCommand } from "./commands/inbox.js"
 import { mcpCommand } from "./commands/mcp.js"
 import { messagesCommand } from "./commands/messages.js"
@@ -90,6 +91,7 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
   program.addCommand(chatsCommand())
   program.addCommand(contactsCommand())
   program.addCommand(messagesCommand())
+  program.addCommand(exportCommand())
   program.addCommand(modelsCommand())
   program.addCommand(reactionsCommand())
   program.addCommand(recipientsCommand())

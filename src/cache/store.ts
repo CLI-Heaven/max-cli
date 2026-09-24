@@ -135,6 +135,10 @@ export interface CacheStore {
     keepTranscript(chatId: Id, messageId: Id, text: string, model: string): void
     /** `before` messages up to and including `time`, and `after` messages later than it, oldest first. */
     window(chatId: Id, time: number, before: number, after: number): Message[]
+    /** Everything held for a chat from `since` on, oldest first. */
+    all(chatId: Id, since?: number): Message[]
+    /** The windows read completely, in epoch ms, oldest first. Neighbouring windows are not merged. */
+    ranges(chatId: Id): { from: number; to: number }[]
     /**
      * Messages whose text contains `query`, newest first, across every chat we hold or one.
      *
@@ -632,6 +636,18 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
           .all(chatId, time, after)
         return [...earlier.reverse(), ...later].map(toMessage)
       },
+
+      all: (chatId, since = 0) =>
+        database
+          .prepare("SELECT * FROM messages WHERE chat_id = ? AND time >= ? ORDER BY time ASC")
+          .all(chatId, since)
+          .map(toMessage),
+
+      ranges: (chatId) =>
+        database
+          .prepare("SELECT from_time, to_time FROM ranges WHERE chat_id = ? ORDER BY from_time ASC")
+          .all(chatId)
+          .map((row) => ({ from: Number(row.from_time), to: Number(row.to_time) })),
     },
 
     claim: (chatId, anchor, holder, forMs) => {

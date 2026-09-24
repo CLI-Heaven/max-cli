@@ -16,6 +16,9 @@
 - **`max chats read <чат>`** и **`max messages list … --mark-read`** — отметить чат прочитанным,
   только когда вы попросили; собеседник это увидит. Без них чтение по-прежнему ничего не отмечает.
   Для MCP — `max mcp --allow-mark-read` ([usage.md](docs/usage.md#чтение)).
+- **`max export messages <чат> --format jsonl|md`** — выгрузить переписку из локальной копии в
+  JSONL или Markdown, с `--since` и `--output`. В MAX не ходит; чего в копии нет, называет в stderr.
+  Файл из `--output` доступен только вам ([usage.md](docs/usage.md#выгрузка)).
 
 ### Что исправлено
 
