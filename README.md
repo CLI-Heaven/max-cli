@@ -153,11 +153,18 @@ max chats list --json
 неизвестен, `130` — прервано. Вся таблица — в [docs/commands.md](docs/commands.md).
 
 **Инструкция для агента** — не список флагов, а ловушки и границы: что нельзя делать без просьбы,
-почему id — строки, как повторять отправку. Ставится одной строкой, той же версии, что и `max`:
+почему id — строки, как повторять отправку. Ставится одной строкой, той же версии, что и `max`.
+Файл один и тот же, различается только папка:
 
 ```sh
+# Claude Code
 mkdir -p ~/.claude/skills/max-cli && max skill show > ~/.claude/skills/max-cli/SKILL.md
+# Codex и Gemini CLI — общая папка ~/.agents/skills
+mkdir -p ~/.agents/skills/max-cli && max skill show > ~/.agents/skills/max-cli/SKILL.md
 ```
+
+Где какая среда ищет навыки: [Codex](https://learn.chatgpt.com/docs/build-skills),
+[Gemini CLI](https://geminicli.com/docs/cli/skills/) (сверено 2026-09-24).
 
 ## Документация
 
