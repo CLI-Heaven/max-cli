@@ -35,7 +35,10 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
 - **CLI-34** · P2 · `max backup messages <chat> --since <date> | --last
   <n>`: without `--run` only the estimate (what the cache holds, what is missing, requests and
   minutes); with `--run` it fills the gaps within limits and stops on any error. One chat per call
-  (`NEED-217`). Waits on `RES-9` (`MAX-44` is done). Plan: `docs_ai/plans/2026-09-24-history-backup.md`.
+  (`NEED-217`). Defaults measured on web.max.ru 2026-09-25 (`RES-9`): 30 messages back per page,
+  `forward: 0`, the next page starts at the time of the oldest message loaded (it comes back again),
+  a page shorter than 30 is the start of the chat; the web client sets no pause of its own.
+  Plan: `docs_ai/plans/2026-09-24-history-backup.md`.
 - **CLI-33** · 🟡 P2 · Mark a chat read on request. Done: `max chats read <chat> [--until <id>]`,
   `messages list --mark-read`, MCP `max_chats_read` behind `--allow-mark-read`; kind `read` in the
   send guard (`src/client.ts`, `chats.markRead`). Left: measure `CHAT_MARK` (50) — the request is
@@ -147,9 +150,6 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
 
 ## Foundation and risks
 
-- **RES-9** · P2 · How web.max.ru pages history while scrolling: `backward`/`forward` of opcode 49
-  and the pauses between requests, captured by the owner in DevTools on a chat already read (opening
-  an unread one marks it read). Sets the defaults of `CLI-34` (`NEED-216`).
 - **MAX-38** · P2 · When MAX answers a login with its rate limit, stop and remember it: its own exit
   code and message, and a cool-down in the profile state so the next run refuses locally instead of
   logging in again. Nothing retries a login today, but a scheduled `max inbox --new` logs in on
