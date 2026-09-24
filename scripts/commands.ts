@@ -20,7 +20,13 @@ import { writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { EXIT_CODES } from "@leemour/cli-core"
-import type { Command } from "commander"
+import {
+  type ArgumentInfo,
+  type CommandInfo,
+  describeOptions,
+  describeProgram,
+  type OptionInfo,
+} from "@leemour/cli-core/commands"
 import { createProgram } from "../dist/program.js"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
@@ -31,52 +37,49 @@ const BANNER =
 /** A cell that will not break the table it sits in. */
 const cell = (text: string | undefined): string => (text ?? "").replace(/\|/g, "\\|").replace(/\n+/g, " ").trim()
 
-const optionRows = (command: Command): string =>
-  command.options
+const optionRows = (options: readonly OptionInfo[]): string =>
+  options
     .map((option) => {
       const fallback =
-        option.defaultValue === undefined || option.defaultValue === false
-          ? ""
-          : ` По умолчанию: \`${String(option.defaultValue)}\`.`
+        option.default === undefined || option.default === false ? "" : ` По умолчанию: \`${String(option.default)}\`.`
       // The flags go through `cell` too: `--order <recent|name>` would otherwise split the row
       // into three, which is the first option here with a pipe in it and will not be the last.
       return `| \`${cell(option.flags)}\` | ${cell(option.description)}${fallback} |`
     })
     .join("\n")
 
-const argumentRows = (command: Command): string =>
-  command.registeredArguments
+const argumentRows = (args: readonly ArgumentInfo[]): string =>
+  args
     .map(
       (argument) =>
-        `| \`${cell(argument.name())}\` | ${argument.required ? "обязательный" : "необязательный"} | ${cell(argument.description)} |`,
+        `| \`${cell(argument.name)}\` | ${argument.required ? "обязательный" : "необязательный"} | ${cell(argument.description)} |`,
     )
     .join("\n")
 
-/** One command that runs: how it is typed, what it takes, what it accepts. */
-const action = (path: string, command: Command, heading = "###"): string => {
-  const usage = `${path} ${command.usage()}`.replace(/\s+/g, " ").trim()
+/** How one runnable command is typed, what it takes, what it accepts. */
+const body = (command: CommandInfo): string[] => {
+  const parts = [cell(command.description), ""]
+  if (command.mutates) parts.push("**Меняет что-то в MAX.**", "")
+  parts.push("```sh", command.usage, "```")
 
-  const parts = [`${heading} \`${path}\``, "", cell(command.description()), "", "```sh", usage, "```"]
-
-  if (command.registeredArguments.length > 0) {
-    parts.push("", "| Аргумент | | Что это |", "|---|---|---|", argumentRows(command))
+  if (command.arguments.length > 0) {
+    parts.push("", "| Аргумент | | Что это |", "|---|---|---|", argumentRows(command.arguments))
   }
-
-  const own = command.options.filter((option) => !option.hidden)
-  if (own.length > 0) {
-    parts.push("", "| Опция | Что делает |", "|---|---|", optionRows(command))
+  if (command.options.length > 0) {
+    parts.push("", "| Опция | Что делает |", "|---|---|", optionRows(command.options))
   }
-
-  return parts.join("\n")
+  return parts
 }
 
-// A top-level command with no subcommands of its own — `max inbox` — is documented like one.
-const resource = (command: Command): string =>
+const action = (command: CommandInfo): string =>
+  [`### \`max ${command.path.join(" ")}\``, "", ...body(command)].join("\n")
+
+/** A resource and its actions — or, for a command with no actions of its own, the command itself. */
+const resource = (command: CommandInfo): string =>
   command.commands.length === 0
-    ? action(`max ${command.name()}`, command, "##")
-    : [`## \`max ${command.name()}\``, "", cell(command.description()), ""]
+    ? [`## \`max ${command.name}\``, "", ...body(command)].join("\n")
+    : [`## \`max ${command.name}\``, "", cell(command.description), "", command.commands.map(action).join("\n\n")]
         .join("\n")
-        .concat(command.commands.map((c) => action(`max ${command.name()} ${c.name()}`, c)).join("\n\n"))
         .trimEnd()
 
 const exitCodes = (): string =>
@@ -88,8 +91,8 @@ const exitCodes = (): string =>
     "| `1` | всё остальное |",
   ].join("\n")
 
-const page = (program: Command): string => {
-  const resources = program.commands.filter((command) => command.name() !== "help")
+const page = (program: ReturnType<typeof createProgram>): string => {
+  const resources = describeProgram(program)
 
   return `${BANNER}
 
@@ -117,7 +120,7 @@ max [профиль] [опции] <команда> <действие> [аргу�
 
 | Опция | Что делает |
 |---|---|
-${optionRows(program)}
+${optionRows(describeOptions(program))}
 
 ${resources.map(resource).join("\n\n")}
 

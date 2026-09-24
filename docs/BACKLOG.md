@@ -66,9 +66,6 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 
 ## Foundation and risks
 
-- **CLI-29** · P2 · 🚧 `cli-29-commands-page` · `docs/commands.md` from the command registry
-  (`describeProgram`) instead of a second walk of the tree in `scripts/commands.ts`; the page marks
-  the commands that change something in MAX.
 - **CORE-9** · P2 · Self-update: `max update` finds how `max` was installed (npm, pnpm or bun,
   globally) and runs that package manager, plus a once-a-day "a newer version exists" line — on
   stderr, in pretty mode only, never where an agent reads JSON. Shared in `cli-core`; the idea is
