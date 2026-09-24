@@ -5,6 +5,8 @@ what exists now, and where it is described. The numbers stay reserved — commit
 
 ## Foundation and repository
 
+- **CLI-29** — `docs/commands.md` is rendered from the command registry: one walk of the tree, and
+  the commands that change something in MAX are marked.
 - **CORE-8** — the command registry, `@leemour/cli-core/commands` (0.2.0): the command tree as data,
   with `origin`, `mutates`, `state` and `examples`; `max commands --json` reads it.
 - **CLI-30** — a lint rule marks what any messenger CLI could share: the model, the cache, message

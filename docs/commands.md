@@ -38,12 +38,13 @@ max [профиль] [опции] <команда> <действие> [аргу�
 ## `max session`
 
 the stored MAX session for this profile
+
 ### `max session start`
 
 log this profile in to MAX
 
 ```sh
-max session start [options] [method]
+max session start [method]
 ```
 
 | Аргумент | | Что это |
@@ -55,23 +56,25 @@ max session start [options] [method]
 forget the stored session for this profile
 
 ```sh
-max session end [options]
+max session end
 ```
 
 ## `max account`
 
 the account this profile is logged in as
+
 ### `max account show`
 
 who this profile is logged in as
 
 ```sh
-max account show [options]
+max account show
 ```
 
 ## `max chats`
 
 the chats this account is in
+
 ### `max chats list`
 
 the chats this account is in
@@ -94,7 +97,7 @@ max chats list [options]
 one chat: its kind, unread count, last message time and who is in it
 
 ```sh
-max chats show [options] <chat>
+max chats show <chat>
 ```
 
 | Аргумент | | Что это |
@@ -104,6 +107,7 @@ max chats show [options] <chat>
 ## `max contacts`
 
 people you have a one-to-one chat with
+
 ### `max contacts list`
 
 people you have a one-to-one chat with
@@ -125,7 +129,7 @@ max contacts list [options]
 one person and the chats you share with them
 
 ```sh
-max contacts show [options] <person>
+max contacts show <person>
 ```
 
 | Аргумент | | Что это |
@@ -137,18 +141,19 @@ max contacts show [options] <person>
 forget where the last sync left off and take the whole list again
 
 ```sh
-max contacts sync [options]
+max contacts sync
 ```
 
 ## `max messages`
 
 read and send messages in a chat
+
 ### `max messages list`
 
 recent messages in a chat, oldest first
 
 ```sh
-max messages list [options] <chat>
+max messages list <chat> [options]
 ```
 
 | Аргумент | | Что это |
@@ -166,7 +171,7 @@ max messages list [options] <chat>
 find messages in what this machine has already read
 
 ```sh
-max messages search [options] <text>
+max messages search <text> [options]
 ```
 
 | Аргумент | | Что это |
@@ -183,7 +188,7 @@ max messages search [options] <text>
 one message by its id
 
 ```sh
-max messages show [options] <chat> <message>
+max messages show <chat> <message>
 ```
 
 | Аргумент | | Что это |
@@ -196,7 +201,7 @@ max messages show [options] <chat> <message>
 a message and what came either side of it, oldest first
 
 ```sh
-max messages context [options] <chat> <message>
+max messages context <chat> <message> [options]
 ```
 
 | Аргумент | | Что это |
@@ -214,7 +219,7 @@ max messages context [options] <chat> <message>
 save a message's photos, files, videos and audio to a directory
 
 ```sh
-max messages download [options] <chat> <message>
+max messages download <chat> <message> [options]
 ```
 
 | Аргумент | | Что это |
@@ -230,8 +235,10 @@ max messages download [options] <chat> <message>
 
 send one text message
 
+**Меняет что-то в MAX.**
+
 ```sh
-max messages send [options] <chat> [text]
+max messages send <chat> [text] [options]
 ```
 
 | Аргумент | | Что это |
@@ -249,12 +256,15 @@ max messages send [options] <chat> [text]
 ## `max reactions`
 
 react to messages
+
 ### `max reactions add`
 
 put your reaction on a message; it replaces the one you had
 
+**Меняет что-то в MAX.**
+
 ```sh
-max reactions add [options] <chat> <message> <emoji>
+max reactions add <chat> <message> <emoji>
 ```
 
 | Аргумент | | Что это |
@@ -266,12 +276,13 @@ max reactions add [options] <chat> <message> <emoji>
 ## `max recipients`
 
 the chats this profile may send to, when the list is on
+
 ### `max recipients list`
 
 the chats on the list; empty and off until the first add
 
 ```sh
-max recipients list [options]
+max recipients list
 ```
 
 ### `max recipients add`
@@ -279,7 +290,7 @@ max recipients list [options]
 allow sending to this chat; the first add turns the list on
 
 ```sh
-max recipients add [options] <chat>
+max recipients add <chat>
 ```
 
 | Аргумент | | Что это |
@@ -291,7 +302,7 @@ max recipients add [options] <chat>
 stop allowing this chat; the list stays on
 
 ```sh
-max recipients remove [options] <chat>
+max recipients remove <chat>
 ```
 
 | Аргумент | | Что это |
@@ -303,12 +314,13 @@ max recipients remove [options] <chat>
 turn the list off: this profile may send to any chat again
 
 ```sh
-max recipients off [options]
+max recipients off
 ```
 
 ## `max sends`
 
 every attempt to send from this profile — never the text
+
 ### `max sends list`
 
 attempts to send, newest first: sent, refused, failed, or not known
@@ -338,12 +350,13 @@ max inbox [options]
 ## `max config`
 
 the settings in force, and where each one came from
+
 ### `max config show`
 
 the profile, the profiles that exist, and each setting with where it came from
 
 ```sh
-max config show [options]
+max config show
 ```
 
 ### `max config set`
@@ -351,7 +364,7 @@ max config show [options]
 save a setting to the configuration file
 
 ```sh
-max config set [options] <setting> <value>
+max config set <setting> <value> [options]
 ```
 
 | Аргумент | | Что это |
@@ -368,7 +381,7 @@ max config set [options] <setting> <value>
 remove a setting from the configuration file
 
 ```sh
-max config unset [options] <setting>
+max config unset <setting> [options]
 ```
 
 | Аргумент | | Что это |
@@ -384,23 +397,25 @@ max config unset [options] <setting>
 the state this installation is in, without contacting MAX
 
 ```sh
-max doctor [options]
+max doctor
 ```
 
 ## `max cache`
 
 the local copy of chats, contacts and messages
+
 ### `max cache clear`
 
 forget everything this profile has cached
 
 ```sh
-max cache clear [options]
+max cache clear
 ```
 
 ## `max runs`
 
 recorded runs — what this tool did, and when
+
 ### `max runs list`
 
 recorded runs, newest first
@@ -418,7 +433,7 @@ max runs list [options]
 one run: what it was, and one line per request
 
 ```sh
-max runs show [options] <run-id>
+max runs show <run-id>
 ```
 
 | Аргумент | | Что это |
@@ -430,7 +445,7 @@ max runs show [options] <run-id>
 the directory holding one run
 
 ```sh
-max runs path [options] <run-id>
+max runs path <run-id>
 ```
 
 | Аргумент | | Что это |
@@ -440,12 +455,13 @@ max runs path [options] <run-id>
 ## `max skill`
 
 the instructions an agent is given for this tool
+
 ### `max skill show`
 
 print SKILL.md — redirect it into ~/.claude/skills/max-cli/SKILL.md for Claude Code, or ~/.agents/skills/max-cli/SKILL.md for Codex and Gemini CLI
 
 ```sh
-max skill show [options]
+max skill show
 ```
 
 ## `max commands`
@@ -453,7 +469,7 @@ max skill show [options]
 every command, option and exit code as JSON — what an agent reads instead of --help
 
 ```sh
-max commands [options]
+max commands
 ```
 
 ## Коды возврата
