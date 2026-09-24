@@ -20,6 +20,24 @@ const WebUserAgent = v.strictObject({
   timezone: v.string(),
 })
 
+/**
+ * **The keep-alive, which only `max serve` sends** — a one-shot command is gone long before it
+ * would matter. `interactive` is whether the tab is visible; ours is never, as LOGIN's is.
+ */
+export const sessionPing = defineOperation({
+  name: "session.ping",
+  constant: "PING",
+  opcode: 1,
+  auth: true,
+  request: v.strictObject({ interactive: v.boolean() }),
+  response: v.looseObject({}),
+  provenance: {
+    confidence: "confirmed",
+    sources: ["web.max.ru bundle read 2026-09-24: `cmd(1, {interactive})` every 30 s", "PyMax Opcode.PING = 1"],
+    notes: "MAX pings too; `Connection` answers those itself when it is live.",
+  },
+})
+
 export const sessionInit = defineOperation({
   name: "session.init",
   constant: "SESSION_INIT",

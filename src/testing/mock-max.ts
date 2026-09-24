@@ -20,7 +20,13 @@ export interface MockMax {
   sent: { opcode: number; payload: Payload }[]
   /** Calls with no scripted answer. Any left at the end of a test fail it (`unscripted.ts`). */
   unexpected: number[]
+  /** What the client answered to MAX's own frames — a ping, a new message. */
+  answered: { opcode: number; seq: number | null; payload: Payload | null }[]
   closed: boolean
+  /** MAX sends a frame of its own, as it does when a message arrives. */
+  push: (opcode: number, payload: Payload, seq: number) => void
+  /** MAX drops the socket from its side. */
+  drop: () => void
 }
 
 const built: MockMax[] = []
@@ -42,7 +48,15 @@ export const mockMax = ({ answers, refuse = {} }: MockMaxOptions): MockMax => {
     queueMicrotask(() => socket.emit("open"))
     return socket as unknown as WebSocket
   }
-  const state: MockMax = { createSocket, sent: [], unexpected: [], closed: false }
+  const state: MockMax = {
+    createSocket,
+    sent: [],
+    unexpected: [],
+    answered: [],
+    closed: false,
+    push: (opcode, payload, seq) => socket.answer({ seq, opcode, payload, cmd: Command.REQUEST }),
+    drop: () => queueMicrotask(() => socket.emit("close")),
+  }
   built.push(state)
 
   const socket = new (class extends EventEmitter {
@@ -53,6 +67,10 @@ export const mockMax = ({ answers, refuse = {} }: MockMaxOptions): MockMax => {
 
     send(raw: string): void {
       const frame = decodeFrame(raw)
+      if (frame.cmd === Command.RESPONSE) {
+        state.answered.push({ opcode: frame.opcode, seq: frame.seq, payload: frame.payload })
+        return
+      }
       state.sent.push({ opcode: frame.opcode, payload: frame.payload ?? {} })
 
       const rule = refuse[frame.opcode]

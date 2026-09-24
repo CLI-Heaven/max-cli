@@ -47,4 +47,87 @@ describe("the connection", () => {
     await expect(connection.invoke(6, {})).rejects.toThrow(/within 20ms/)
     await connection.close()
   })
+
+  it("never takes a push for the answer to a request, even with the same `seq`", async () => {
+    const max = mockMax({ answers: { 49: () => undefined } })
+    const events: number[] = []
+    const connection = new Connection({ createSocket: max.createSocket, onEvent: (frame) => events.push(frame.opcode) })
+    await connection.open()
+
+    const request = connection.invoke(49, {}).catch((error: Error) => error.message)
+    max.push(128, { chatId: 1, message: { id: 5 } }, 1)
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await connection.close()
+
+    expect(events).toEqual([128])
+    expect(await request).toContain("closed before MAX answered")
+  })
+
+  describe("live", () => {
+    const live = (onClose?: (error: Error) => void) => {
+      const max = mockMax({ answers: {} })
+      const events: number[] = []
+      const connection = new Connection({
+        createSocket: max.createSocket,
+        live: true,
+        onEvent: (frame) => events.push(frame.opcode),
+        ...(onClose ? { onClose } : {}),
+      })
+      return { max, events, connection }
+    }
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 10))
+
+    it("answers MAX's ping with no payload, as the web client does, and keeps it to itself", async () => {
+      const { max, events, connection } = live()
+      await connection.open()
+
+      max.push(1, {}, 7)
+      await settle()
+      await connection.close()
+
+      expect(max.answered).toEqual([{ opcode: 1, seq: 7, payload: null }])
+      expect(events).toEqual([])
+    })
+
+    it("acknowledges a new message with its ids as numbers on the wire, as they came, and passes it on", async () => {
+      const { max, events, connection } = live()
+      await connection.open()
+
+      max.push(128, { chatId: -70000000000001, message: { id: 116762160362694583n, text: "hi" } }, 3)
+      await settle()
+      await connection.close()
+
+      expect(max.answered).toEqual([
+        { opcode: 128, seq: 3, payload: { chatId: -70000000000001, messageId: 116762160362694583n } },
+      ])
+      expect(events).toEqual([128])
+      expect(max.sent.map((call) => call.opcode)).not.toContain(50)
+    })
+
+    it("drops a push it has already seen", async () => {
+      const { max, events, connection } = live()
+      await connection.open()
+
+      max.push(130, {}, 4)
+      max.push(130, {}, 4)
+      max.push(130, {}, 2)
+      await settle()
+      await connection.close()
+
+      expect(events).toEqual([130])
+    })
+
+    it("says when MAX drops it, and refuses the next request at once instead of timing out", async () => {
+      const closes: string[] = []
+      const { max, connection } = live((error) => closes.push(error.message))
+      await connection.open()
+
+      max.drop()
+      await settle()
+
+      expect(closes).toEqual(["MAX closed the connection"])
+      await expect(connection.invoke(49, {})).rejects.toThrow("closed")
+      await connection.close()
+    })
+  })
 })

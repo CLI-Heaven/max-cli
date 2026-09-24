@@ -20,6 +20,7 @@ export const wireClient = (invoke: Invoke) => ({
   session: {
     init: (request: RequestOf<(typeof OPERATIONS)["session.init"]>) => invoke(OPERATIONS["session.init"], request),
     login: (request: RequestOf<(typeof OPERATIONS)["session.login"]>) => invoke(OPERATIONS["session.login"], request),
+    ping: (request: RequestOf<(typeof OPERATIONS)["session.ping"]>) => invoke(OPERATIONS["session.ping"], request),
   },
   login: {
     qrRequest: (request: RequestOf<(typeof OPERATIONS)["login.qrRequest"]>) =>

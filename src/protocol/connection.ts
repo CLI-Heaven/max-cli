@@ -26,6 +26,14 @@ export interface ConnectionOptions {
   timeoutMs?: number
   /** Events MAX pushes on its own — messages arriving, presence. Ignored unless a caller cares. */
   onEvent?: (frame: InboundFrame) => void
+  /**
+   * **A connection that stays open**, as `max serve`'s does: it answers MAX's ping and acknowledges
+   * a new message the way web.max.ru does (bundle read 2026-09-24), and drops a push it has already
+   * seen. Off for a one-shot command, which is gone before either matters.
+   */
+  live?: boolean
+  /** MAX closed the socket. Not called for our own `close()`. The connection is dead after it. */
+  onClose?: (error: Error) => void
   /** Injected in tests; defaults to the real `ws` client. */
   createSocket?: (url: string, origin: string) => WebSocket
 }
@@ -50,11 +58,18 @@ export class ProtocolError extends Error {
  * closes it in a `finally` — a CLI that prints its result and then hangs is a defect, not a rough
  * edge (REQUIREMENTS §18).
  */
+/** MAX's keep-alive, both directions. */
+const PING = 1
+/** A message arrived. The web client acknowledges each one. */
+const NEW_MESSAGE = 128
+
 export class Connection {
   readonly #url: string
   readonly #origin: string
   readonly #timeoutMs: number
   readonly #onEvent: ((frame: InboundFrame) => void) | undefined
+  readonly #live: boolean
+  readonly #onClose: ((error: Error) => void) | undefined
   readonly #createSocket: (url: string, origin: string) => WebSocket
   readonly #pending = new Map<
     number,
@@ -67,6 +82,7 @@ export class Connection {
 
   #socket: WebSocket | undefined
   #seq = 0
+  #lastPush = 0
   #closed = false
 
   constructor(options: ConnectionOptions = {}) {
@@ -74,6 +90,8 @@ export class Connection {
     this.#origin = options.origin ?? WEB_ORIGIN
     this.#timeoutMs = options.timeoutMs ?? 30_000
     this.#onEvent = options.onEvent
+    this.#live = options.live ?? false
+    this.#onClose = options.onClose
     this.#createSocket = options.createSocket ?? ((url, origin) => new WebSocket(url, { headers: { Origin: origin } }))
   }
 
@@ -97,8 +115,8 @@ export class Connection {
     })
 
     socket.on("message", (data: Buffer | string) => this.#receive(String(data)))
-    socket.on("close", () => this.#failAll(new Error("MAX closed the connection")))
-    socket.on("error", (error: Error) => this.#failAll(error))
+    socket.on("close", () => this.#lost(new Error("MAX closed the connection")))
+    socket.on("error", (error: Error) => this.#lost(error))
   }
 
   /**
@@ -188,15 +206,57 @@ export class Connection {
       return // A frame we cannot read is not a reason to fail a request we can.
     }
 
-    const waiting = frame.seq === null ? undefined : this.#pending.get(frame.seq)
-    if (!waiting) {
-      this.#onEvent?.(frame)
+    // MAX numbers its own frames, so a push can carry the very `seq` a request is waiting on. Only
+    // `cmd` tells an answer from a push — a lookup by `seq` alone once resolved a request with
+    // somebody's incoming message.
+    if (frame.cmd !== Command.RESPONSE && frame.cmd !== Command.ERROR) {
+      this.#pushed(frame)
       return
     }
+
+    const waiting = frame.seq === null ? undefined : this.#pending.get(frame.seq)
+    if (!waiting) return
 
     clearTimeout(waiting.timer)
     this.#pending.delete(frame.seq as number)
     waiting.resolve({ frame, bytes: Buffer.byteLength(raw) })
+  }
+
+  #pushed(frame: InboundFrame): void {
+    if (this.#live && frame.seq !== null) {
+      // After a hiccup MAX sends some pushes again; the web client drops anything not newer.
+      if (frame.seq <= this.#lastPush) return
+      this.#lastPush = frame.seq
+
+      if (frame.opcode === PING) {
+        this.#answer({ cmd: Command.RESPONSE, seq: frame.seq, opcode: PING })
+        return
+      }
+      const message = frame.payload?.message
+      if (frame.opcode === NEW_MESSAGE && typeof message === "object" && message !== null && "id" in message) {
+        // The ids go back exactly as they came — numbers on the wire, through the lossless codec.
+        this.#answer({
+          cmd: Command.RESPONSE,
+          seq: frame.seq,
+          opcode: NEW_MESSAGE,
+          payload: { chatId: frame.payload?.chatId, messageId: message.id },
+        })
+      }
+    }
+    this.#onEvent?.(frame)
+  }
+
+  #answer(frame: Parameters<typeof encodeFrame>[0]): void {
+    const socket = this.#socket
+    if (socket && !this.#closed) socket.send(encodeFrame(frame))
+  }
+
+  /** MAX dropped us: every waiting request fails now, and the next `invoke` refuses at once. */
+  #lost(error: Error): void {
+    if (this.#closed) return
+    this.#closed = true
+    this.#failAll(error)
+    this.#onClose?.(error)
   }
 
   #failAll(error: Error): void {
