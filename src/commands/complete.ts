@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs"
 import { script } from "@bomb.sh/tab"
-import { CliError } from "@leemour/cli-core"
+import { CliError, visibleControls } from "@leemour/cli-core"
 import { describeOptions, describeProgram } from "@leemour/cli-core/commands"
 import { type CompletionSources, formatSuggestions, type Suggestion, suggest } from "@leemour/cli-core/completion"
 import { Command } from "commander"
@@ -73,19 +73,23 @@ const sourcesFrom = (cache: CacheStore | undefined, atTheStart: boolean): Comple
 const chatSuggestions = (cache: CacheStore): Suggestion[] =>
   cache.chats.page({ limit: 500, offset: 0 }).flatMap((chat) => {
     const title = chat.title ?? ""
+    const shown = visibleControls(title)
+    // Offered as a word only when it is one, and only when nothing in it had to be made visible.
     return [
-      { value: chat.id, description: title },
-      ...(/^\S+$/.test(title) ? [{ value: title, description: chat.id }] : []),
+      { value: chat.id, description: shown },
+      ...(/^\S+$/.test(title) && shown === title ? [{ value: title, description: chat.id }] : []),
     ]
   })
 
 const personSuggestions = (cache: CacheStore): Suggestion[] =>
-  cache.people
-    .page({ order: "name", limit: 500, offset: 0 })
-    .flatMap((person) => [
-      { value: person.id, description: person.name ?? "" },
-      ...(person.username ? [{ value: `@${person.username}`, description: person.name ?? "" }] : []),
-    ])
+  cache.people.page({ order: "name", limit: 500, offset: 0 }).flatMap((person) => {
+    const name = visibleControls(person.name ?? "")
+    const username = person.username && visibleControls(person.username) === person.username ? person.username : null
+    return [
+      { value: person.id, description: name },
+      ...(username ? [{ value: `@${username}`, description: name }] : []),
+    ]
+  })
 
 const profileNames = (): string[] => {
   try {

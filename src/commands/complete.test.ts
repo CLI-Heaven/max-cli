@@ -17,6 +17,7 @@ beforeAll(async () => {
   store?.chats.write([
     { id: "101", title: "Family", kind: "group", unreadCount: 0, lastMessageAt: null, participantsCount: 3 },
     { id: "102", title: "Work chat", kind: "group", unreadCount: 0, lastMessageAt: null, participantsCount: 5 },
+    { id: "103", title: "Evil\u001b[2K", kind: "group", unreadCount: 0, lastMessageAt: null, participantsCount: 2 },
   ])
   store?.people.upsert(
     [{ id: "7", name: "Иван Петров", username: "ivan", description: null, lastMessagedAt: null }],
@@ -46,6 +47,13 @@ describe("max complete", () => {
     expect(lines).toContain("Family\t101")
     expect(lines).toContain("102\tWork chat")
     expect(values(lines)).not.toContain("Work chat")
+  })
+
+  it("shows a title's control characters instead of passing them to the shell, and never offers it as a word", async () => {
+    const { lines } = await complete("tabbed", "messages", "list", "")
+    expect(lines).toContain("103\tEvil\\x1b[2K")
+    expect(lines.join("\n")).not.toContain("\u001b")
+    expect(values(lines)).not.toContain("Evil\u001b[2K")
   })
 
   it("offers a person by id and by @username", async () => {
