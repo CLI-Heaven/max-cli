@@ -25,6 +25,10 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
 
 ## Features
 
+- **CLI-37** · 🚧 `feat/profile-permissions` · P2 · Allow a profile only the actions it is given:
+  `allow = [...]` per profile (send, reaction, delete, …), absent means everything as today;
+  `readOnly` stays as the empty list; MCP flags apply on top (`IDEA-10`, `NEED-247`). Start at
+  `src/config.ts:48` and `src/sends/guard.ts`. Plan: `docs_ai/plans/2026-09-25-profile-permissions.md`.
 - **MAX-50** · P2 · When the keyring does not answer, say so instead of "no session — run `max session
   start`". Measured 2026-09-25 from cron on Linux: no `XDG_RUNTIME_DIR`, the keyring is unreachable,
   and `max` tells the owner to log in again although the profile's state file holds a `viewerId`
@@ -56,9 +60,12 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   .ogg); the message does not: the web client sends `{_type: "AUDIO", audioId, duration, wave, token}`
   with `wave` as 80 raw bytes in a binary MessagePack frame, and none of six JSON forms was accepted
   (`FIND-104`). Waits on `MAX-40`.
-- **MAX-28** · P1 · Polls: show them when reading, and vote (`vote_poll`, `SEND_VOTE` 304
+- **MAX-28** · ⏸️ P1 · Polls: show them when reading, and vote (`vote_poll`, `SEND_VOTE` 304
   `{chatId, messageId, pollId, answersIds}`). Creating one is a `_type: "POLL"` attachment on
   `MSG_SEND` 64 (PyMax 2.4.1, code; no user report).
+  ⏸️ Deferred by the owner 2026-09-25: web.max.ru does not show polls yet («Обновите MAX…»),
+  creating one over JSON is refused with `proto.payload`; PR #108 closed, branch
+  `feat/max-28-polls` kept.
 - **MAX-48** · P3 · Send a round video note ("кружок"): opcode 82 `{type: 1, uploaderType: 1}`,
   `thumbhash` from the upload answer, `_type: "VIDEO"` with `videoType: 1`. MAX refuses a file that
   is not 480×480, `yuv420p`, limited range, bt709, baseline, AAC 48 kHz mono (PyMax #94). `thumbhash`
