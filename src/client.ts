@@ -1173,26 +1173,48 @@ export class MaxClient {
     snapshot: (): Payload => this.#session(),
 
     /**
-     * Keeps the snapshot current from one push. **`false` means it can no longer be trusted** — a
-     * push we do not understand touched the chats — and the server stops handing it out until it
-     * logs in again. Only a new message is understood: the chat's last message and time move, and
-     * its unread count goes up for somebody else's message and to zero for our own, as the official
-     * app does once you have written in a chat.
+     * Keeps the snapshot current from one push. **`false` means it can no longer be trusted** and
+     * the server stops handing it out until it has logged in again. What web.max.ru does with each
+     * push (bundle read 2026-09-24) is what is copied here:
+     * - 128, a new message: the chat's last message and time move; unread goes up for somebody
+     *   else's message and to zero for our own, as the app does once you have written in a chat.
+     * - 130, read up to a point: when we are the reader, the chat's unread becomes `unread`;
+     *   somebody else reading changes nothing here.
+     * - 135, a chat changed: MAX sends the whole chat, and it replaces ours.
+     * Anything else that touches the chats — a deletion — cannot be followed.
      */
     patch: (opcode: number, payload: Payload): boolean => {
-      if (opcode !== NEW_MESSAGE) return !CHANGES_CHATS.has(opcode)
-      const raw = record(payload.message)
-      const chatId = asId(payload.chatId)
       const chats = asArray(this.#session().chats)
+      const chatId = asId(payload.chatId)
       const chat = chats.find((candidate) => asId(candidate.id) === chatId)
-      if (!raw || !chat) return false
-
       const viewerId = this.#store.readState().viewerId
-      const ours = viewerId !== undefined && asId(raw.sender) === viewerId
-      chat.lastMessage = raw
-      chat.lastEventTime = raw.time
-      chat.newMessages = ours ? 0 : (typeof chat.newMessages === "number" ? chat.newMessages : 0) + 1
-      return true
+
+      if (opcode === NEW_MESSAGE) {
+        const raw = record(payload.message)
+        if (!raw || !chat) return false
+        const ours = viewerId !== undefined && asId(raw.sender) === viewerId
+        chat.lastMessage = raw
+        chat.lastEventTime = raw.time
+        chat.newMessages = ours ? 0 : (typeof chat.newMessages === "number" ? chat.newMessages : 0) + 1
+        return true
+      }
+      if (opcode === READ_MARK) {
+        if (asId(payload.userId) !== viewerId) return true
+        if (!chat || typeof payload.unread !== "number") return false
+        chat.newMessages = payload.unread
+        return true
+      }
+      if (opcode === CHAT_CHANGED) {
+        const changed = record(payload.chat)
+        const id = changed && asId(changed.id)
+        if (!changed || id === undefined) return false
+        const at = chats.findIndex((candidate) => asId(candidate.id) === id)
+        if (at >= 0) chats[at] = changed
+        else chats.push(changed)
+        this.#session().chats = chats
+        return true
+      }
+      return !CHANGES_CHATS.has(opcode)
     },
 
     /** One request from a command, on this connection. The server decides which ones may pass. */
@@ -1957,11 +1979,12 @@ const INBOX_CHATS = 20
 /** MAX pushes this when a message arrives in any chat. PyMax calls it `NOTIF_MESSAGE`. */
 const NEW_MESSAGE = 128
 
-/**
- * Pushes that change a chat in a way the snapshot cannot follow: read elsewhere (130), a chat
- * changed (135), messages deleted (140, 142). PyMax's numbers — code, not measured.
- */
-const CHANGES_CHATS = new Set([130, 135, 140, 142])
+/** Read up to a point — by us on another device, or by somebody else. */
+const READ_MARK = 130
+/** A chat changed; MAX sends it whole. */
+const CHAT_CHANGED = 135
+/** Messages deleted (140 in PyMax, 142 in the web client): the snapshot cannot follow them. */
+const CHANGES_CHATS = new Set([140, 142])
 
 /** Newest first — the chats a reader most likely came for are read before the cap. */
 const byRecency = (chats: Chat[]): Chat[] =>
