@@ -6,7 +6,7 @@ import type { Id } from "../domain/models.js"
 export type SendOutcome = "sent" | "outcome_unknown" | "refused" | "failed"
 
 /** Absent in the journal means a message: that is every line written before reactions were guarded. */
-export type SendKind = "message" | "reaction" | "edit" | "forward" | "pin" | "read" | "chat" | "account"
+export type SendKind = "message" | "reaction" | "edit" | "forward" | "pin" | "read" | "chat" | "account" | "poll"
 
 /** What a `chat` entry did. Never a title, a description or a link — only which action. */
 export type ChatAction =

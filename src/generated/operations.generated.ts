@@ -25,6 +25,7 @@ import {
 } from "../spec/operations/login.js"
 import {
   messagesEdit,
+  messagesPollVote,
   messagesReact,
   messagesReactions,
   messagesSend,
@@ -67,6 +68,7 @@ export const OPERATIONS = {
   "messages.edit": messagesEdit,
   "messages.react": messagesReact,
   "messages.unreact": messagesUnreact,
+  "messages.pollVote": messagesPollVote,
   "messages.reactions": messagesReactions,
   "attachments.video": attachmentsVideo,
   "attachments.file": attachmentsFile,

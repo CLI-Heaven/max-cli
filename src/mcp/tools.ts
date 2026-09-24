@@ -318,6 +318,44 @@ const SEND_TOOLS = {
     _meta: APPROVE,
     answer: async (client, args) => client.messages.pin(await client.chats.resolve(args.chat), null),
   }),
+  max_polls_vote: tool({
+    title: "Vote in a poll",
+    description:
+      "Vote in a poll as the owner, or take the vote back with an empty `answers`. Only when the owner asked for " +
+      "this exact choice. Answer ids are the ones in [brackets] under the poll in max_messages_list. The others " +
+      "see the vote unless the poll is anonymous.",
+    input: v.object({
+      chat,
+      message: v.pipe(message, v.description("the message that carries the poll")),
+      answers: v.pipe(v.array(v.string()), v.description("answer ids; empty takes the vote back")),
+    }),
+    annotations: WRITE,
+    _meta: APPROVE,
+    answer: async (client, args) =>
+      client.polls.vote(await client.chats.resolve(args.chat), args.message, args.answers),
+  }),
+  max_polls_create: tool({
+    title: "Create a poll",
+    description:
+      "Send a poll to a chat as the owner, as a message of its own. Only when the owner asked for this exact " +
+      "question and these answers in this chat.",
+    input: v.object({
+      chat,
+      question: v.pipe(v.string(), v.minLength(1)),
+      answers: v.pipe(v.array(v.pipe(v.string(), v.minLength(1))), v.minLength(2)),
+      multiple: v.optional(v.pipe(v.boolean(), v.description("people may pick several answers"))),
+      anonymous: v.optional(v.pipe(v.boolean(), v.description("nobody sees who voted for what"))),
+      revote: v.optional(v.pipe(v.boolean(), v.description("people may change their vote"))),
+    }),
+    annotations: WRITE,
+    _meta: APPROVE,
+    answer: async (client, args) =>
+      client.polls.create(await client.chats.resolve(args.chat), args.question, args.answers, {
+        multiple: args.multiple === true,
+        anonymous: args.anonymous === true,
+        revote: args.revote === true,
+      }),
+  }),
 }
 
 /** Registered only with `--allow-mark-read`: the other person sees it, and `--allow-send` does not imply it. */

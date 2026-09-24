@@ -76,8 +76,9 @@ export const messagesEdit = defineOperation({
   request: v.strictObject({
     chatId: id(),
     messageId: id(),
-    text: v.string(),
-    elements: v.array(v.strictObject({ type: v.string(), from: v.number(), length: v.number() })),
+    /** Left out when closing a poll, as the web client does: only the attachment changes. */
+    text: v.optional(v.string()),
+    elements: v.optional(v.array(v.strictObject({ type: v.string(), from: v.number(), length: v.number() }))),
     /** `attachments`, not `attaches` as in MSG_SEND — every source spells them differently. */
     attachments: v.array(v.unknown()),
   }),
@@ -149,6 +150,29 @@ export const messagesUnreact = defineOperation({
     confidence: "measured",
     sources: ["measured against MAX 2026-09-24 in Saved messages", "tsmax removeReaction", "PyMax remove_reaction"],
     notes: "Answers the reactions left, `{reactionInfo: {}}` when none. A second call is answered the same.",
+  },
+})
+
+export const messagesPollVote = defineOperation({
+  name: "messages.pollVote",
+  constant: "SEND_VOTE",
+  opcode: 304,
+  auth: true,
+  request: v.strictObject({
+    chatId: id(),
+    messageId: id(),
+    pollId: id(),
+    /** Empty takes the vote back — the web client's "revote" sends exactly that. */
+    answersIds: v.array(id()),
+  }),
+  response: v.looseObject({ state: v.optional(v.looseObject({})) }),
+  provenance: {
+    confidence: "confirmed",
+    sources: ["web.max.ru `_app/immutable/chunks/5oCuRT0F.js` (2026-09-24, `FIND-140`)", "PyMax 2.4.1 `vote_poll`"],
+    notes:
+      "Answers the poll's new `state` — `{total, result: [{answerId, voteCount, options}]}` in the web client. " +
+      "The web client refuses before sending when the poll is closed, when several answers go to a single-answer " +
+      "poll, and when a vote is changed on a poll that does not allow it.",
   },
 })
 

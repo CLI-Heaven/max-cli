@@ -10,6 +10,7 @@ import type {
   GroupSettings,
   Id,
   Message,
+  Poll,
   Profile,
   QuotedMessage,
   Reactions,
@@ -240,6 +241,7 @@ const attachments = (value: unknown): Attachment[] => {
       const size = count(entry.size)
       const fileId = asId(entry.fileId)
       const videoId = asId(entry.videoId)
+      const poll = entry._type === "POLL" ? toPoll(entry) : undefined
       return {
         kind: typeof entry._type === "string" ? entry._type.toLowerCase() : "unknown",
         ...(url ? { url } : {}),
@@ -250,6 +252,72 @@ const attachments = (value: unknown): Attachment[] => {
         ...(size !== null ? { size } : {}),
         ...(fileId ? { fileId } : {}),
         ...(videoId ? { videoId } : {}),
+        ...(poll ? { poll } : {}),
       }
     })
 }
+
+/** The bits of a poll's `settings`, as web.max.ru names them (bundle read 2026-09-24, `FIND-140`). */
+const POLL_ANONYMOUS = 1
+const POLL_MULTIPLE = 2
+const POLL_REVOTE = 4
+export const POLL_CLOSED = 8
+const POLL_QUIZ = 16
+/** In `state.result[].options`: the owner voted for this answer. */
+const ANSWER_VOTED = 1
+
+/** The web client shows a poll only up to this version, and an unknown shape is worse than none. */
+const POLL_VERSION = 1
+
+export const toPoll = (entry: Payload): Poll | undefined => {
+  const version = count(entry.version)
+  const id = asId(entry.pollId)
+  if (!id || (version !== null && version > POLL_VERSION)) return undefined
+
+  const settings = count(entry.settings) ?? 0
+  const state = asRecord(entry.state)
+  const results = new Map<string, Payload>()
+  for (const raw of Array.isArray(state?.result) ? state.result : []) {
+    const result = asRecord(raw)
+    const answerId = asId(result?.answerId)
+    if (result && answerId) results.set(answerId, result)
+  }
+
+  const answers = (Array.isArray(entry.answers) ? entry.answers : [])
+    .map(asRecord)
+    .filter((answer): answer is Payload => answer !== undefined)
+    .map((answer) => {
+      const answerId = asId(answer.answerId) ?? ""
+      const result = results.get(answerId)
+      return {
+        id: answerId,
+        text: typeof answer.text === "string" ? answer.text : "",
+        votes: count(result?.voteCount) ?? 0,
+        mine: ((count(result?.options) ?? 0) & ANSWER_VOTED) !== 0,
+      }
+    })
+    .filter((answer) => answer.id !== "")
+
+  return {
+    id,
+    question: typeof entry.title === "string" ? entry.title : "",
+    answers,
+    total: count(state?.total) ?? 0,
+    multiple: (settings & POLL_MULTIPLE) !== 0,
+    anonymous: (settings & POLL_ANONYMOUS) !== 0,
+    revote: (settings & POLL_REVOTE) !== 0,
+    closed: (settings & POLL_CLOSED) !== 0,
+    quiz: (settings & POLL_QUIZ) !== 0,
+  }
+}
+
+/** The settings bits a new poll is created with. */
+export const pollSettings = ({
+  multiple = false,
+  anonymous = false,
+  revote = false,
+}: {
+  multiple?: boolean
+  anonymous?: boolean
+  revote?: boolean
+}): number => (multiple ? POLL_MULTIPLE : 0) | (anonymous ? POLL_ANONYMOUS : 0) | (revote ? POLL_REVOTE : 0)

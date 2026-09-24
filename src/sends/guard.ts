@@ -26,10 +26,11 @@ export interface SendGuardOptions {
 
 /**
  * What puts a new message in somebody's chat (`NEED-168`). A reaction, an edit, a quiet pin or a
- * change to a chat wakes nobody up; creating a group does — the people in it are told.
+ * change to a chat wakes nobody up; creating a group does — the people in it are told. Every poll
+ * write counts too, a vote included: the owner weighed it against a ban from MAX (2026-09-24).
  */
 const countsTowardLimit = ({ kind = "message", action }: { kind?: SendKind; action?: ChatAction | AccountAction }) =>
-  kind === "message" || kind === "forward" || action === "create"
+  kind === "message" || kind === "forward" || kind === "poll" || action === "create"
 
 /**
  * These stop a model that was talked into sending by a message it read. They do **not** stop an

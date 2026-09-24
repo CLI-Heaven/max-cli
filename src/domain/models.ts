@@ -38,6 +38,38 @@ export interface Attachment {
   /** A file or a video carries no link, only these; `messages download` asks MAX for the link. */
   fileId?: Id
   videoId?: Id
+  /** Absent on a `poll` of a version the web client cannot show either (`version` above 1). */
+  poll?: Poll
+}
+
+/** A poll as the owner sees it. The settings bits are unpacked here and nowhere else. */
+export interface Poll {
+  id: Id
+  question: string
+  answers: PollAnswer[]
+  /** How many people voted, not how many votes: one person may pick several answers. */
+  total: number
+  multiple: boolean
+  anonymous: boolean
+  revote: boolean
+  closed: boolean
+  quiz: boolean
+}
+
+export interface PollAnswer {
+  /** What `max polls vote` takes — MAX's own answer id, not a position in the list. */
+  id: Id
+  text: string
+  votes: number
+  /** The owner voted for this one. */
+  mine: boolean
+}
+
+/** A poll and the message that carries it — what `max polls` answers with. */
+export interface PollMessage {
+  chatId: Id
+  messageId: Id
+  poll: Poll
 }
 
 /** Where one attachment's bytes can be fetched. Measured 2026-09-23: no token and no cookie needed. */

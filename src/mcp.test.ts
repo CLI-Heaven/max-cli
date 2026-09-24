@@ -129,6 +129,8 @@ describe("the MCP server", () => {
       "max_messages_pin",
       "max_messages_send",
       "max_messages_unpin",
+      "max_polls_create",
+      "max_polls_vote",
     ])
     for (const { annotations, _meta } of writing) {
       expect(annotations).toMatchObject({ destructiveHint: true })

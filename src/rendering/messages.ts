@@ -2,7 +2,15 @@ import { styleText } from "node:util"
 import { visibleControls } from "@leemour/cli-core"
 import stringWidth from "string-width"
 import wrapAnsi from "wrap-ansi"
-import type { Attachment, Message, MessageHit, QuotedMessage, Reactions, WindowedMessage } from "../domain/models.js"
+import type {
+  Attachment,
+  Message,
+  MessageHit,
+  Poll,
+  QuotedMessage,
+  Reactions,
+  WindowedMessage,
+} from "../domain/models.js"
 
 export interface RenderOptions {
   /** 0 — the conversation; 1 — the ids worth searching by; 2 — everything the model knows. */
@@ -142,19 +150,44 @@ const attachmentLines = (
     return options.color ? `\u001b]8;;${url}\u0007${label}\u001b]8;;\u0007` : `${label} ${url}`
   }
 
+  const polls = attachments.flatMap((attachment) => (attachment.poll ? [attachment.poll] : []))
   const groups = new Map<string, Attachment[]>()
-  for (const attachment of attachments) {
-    const key = visibleControls(attachment.name ?? attachment.title ?? attachment.kind)
+  for (const attachment of attachments.filter((each) => !each.poll)) {
+    const key =
+      attachment.kind === "poll"
+        ? "a poll of a newer kind this version cannot show"
+        : visibleControls(attachment.name ?? attachment.title ?? attachment.kind)
     groups.set(key, [...(groups.get(key) ?? []), attachment])
   }
 
-  return [...groups].map(([label, same]) => {
+  const files = [...groups].map(([label, same]) => {
     const first = same[0]
     const size = first?.size === undefined ? "" : ` · ${megabytes(first.size)}`
     if (same.length === 1) return paint("dim", `📎 ${link(`${label}${size}`, first?.url)}`)
     const each = same.map((attachment, index) => link(String(index + 1), attachment.url)).join(" ")
     return paint("dim", `📎 ${label} ×${same.length} ${each}`)
   })
+  return [...polls.flatMap(pollLines), ...files]
+}
+
+/**
+ * `📊 question`, then one line per answer with the id `max polls vote` takes, its votes, and ✓ on
+ * the owner's own. What kind of poll it is goes on the last line, beside the count.
+ */
+export const pollLines = (poll: Poll): string[] => {
+  const kind = [
+    poll.closed ? "closed" : "",
+    poll.multiple ? "several answers" : "",
+    poll.anonymous ? "anonymous" : "",
+    poll.quiz ? "quiz" : "",
+  ].filter(Boolean)
+  return [
+    `📊 ${visibleControls(poll.question)}`,
+    ...poll.answers.map(
+      (answer) => `  [${answer.id}] ${visibleControls(answer.text)} — ${answer.votes}${answer.mine ? " ✓" : ""}`,
+    ),
+    `  ${[`${poll.total} voted`, ...kind].join(" · ")}`,
+  ]
 }
 
 const megabytes = (bytes: number): string =>

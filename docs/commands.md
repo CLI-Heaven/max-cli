@@ -592,6 +592,68 @@ speech models for transcribing voice messages
 max models audio
 ```
 
+## `max polls`
+
+vote in polls, close your own, create one
+
+### `max polls vote`
+
+vote in a poll, or take your vote back; the others see it unless the poll is anonymous
+
+**Меняет что-то в MAX.**
+
+```sh
+max polls vote <chat> <message> [answers] [options]
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+| `message` | обязательный | id of the message that carries the poll |
+| `answers` | необязательный | answer ids, as `messages list` prints them in [brackets] |
+
+| Опция | Что делает |
+|---|---|
+| `--retract` | take your vote back, where the poll allows it |
+
+### `max polls close`
+
+close your own poll; nobody can vote in it after that, and it cannot be reopened
+
+**Меняет что-то в MAX.**
+
+```sh
+max polls close <chat> <message>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+| `message` | обязательный | id of your own message that carries the poll |
+
+### `max polls create`
+
+send a poll to a chat, as a message of its own
+
+**Меняет что-то в MAX.**
+
+```sh
+max polls create <chat> <question> <answers> [options]
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+| `question` | обязательный | the question |
+| `answers` | обязательный | two answers or more |
+
+| Опция | Что делает |
+|---|---|
+| `--multiple` | people may pick several answers |
+| `--anonymous` | nobody sees who voted for what |
+| `--revote` | people may change their vote |
+| `--silent` | send without a notification |
+
 ## `max reactions`
 
 react to messages

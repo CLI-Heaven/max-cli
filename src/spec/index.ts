@@ -27,6 +27,7 @@ import {
 import {
   messageDelete,
   messagesEdit,
+  messagesPollVote,
   messagesReact,
   messagesReactions,
   messagesSend,
@@ -83,6 +84,7 @@ export const spec: readonly Entry[] = [
   messagesEdit,
   messagesReact,
   messagesUnreact,
+  messagesPollVote,
   messagesReactions,
   messageDelete,
   attachmentsVideo,
