@@ -1,7 +1,16 @@
 // Generated from src/spec/ by scripts/generate.ts. Do not edit; run `pnpm generate`.
 
 import { attachmentsFile, attachmentsVideo } from "../spec/operations/attachments.js"
-import { chatsHistory, chatsList, chatsUpdate } from "../spec/operations/chats.js"
+import {
+  chatsHistory,
+  chatsJoin,
+  chatsLeave,
+  chatsLinkInfo,
+  chatsList,
+  chatsMembers,
+  chatsUpdate,
+  chatsUpdateMembers,
+} from "../spec/operations/chats.js"
 import { contactsInfo } from "../spec/operations/contacts.js"
 import {
   loginByQr,
@@ -34,7 +43,12 @@ export const OPERATIONS = {
   "contacts.info": contactsInfo,
   "chats.history": chatsHistory,
   "chats.list": chatsList,
+  "chats.linkInfo": chatsLinkInfo,
+  "chats.join": chatsJoin,
+  "chats.leave": chatsLeave,
   "chats.update": chatsUpdate,
+  "chats.members": chatsMembers,
+  "chats.updateMembers": chatsUpdateMembers,
   "messages.send": messagesSend,
   "messages.edit": messagesEdit,
   "messages.react": messagesReact,

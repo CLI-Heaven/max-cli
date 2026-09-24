@@ -1,5 +1,17 @@
 import { asId, type Payload } from "../protocol/frame.js"
-import type { Attachment, Chat, ChatKind, Contact, Id, Message, Profile, QuotedMessage, Reactions } from "./models.js"
+import type {
+  Attachment,
+  Chat,
+  ChatKind,
+  Contact,
+  GroupCard,
+  GroupSettings,
+  Id,
+  Message,
+  Profile,
+  QuotedMessage,
+  Reactions,
+} from "./models.js"
 
 /**
  * Wire shapes into our own types.
@@ -24,6 +36,32 @@ export const toChat = (raw: Payload): Chat => ({
   lastMessageAt: timestamp(raw.lastEventTime ?? asRecord(raw.lastMessage)?.time),
   participantsCount: count(raw.participantsCount),
 })
+
+/** Our name for each flag MAX lets an owner write (PyMax `ChatOption`); the rest are read-only. */
+export const SETTING_FLAGS: Record<keyof GroupSettings, string> = {
+  allCanPin: "ALL_CAN_PIN_MESSAGE",
+  onlyAdminsAdd: "ONLY_ADMIN_CAN_ADD_MEMBER",
+  onlyAdminsCall: "ONLY_ADMIN_CAN_CALL",
+  onlyOwnerEditsInfo: "ONLY_OWNER_CAN_CHANGE_ICON_TITLE",
+  membersSeeLink: "MEMBERS_CAN_SEE_PRIVATE_LINK",
+}
+
+export const toGroupCard = (raw: Payload): GroupCard => {
+  // A dialog's `options` is a number (max-api-docs), so nothing in it is one of these flags.
+  const options = asRecord(raw.options)
+  const flag = (name: string) => (typeof options?.[name] === "boolean" ? (options[name] as boolean) : null)
+  const settings = Object.fromEntries(
+    Object.entries(SETTING_FLAGS).map(([ours, theirs]) => [ours, flag(theirs)]),
+  ) as unknown as GroupSettings
+
+  return {
+    ...toChat(raw),
+    description: text(raw.description),
+    access: typeof raw.access === "string" ? raw.access.toLowerCase() : null,
+    link: text(raw.link),
+    settings,
+  }
+}
 
 export const toMessage = (raw: Payload, chatId: Id, lookup: NameLookup = {}): Message => {
   const senderId = asId(raw.sender)

@@ -108,8 +108,21 @@ export const buildRequest = <TOperation extends Operation>(
   const result = v.safeParse(operation.request, input)
   if (result.success) return result.output as Payload
 
-  const fields = result.issues.map((issue) => fieldPath(issue)).join(", ")
+  const fields = closestIssues(operation.request, input, result.issues)
+    .map((issue) => fieldPath(issue))
+    .join(", ")
   throw new CliError("validation_error", `${operation.name}: cannot send this request — ${fields}`)
+}
+
+/**
+ * A request with several shapes (`messages.send` is a message or a new group) fails in all of
+ * them, and Valibot reports every shape's complaints at once. The shape nearest to what was
+ * built is the one its author meant, so only its fields are named.
+ */
+const closestIssues = (schema: v.GenericSchema, input: unknown, issues: readonly v.BaseIssue<unknown>[]) => {
+  if (!("options" in schema) || !Array.isArray(schema.options)) return issues
+  const attempts = (schema.options as v.GenericSchema[]).map((option) => v.safeParse(option, input).issues ?? [])
+  return attempts.reduce((best, attempt) => (attempt.length < best.length ? attempt : best))
 }
 
 /**

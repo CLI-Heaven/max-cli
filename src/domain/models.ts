@@ -160,6 +160,25 @@ export interface ChatCard extends Chat {
   members: Member[] | null
 }
 
+/** The settings MAX lets a group's owner change, under our names. */
+export interface GroupSettings {
+  allCanPin: boolean | null
+  onlyAdminsAdd: boolean | null
+  onlyAdminsCall: boolean | null
+  onlyOwnerEditsInfo: boolean | null
+  membersSeeLink: boolean | null
+}
+
+/** A group or channel as the group commands answer it. */
+export interface GroupCard extends Chat {
+  description: string | null
+  /** `public`, `private` or `secret`, as MAX says it. */
+  access: string | null
+  /** The invite link. Only a member who may see it gets one. */
+  link: string | null
+  settings: GroupSettings
+}
+
 /** One person and the chats this account shares with them, newest first. */
 export interface PersonCard extends Contact {
   chats: Pick<Chat, "id" | "title" | "kind" | "lastMessageAt">[]

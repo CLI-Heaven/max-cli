@@ -1,3 +1,4 @@
+import type * as v from "valibot"
 import { describe, expect, it } from "vitest"
 import { operations, reservations, spec } from "./index.js"
 
@@ -12,7 +13,9 @@ describe("the specification", () => {
 
   it("**refuses a request field nobody has seen, and keeps one a response grew**", () => {
     for (const operation of operations) {
-      expect(operation.request.type, operation.name).toBe("strict_object")
+      const request = operation.request as v.GenericSchema & { options?: v.GenericSchema[] }
+      const shapes = request.type === "union" ? (request.options ?? []) : [request]
+      for (const shape of shapes) expect(shape.type, operation.name).toBe("strict_object")
       expect(operation.response.type, operation.name).toBe("loose_object")
     }
   })

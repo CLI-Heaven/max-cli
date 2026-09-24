@@ -6,15 +6,34 @@ import type { Id } from "../domain/models.js"
 export type SendOutcome = "sent" | "outcome_unknown" | "refused" | "failed"
 
 /** Absent in the journal means a message: that is every line written before reactions were guarded. */
-export type SendKind = "message" | "reaction" | "edit" | "forward" | "pin"
+export type SendKind = "message" | "reaction" | "edit" | "forward" | "pin" | "chat"
+
+/** What a `chat` entry did. Never a title, a description or a link — only which action. */
+export type ChatAction =
+  | "create"
+  | "join"
+  | "leave"
+  | "members.add"
+  | "members.remove"
+  | "admins.add"
+  | "admins.remove"
+  | "update"
+  | "settings"
+  | "requests.accept"
+  | "requests.decline"
+  | "link.reset"
 
 /** One attempt to send. **Never the text** — only its length. */
 export interface SendEntry {
   at: string
   profile: string
-  chatId: Id
+  /** `null` when a join or a creation was refused before there was a chat. */
+  chatId: Id | null
   outcome: SendOutcome
   kind?: SendKind
+  action?: ChatAction
+  /** How many people a `chat` entry added or removed. */
+  people?: number
   messageId?: Id
   cid?: number
   length?: number

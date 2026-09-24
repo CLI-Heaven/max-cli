@@ -1,16 +1,14 @@
 import { CliError } from "@leemour/cli-core"
 import type { Id } from "../domain/models.js"
-import type { SendEntry, SendJournal, SendKind } from "./journal.js"
+import type { ChatAction, SendEntry, SendJournal, SendKind } from "./journal.js"
 import type { RecipientList } from "./recipients.js"
 
 const HOUR_MS = 60 * 60 * 1000
 
-/** What puts a new message in somebody's chat. A reaction, an edit or a quiet pin wakes nobody up (`NEED-168`). */
-const counted = (kind: SendKind = "message"): boolean => kind === "message" || kind === "forward"
-
 /** What `MaxClient.messages.send` asks before it sends, and tells after — on every outcome. */
 export interface SendGuard {
-  check(chatId: Id, kind?: SendKind): void
+  /** `null` for a chat that does not exist yet — joining or creating one — which no list can name. */
+  check(chatId: Id | null, kind?: SendKind, action?: ChatAction): void
   record(entry: Omit<SendEntry, "at" | "profile">): void
 }
 
@@ -27,6 +25,13 @@ export interface SendGuardOptions {
 }
 
 /**
+ * What puts a new message in somebody's chat (`NEED-168`). A reaction, an edit, a quiet pin or a
+ * change to a chat wakes nobody up; creating a group does — the people in it are told.
+ */
+const countsTowardLimit = ({ kind = "message", action }: { kind?: SendKind; action?: ChatAction }) =>
+  kind === "message" || kind === "forward" || action === "create"
+
+/**
  * These stop a model that was talked into sending by a message it read. They do **not** stop an
  * agent that edits the configuration itself — that needs a boundary outside this process
  * (`docs/security.md`).
@@ -41,16 +46,16 @@ export const sendGuard = ({
   warn,
   now = () => new Date(),
 }: SendGuardOptions): SendGuard => ({
-  check: (chatId, kind = "message") => {
+  check: (chatId, kind = "message", action) => {
     if (readOnly) {
       throw new CliError(
         "permission_error",
-        `profile ${profile} is read-only (readOnly, from the ${readOnlyFrom}) — it cannot send or react`,
+        `profile ${profile} is read-only (readOnly, from the ${readOnlyFrom}) — it cannot send, react or change chats`,
       )
     }
 
     const allowed = recipients.read()
-    if (allowed && !allowed.some((chat) => chat.id === chatId)) {
+    if (chatId !== null && allowed && !allowed.some((chat) => chat.id === chatId)) {
       throw new CliError(
         "confirmation_required",
         `chat ${chatId} is not on the recipient list of profile ${profile} — ` +
@@ -59,12 +64,12 @@ export const sendGuard = ({
       )
     }
 
-    if (!counted(kind)) return
+    if (!countsTowardLimit({ kind, action })) return
 
     const since = now().getTime() - HOUR_MS
     const recent = journal
       .entries()
-      .filter((entry) => counted(entry.kind))
+      .filter(countsTowardLimit)
       .filter((entry) => entry.outcome === "sent" || entry.outcome === "outcome_unknown")
       .map((entry) => Date.parse(entry.at))
       .filter((time) => time > since)

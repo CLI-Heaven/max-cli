@@ -47,6 +47,18 @@ describe("max commands", () => {
       .filter((command) => command.mutates)
       .map((command) => command.path.join(" "))
     expect(writing).toEqual([
+      "chats join",
+      "chats leave",
+      "chats create",
+      "chats members add",
+      "chats members remove",
+      "chats admins add",
+      "chats admins remove",
+      "chats update",
+      "chats settings",
+      "chats requests accept",
+      "chats requests decline",
+      "chats link reset",
       "messages send",
       "messages edit",
       "messages forward",

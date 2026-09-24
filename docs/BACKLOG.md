@@ -46,14 +46,9 @@ and needs the owner's yes before it ships. Deleting messages and marking them re
   with `wave` as 80 raw bytes in a binary MessagePack frame, and none of six JSON forms was accepted
   (`FIND-104`). Waits on `MAX-40`.
 - **MAX-28** · P1 · Polls: show them when reading, and vote (`vote_poll`).
-- **MAX-30** · P1 · Groups and channels you belong to: create a group, join or leave a group or a
-  channel by link, invite and remove members (`create_group`, `join_group`, `join_channel`,
-  `leave_group`, `leave_channel`, `invite_users_to_group`, `invite_users_to_channel`,
-  `remove_users_from_group`, `resolve_group_by_link`).
-- **MAX-31** · P1 · Administer a group: admins, name and settings, join requests, the invite link
-  (`add_admin`, `change_group_profile`, `change_group_settings`, `get_join_requests`,
-  `confirm_join_request(s)`, `decline_join_request(s)`, `rework_invite_link`). Deleting a chat
-  (`delete_chat`) is not included — the same reasoning as `NEED-32`.
+- **MAX-41** · 🟡 P2 · Measure opcode 77 (`CHAT_MEMBERS_UPDATE`). Done 2026-09-24 with a second
+  person (`pnpm probe:members`): add, remove, make admin, take admin back. Left: accept and decline a
+  join request — needs somebody who asks to join a group the owner runs.
 - **MAX-32** · P1 · Contacts: add, remove, import, find a person by phone number (`add_contact`,
   `remove_contact`, `import_contacts`, `search_by_phone`). A phone number never reaches a log.
 - **MAX-33** · P1 · Your own account: edit the profile, manage chat folders, list your other

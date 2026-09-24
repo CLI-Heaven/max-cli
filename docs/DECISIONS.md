@@ -694,3 +694,20 @@ of every install; if its weight is ever felt, that is the reason to revisit, not
 **NEED-151 · How does the server confirm a send?** Not answered; built as recommended: sending off
 unless `--allow-send`, and the client's own approval (`destructiveHint`, Claude Code's
 `requiresUserInteraction`). A form from the server itself (elicitation) is `CLI-28`.
+
+**NEED-198 · May a probe create an empty group on the real account?** **Yes.** «1 A». One group,
+"max-cli probe", nobody else in it. ~~the probe leaves it and the owner deletes it by hand~~
+**Correction 2026-09-24:** a group its last member leaves drops out of that member's chat list, so
+it can no longer be deleted by hand. The probe now ends as a member, and the owner deletes the
+group in MAX; `CHAT_DELETE` (52) stays unsent (`NEED-32`). The first run left one empty private
+group out of reach — harmless, seen by nobody. Invite, remove and admin stay unmeasured — they
+need another person.
+
+**NEED-199 · Group commands under `chats` or a `groups` word?** **Under `chats`.** «2 A». One word for
+groups and channels alike, as `chats list --kind` already is.
+
+**NEED-200 · MAX-30 and MAX-31 as one pull request or two?** **One.** «3 B».
+
+**NEED-207 · Does a recipient list refuse `chats join` and `chats create`?** **No.** «1 B». They have
+no chat yet for a list to name, so only a read-only profile refuses them; every change to an
+existing chat is still held to the list.

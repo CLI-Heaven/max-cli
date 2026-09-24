@@ -331,6 +331,37 @@ max messages send 0 --file a.jpg --file b.png        # два фото одни�
 max messages send 0 "встреча **в 15:00**, не _в 14_" --markdown
 ```
 
+### Группы и каналы
+
+```sh
+max chats inspect https://max.ru/join/…          # что за ссылкой; не вступает
+max chats join https://max.ru/join/…             # вступить в группу или канал
+max chats leave "Семья"                          # выйти
+max chats create "Поход" "Аня" 20000002          # создать группу с людьми (имя или id)
+max chats members add "Поход" "Боря" --hide-history
+max chats members remove "Поход" "Боря"
+max chats admins add "Поход" "Аня" --can members,pin
+max chats admins remove "Поход" "Аня"              # снять права; участником остаётся
+max chats update "Поход" --title "Поход-2026" --description "в июле"
+max chats settings "Поход"                       # прочитать настройки
+max chats settings "Поход" --all-can-pin off     # поменять одну
+max chats requests list "Поход"                  # кто просится
+max chats requests accept "Поход" 30000003
+max chats link reset "Поход"                     # новая ссылка; старая перестаёт работать
+```
+
+**Всё это видят другие люди**: вступление, выход, добавление, новое название. Кроме `inspect`,
+`settings` без флагов и `requests list` — они только читают. Действия идут через те же проверки,
+что отправка: профиль только для чтения откажет, список получателей пустит только в свои чаты, а в
+журнал отправок попадает действие без названий и ссылок. `create` считается в лимит отправок в час —
+приглашённым приходит сообщение. Ничего не повторяется при сбое: повтор `create` — вторая группа.
+
+Удалить участника можно, стереть его сообщения — нет. Удалить чат целиком — тоже нет, намеренно.
+Права админа для `--can`: `members`, `admins`, `info`, `pin`, `post`, `edit`, `delete`.
+
+Проверено на настоящем MAX 2026-09-24: всё, кроме `requests accept` и `requests decline` — для них
+нужен человек, который сам попросится в группу.
+
 ## Для скриптов и агентов
 
 ```sh

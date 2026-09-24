@@ -104,6 +104,134 @@ max chats show <chat>
 |---|---|---|
 | `chat` | обязательный | chat id, or part of a chat name |
 
+### `max chats inspect`
+
+what a link leads to, without joining it
+
+```sh
+max chats inspect <link>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `link` | обязательный | an invite link, https://max.ru/join/…, or a public one, https://max.ru/<name> |
+
+### `max chats join`
+
+join a group or channel by its link; the others in it see that you joined
+
+**Меняет что-то в MAX.**
+
+```sh
+max chats join <link>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `link` | обязательный | an invite link, https://max.ru/join/…, or a public one, https://max.ru/<name> |
+
+### `max chats leave`
+
+leave a group or channel; the others in it see that you left
+
+**Меняет что-то в MAX.**
+
+```sh
+max chats leave <chat>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+
+### `max chats create`
+
+create a group; the people added are told
+
+**Меняет что-то в MAX.**
+
+```sh
+max chats create <title> [person]
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `title` | обязательный | the group's name |
+| `person` | необязательный | people to add: an id, or part of a name |
+
+### `max chats members`
+
+add people to a group or channel, or remove them
+
+```sh
+max chats members
+```
+
+### `max chats admins`
+
+give or take back a member's admin rights
+
+```sh
+max chats admins
+```
+
+### `max chats update`
+
+rename a group or channel, or change its description
+
+**Меняет что-то в MAX.**
+
+```sh
+max chats update <chat> [options]
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+
+| Опция | Что делает |
+|---|---|
+| `--title <title>` | the new name |
+| `--description <text>` | the new description |
+
+### `max chats settings`
+
+a group's settings; with an option, change that one
+
+**Меняет что-то в MAX.**
+
+```sh
+max chats settings <chat> [options]
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+
+| Опция | Что делает |
+|---|---|
+| `--all-can-pin <on\|off>` | every member may pin messages |
+| `--only-admins-add <on\|off>` | only admins may add members |
+| `--only-admins-call <on\|off>` | only admins may start a call |
+| `--only-owner-edits-info <on\|off>` | only the owner may change the name and photo |
+| `--members-see-link <on\|off>` | members may see the invite link |
+
+### `max chats requests`
+
+people asking to join a group or channel
+
+```sh
+max chats requests
+```
+
+### `max chats link`
+
+a group's invite link
+
+```sh
+max chats link
+```
+
 ## `max contacts`
 
 people you have a one-to-one chat with
