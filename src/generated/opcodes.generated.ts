@@ -6,6 +6,7 @@
  * asserting their absence has something real to compare against.
  */
 export const Opcode = {
+  PING: 1,
   SESSION_INIT: 6,
   PROFILE: 16,
   AUTH_REQUEST: 17,

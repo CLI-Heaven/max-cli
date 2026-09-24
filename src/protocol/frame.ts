@@ -16,7 +16,8 @@ export type Payload = Record<string, unknown>
 export interface OutboundFrame {
   seq: number
   opcode: number
-  payload: Payload
+  /** Absent only in the answer to MAX's ping, which the web client sends with no payload at all. */
+  payload?: Payload
   cmd?: Command
 }
 

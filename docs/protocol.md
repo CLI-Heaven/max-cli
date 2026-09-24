@@ -14,6 +14,7 @@ sources disagree.
 |---|---|---|---|---|---|
 | `session.init` | 6 | `SESSION_INIT` | before login | measured | measured against MAX 2026-09-19; max-api-docs/protocol/auth.md; tsmax createWebAgent |
 | `session.login` | 19 | `LOGIN` | before login | measured | measured against MAX 2026-09-19; measured against MAX 2026-09-20 (`messages` is an object); measured against MAX 2026-09-22 (`token` replaces a stale credential once, then repeats) |
+| `session.ping` | 1 | `PING` | after login | confirmed | web.max.ru bundle read 2026-09-24: `cmd(1, {interactive})` every 30 s; PyMax Opcode.PING = 1 |
 | `session.logout` | 20 | `LOGOUT` | **never sent** | observed | max-api-docs/protocol/auth.md |
 | `login.qrRequest` | 288 | `GET_QR` | before login | measured | measured against MAX 2026-09-24: `session start qr` logged in; PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0; max-api-docs/protocol/auth.md (dac4b19) |
 | `login.qrStatus` | 289 | `GET_QR_STATUS` | before login | measured | measured against MAX 2026-09-24: `session start qr` logged in; PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0; max-api-docs/protocol/auth.md (dac4b19) |

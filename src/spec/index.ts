@@ -32,7 +32,7 @@ import {
   messagesSend,
   messagesUnreact,
 } from "./operations/messages.js"
-import { logout, sessionInit, sessionLogin } from "./operations/session.js"
+import { logout, sessionInit, sessionLogin, sessionPing } from "./operations/session.js"
 import { uploadsFile, uploadsPhoto } from "./operations/uploads.js"
 
 export { checkResponse } from "./check.js"
@@ -49,6 +49,7 @@ export * from "./scalars.js"
 export const spec: readonly Entry[] = [
   sessionInit,
   sessionLogin,
+  sessionPing,
   logout,
   loginQrRequest,
   loginQrStatus,
