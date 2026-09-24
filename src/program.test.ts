@@ -1,5 +1,5 @@
 import { captureStreams, memoryKeyring } from "@leemour/cli-core"
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import type { Environment } from "./commands/context.js"
 import { resolveSettings } from "./config.js"
 import { Opcode } from "./generated/opcodes.generated.js"
@@ -325,6 +325,24 @@ describe("the program", () => {
       expect(stdout).toBe("")
       expect(JSON.parse(stderr).error.code).toBe("authentication_error")
       expect(code).toBe(4)
+    })
+  })
+
+  describe("session start", () => {
+    afterEach(() => vi.unstubAllEnvs())
+
+    it("mentions the MAX terms after a profile's first login, and not after the next", async () => {
+      vi.stubEnv("MAX_TOKEN", "a-token")
+      const { max, ...environment } = scriptedMax({ token: false })
+
+      const first = await runWith(["t-terms", "session", "start"], environment)
+      const second = await runWith(["t-terms", "session", "start"], environment)
+
+      expect(max.unexpected).toEqual([])
+      expect(first.code).toBe(0)
+      expect(first.stderr).toContain("MAX terms")
+      expect(second.code).toBe(0)
+      expect(second.stderr).not.toContain("MAX terms")
     })
   })
 
