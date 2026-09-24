@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/leemour/max-cli/main/docs/design/logo.png" alt="max-cli" width="160">
+</p>
+
 # max-cli
 
 Ваш личный аккаунт [MAX](https://max.ru) в терминале и в ИИ-агентах. `max` — командная строка и
