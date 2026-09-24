@@ -29,13 +29,14 @@ import {
   messagesSend,
   messagesUnreact,
 } from "../spec/operations/messages.js"
-import { sessionInit, sessionLogin } from "../spec/operations/session.js"
+import { sessionInit, sessionLogin, sessionPing } from "../spec/operations/session.js"
 import { uploadsFile, uploadsPhoto } from "../spec/operations/uploads.js"
 
 /** Every operation that may be sent, by the name the client calls it. */
 export const OPERATIONS = {
   "session.init": sessionInit,
   "session.login": sessionLogin,
+  "session.ping": sessionPing,
   "login.qrRequest": loginQrRequest,
   "login.qrStatus": loginQrStatus,
   "login.byQr": loginByQr,
