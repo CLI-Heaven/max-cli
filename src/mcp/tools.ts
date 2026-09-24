@@ -218,8 +218,6 @@ const SEND_TOOL = {
   }),
 }
 
-export const TOOL_NAMES = [...Object.keys(READ_TOOLS), ...Object.keys(SEND_TOOL)]
-
 const answered = (value: object): CallToolResult => ({
   content: [{ type: "text", text: JSON.stringify(value) }],
   structuredContent: value as Record<string, unknown>,

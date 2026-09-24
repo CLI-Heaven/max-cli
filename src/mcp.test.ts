@@ -7,11 +7,12 @@ import { Opcode } from "./generated/opcodes.generated.js"
 import { createMaxServer, type ServerOptions } from "./mcp/server.js"
 import { Connection } from "./protocol/connection.js"
 import { SessionStore } from "./session/store.js"
-import { mockMax } from "./testing/mock-max.js"
+import { type MockMaxOptions, mockMax } from "./testing/mock-max.js"
 
-const scriptedMax = () =>
+const scriptedMax = (extra: MockMaxOptions["answers"] = {}) =>
   mockMax({
     answers: {
+      ...extra,
       [Opcode.SESSION_INIT]: {},
       [Opcode.LOGIN]: {
         profile: { contact: { id: 10000001, names: [{ name: "Test Person", type: "FULL_NAME" }] } },
@@ -33,8 +34,11 @@ afterEach(async () => {
 
 let profiles = 0
 
-const connect = async (options: Partial<ServerOptions> = {}, { token = true } = {}) => {
-  const max = scriptedMax()
+const connect = async (
+  options: Partial<ServerOptions> = {},
+  { token = true, answers = {} }: { token?: boolean; answers?: MockMaxOptions["answers"] } = {},
+) => {
+  const max = scriptedMax(answers)
   const keyring = memoryKeyring()
   const streams = captureStreams()
   const context = contextFor(
@@ -146,6 +150,34 @@ describe("the MCP server", () => {
     expect(isError).toBe(true)
     expect(body.error).toMatchObject({ candidates: [{ id: "111" }, { id: "222" }] })
     expect(max.sent.map(({ opcode }) => opcode)).not.toContain(Opcode.MSG_SEND)
+  })
+
+  it("sends to a chat named exactly, and answers the message sent", async () => {
+    const { client, max } = await connect(
+      { allowSend: true },
+      {
+        answers: {
+          [Opcode.MSG_SEND]: {
+            message: { id: 116762160362694590n, time: 1789776000000, sender: 10000001, text: "hello" },
+          },
+        },
+      },
+    )
+
+    const { isError, body } = await call(client, "max_messages_send", { chat: "Team Alpha", text: "hello" })
+
+    expect(isError).toBe(false)
+    expect(body).toMatchObject({ id: "116762160362694590" })
+    expect(max.sent.find(({ opcode }) => opcode === Opcode.MSG_SEND)?.payload).toMatchObject({ chatId: 111 })
+  })
+
+  it("hands back the cid when it cannot tell whether a send went out", async () => {
+    const { client } = await connect({ allowSend: true }, { answers: { [Opcode.MSG_SEND]: () => undefined } })
+
+    const { isError, body } = await call(client, "max_messages_send", { chat: "111", text: "hello" })
+
+    expect(isError).toBe(true)
+    expect(body.error).toMatchObject({ code: "outcome_unknown", cid: expect.any(Number) })
   })
 
   it("starts without a session and says which command logs in", async () => {
