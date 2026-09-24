@@ -484,6 +484,18 @@ max update [options]
 |---|---|
 | `--check` | say whether a newer version exists, and install nothing |
 
+## `max mcp`
+
+serve this profile to an agent over MCP, on stdin and stdout — `claude mcp add max -- max mcp`
+
+```sh
+max mcp [options]
+```
+
+| Опция | Что делает |
+|---|---|
+| `--allow-send` | offer the send tool; without it the server can only read |
+
 ## Коды возврата
 
 Скрипт ветвится по коду, а не по тексту: текст меняется, код — нет.
