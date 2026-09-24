@@ -15,6 +15,7 @@ const SHOWN: SourcedSetting[] = [
   "serve",
   "keepRunsForDays",
   "readOnly",
+  "allow",
   "sendsPerHour",
   "updateCheck",
 ]
@@ -42,7 +43,8 @@ export const configCommand = (): Command => {
         pathsOverridden: overridden,
         settings: SHOWN.map((setting) => ({
           setting,
-          value: settings[setting] ?? null,
+          // No list is every action, and `null` would read as none.
+          value: setting === "allow" ? (settings.allow ?? "all") : (settings[setting] ?? null),
           from: settings.sources[setting],
         })),
       })
