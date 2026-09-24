@@ -542,7 +542,7 @@ export class MaxClient {
      *
      * **Its attachments are sent back as history gives them**: measured 2026-09-24, an edit with
      * none removes a photo from the message. Refused before asking MAX when the message is not the
-     * owner's or is a forward — the web client offers neither. MAX's own limit is
+     * owner's, is a forward, or carries anything but photos — the web client offers none of those. MAX's own limit is
      * `edit-timeout` from LOGIN, 604800 s when measured; past it MAX refuses and that is the answer.
      * Not retried, like a reaction.
      */
@@ -560,6 +560,14 @@ export class MaxClient {
         }
         if (record(raw.link)?.type === "FORWARD") {
           throw new CliError("validation_error", `message ${messageId} is a forward — a forward cannot be edited`)
+        }
+        // Only a photo was measured to survive the round trip; the web client refuses files, stickers and the rest too.
+        const other = current.attachments.find((attachment) => attachment.kind !== "photo")
+        if (other) {
+          throw new CliError(
+            "validation_error",
+            `message ${messageId} carries a ${other.kind} — only text and photos can be edited`,
+          )
         }
 
         const { text: plain, markup } = markdown ? parseMarkdown(text) : { text, markup: [] }

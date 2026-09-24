@@ -4,6 +4,7 @@ import type { Environment } from "./commands/context.js"
 import { Opcode } from "./generated/opcodes.generated.js"
 import { run } from "./program.js"
 import { Connection } from "./protocol/connection.js"
+import type { Payload } from "./protocol/frame.js"
 import { SendJournal, sendsPathFor } from "./sends/journal.js"
 import { SessionStore } from "./session/store.js"
 import { mockMax } from "./testing/mock-max.js"
@@ -12,7 +13,17 @@ const OWNER = 10000001
 const MESSAGE = "116762160362694583"
 const PHOTO = { _type: "PHOTO", photoId: 5, photoToken: "a-photo-token", baseUrl: "https://example.test/p" }
 
-const messenger = ({ sender = OWNER, link }: { sender?: number; link?: object } = {}) => {
+const messenger = ({
+  sender = OWNER,
+  link,
+  attaches = [PHOTO],
+  send,
+}: {
+  sender?: number
+  link?: object
+  attaches?: object[]
+  send?: (request: Payload) => Payload | undefined
+} = {}) => {
   const max = mockMax({
     answers: {
       [Opcode.SESSION_INIT]: {},
@@ -30,7 +41,7 @@ const messenger = ({ sender = OWNER, link }: { sender?: number; link?: object } 
             time: 1789776000000,
             sender,
             text: "old",
-            attaches: [PHOTO],
+            attaches,
             ...(link ? { link } : {}),
           },
         ],
@@ -38,7 +49,7 @@ const messenger = ({ sender = OWNER, link }: { sender?: number; link?: object } 
       [Opcode.MSG_EDIT]: {
         message: { id: BigInt(MESSAGE), time: 1789776000000, sender, text: "new", status: "EDITED", attaches: [PHOTO] },
       },
-      [Opcode.MSG_SEND]: { message: { id: 116762160362694590n, time: 1789776100000, sender: OWNER, text: "" } },
+      [Opcode.MSG_SEND]: send ?? { message: { id: 116762160362694590n, time: 1789776100000, sender: OWNER, text: "" } },
       [Opcode.CHAT_UPDATE]: { chat: { id: 111 } },
     },
   })
@@ -87,6 +98,12 @@ describe("editing", () => {
     const forward = messenger({ link: { type: "FORWARD", chatId: 222, message: {} } })
     expect((await runWith(["e-fwd", "messages", "edit", "111", MESSAGE, "new"], forward.environment)).code).toBe(2)
     expect(forward.sentWith(Opcode.MSG_EDIT)).toEqual([])
+
+    const file = messenger({ attaches: [{ _type: "FILE", fileId: 7, name: "report.pdf" }] })
+    const refused = await runWith(["e-file", "messages", "edit", "111", MESSAGE, "new"], file.environment)
+    expect(refused.code).toBe(2)
+    expect(JSON.parse(refused.stderr).error.message).toContain("carries a file")
+    expect(file.sentWith(Opcode.MSG_EDIT)).toEqual([])
   })
 })
 
@@ -107,6 +124,19 @@ describe("forwarding", () => {
     expect([link.type, String(link.messageId), String(link.chatId)]).toEqual(["FORWARD", MESSAGE, "111"])
     expect(attaches).toEqual([])
     expect(journalOf("e-forward")).toMatchObject([{ chatId: "222", kind: "forward", outcome: "sent" }])
+  })
+
+  it("repeats a lost forward once with the same cid, then answers outcome_unknown with the command to repeat", async () => {
+    const { environment, sentWith } = messenger({ send: () => undefined })
+    const lost = await runWith(["e-lost", "messages", "forward", "111", MESSAGE, "--to", "222"], environment)
+
+    const cids = sentWith(Opcode.MSG_SEND).map(({ payload }) => (payload?.message as { cid: number } | undefined)?.cid)
+    expect(cids).toHaveLength(2)
+    expect(cids[0]).toBe(cids[1])
+    const { error } = JSON.parse(lost.stderr)
+    expect(error.code).toBe("outcome_unknown")
+    expect(error.message).toContain(`max messages forward 111 ${MESSAGE} --to 222 --cid ${cids[0]}`)
+    expect(journalOf("e-lost")).toMatchObject([{ kind: "forward", outcome: "outcome_unknown", cid: cids[0] }])
   })
 
   it("counts against the hourly limit; an edit and a pin do not", async () => {
