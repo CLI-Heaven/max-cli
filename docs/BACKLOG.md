@@ -78,6 +78,10 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
 - **MAX-4** · 🟡 P3 · Chat addressing. Done: an id, or a title matched exactly then as a fragment,
   an ambiguous one refused (`src/client.ts:149`). Left: `@username`, a phone number, a chat the
   account is not in.
+- **CLI-36** · P3 · The local copy made optional: a setting under which `max` writes no chats or
+  messages to disk and answers everything from MAX (`--offline` and `messages search` then refuse).
+  Owner, 2026-09-24: «я бы сделал хранение опциональным в P3». Starts at `openProfileCache`
+  (`src/commands/chats.ts:22` and every command that opens it).
 - **CLI-5** · P3 · `max raw <operation>` — a debug escape hatch, validated against the spec, never
   arbitrary frames (REQUIREMENTS §22).
 - **MAX-8** · P1 · Look like the official client beyond the user agent: the telemetry it sends and

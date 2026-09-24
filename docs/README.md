@@ -35,6 +35,7 @@ so a reference that quotes a command the program no longer has cannot reach `mai
 - [diagnostics.md](diagnostics.md) — `--trace`, `--record`, `max runs` — и чего в записи нет
 - [security.md](security.md) — что попадает на диск, а что не попадает никогда
 - [troubleshooting.md](troubleshooting.md) — по симптому: что видно на экране и что делать
+- [ROADMAP.md](ROADMAP.md) — что планируется
 - [releasing.md](releasing.md) — как выпускается версия, и кем
 - [../CHANGELOG.md](../CHANGELOG.md) — что изменилось между версиями
 

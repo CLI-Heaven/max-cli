@@ -68,6 +68,8 @@ git log --oneline -1 -- <path>
 
 A discrepancy you find gets **corrected in the document that is wrong, in place**, marked as a
 correction. A note appended at the bottom does not count — the next reader reads the top.
+**Except on user pages** — `README.md` and the Russian pages in `docs/`: rewrite the sentence with
+no mark, only current facts ([`docs/CONVENTIONS.md`](docs/CONVENTIONS.md), "User pages").
 
 ## Comments
 
