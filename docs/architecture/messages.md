@@ -10,13 +10,18 @@ holds, and what an attachment carries.
 `messages list` and `messages search` print a feed, not a table (`src/rendering/messages.ts`):
 
 - a date line when the day changes; `hh:mm:ss  sender` and the text below, aligned;
-- `↳` for what a reply answers, `↪` for a forward, `📎` per attachment;
+- `↳` for what a reply answers, `↪` for a forward, `📎` per attachment, and a line of reactions;
 - `-v` adds ids, `-vv` everything the model holds.
 
 Pure functions return the string; the command writes it. Widths use `string-width`, never `length`,
 so `张伟` and `👨‍💻` align. Colour goes through `util.styleText`, **but we decide when**: Node leaves
 a pipe unstyled, Bun 1.3.14 styles it anyway (measured 2026-09-22). JSON is untouched; `--jsonl`
 gives one object per line.
+
+**Reactions are one extra read per page.** History carries none (measured 2026-09-23); opcode 180
+(`messages.reactions`) is asked for the page's ids inside `#history` (`src/client.ts`). Not cached —
+they change without the message changing — so `--offline` shows `null`. A failed 180 warns and the
+read goes on. `messages download` skips it.
 
 ## A message id carries its time
 

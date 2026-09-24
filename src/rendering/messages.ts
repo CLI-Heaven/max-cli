@@ -1,7 +1,7 @@
 import { styleText } from "node:util"
 import stringWidth from "string-width"
 import wrapAnsi from "wrap-ansi"
-import type { Attachment, Message, MessageHit, QuotedMessage, WindowedMessage } from "../domain/models.js"
+import type { Attachment, Message, MessageHit, QuotedMessage, Reactions, WindowedMessage } from "../domain/models.js"
 
 export interface RenderOptions {
   /** 0 — the conversation; 1 — the ids worth searching by; 2 — everything the model knows. */
@@ -65,6 +65,7 @@ export const renderMessage = (message: Message | MessageHit | WindowedMessage, o
   }
   if (message.text) lines.push(...body(message.text))
   lines.push(...attachmentLines(message.attachments, paint, options))
+  if (message.reactions && message.reactions.total > 0) lines.push(paint("dim", reactionLine(message.reactions)))
   if (message.editedAt) lines.push(paint("dim", `edited ${editedAt(message, options)}`))
 
   if (verbosity >= 1) {
@@ -178,6 +179,11 @@ const dayFormatter = ({ locale = "ru-RU", timeZone }: RenderOptions) => {
     ...(timeZone ? { timeZone } : {}),
   })
   return (iso: string) => format.format(new Date(iso)).replace(/\s*г\.$/, "")
+}
+
+const reactionLine = ({ counts, mine }: Reactions): string => {
+  const shown = counts.map(({ reaction, count }) => `${reaction} ${count}`).join("  ")
+  return mine ? `${shown}  (you: ${mine})` : shown
 }
 
 const editedAt = (message: Message, options: RenderOptions): string => {

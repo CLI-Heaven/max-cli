@@ -36,7 +36,7 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   feature both target users need (`NEED-143`).
 - **MAX-9** · 🟡 P2 · The rest of the messenger surface, in the order of REQUIREMENTS §35.
   Done: attachments, replies and forwards when reading (`src/domain/models.ts:23-75`); sending a
-  reaction (`max reactions add`, `NEED-141`). Left: reactions when reading (`MAX-15`), then uploads, edits; group administration
+  reaction (`max reactions add`, `NEED-141`). Left: uploads, edits; group administration
   last. Each writing operation needs its request shape measured first.
 - **MAX-4** · 🟡 P3 · Chat addressing. Done: an id, or a title matched exactly then as a fragment,
   an ambiguous one refused (`src/client.ts:149`). Left: `@username`, a phone number, a chat the
@@ -46,12 +46,6 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 - **MAX-8** · P3 · Telemetry as the official client sends it — only once our own traffic is
   understood (`NEED-16`).
 
-- **MAX-15** · 🚧 `reactions-reading` · P2 · Show reactions when reading. History does not carry them: after the owner
-  reacted in Saved messages, 653 messages from 25 chats (Saved included) had no reaction field
-  (`pnpm probe:reactions`, 2026-09-23). **Found and measured 2026-09-23:** opcode 180
-  `{chatId, messageIds}` answers `{messagesReactions: {<id>: {counters, yourReaction, totalCount}}}`
-  — a read (tsmax `getReactions`, then `pnpm probe:reply`). Next: call it for the messages a read
-  returns. Correction: an earlier line here took `reactionInfo` from test data.
 - **RES-5** · 🟡 P2 · Does `LOGIN` move presence or read state? Reading history does not (no
   `CHAT_MARK`, tested). The login flag `interactive` is unexplained (`ARCHITECTURE.md` §4). Needs a
   second device watching.

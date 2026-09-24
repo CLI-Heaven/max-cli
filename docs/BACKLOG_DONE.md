@@ -64,6 +64,7 @@ what exists now, and where it is described. The numbers stay reserved — commit
 - **MAX-21** — every send attempt journalled without its text, always; `max sends list`.
 - **MAX-22** — `max reactions add` goes through the send guards: read-only and the recipient list
   refuse it, it is journalled as `kind: "reaction"`, the hourly limit does not count it (`NEED-168`).
+- **MAX-15** — reactions under a message when reading, from opcode 180, one request per page; not cached, `null` offline (`src/client.ts` `#withReactions`).
 
 ## The command
 

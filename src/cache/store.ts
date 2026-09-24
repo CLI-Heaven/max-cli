@@ -340,6 +340,7 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
     attachments: JSON.parse(String(row.attachments)) as Message["attachments"],
     replyTo: null,
     forwardedFrom: null,
+    reactions: null,
     ...(row.link === null || row.link === undefined
       ? {}
       : (JSON.parse(String(row.link)) as Pick<Message, "replyTo" | "forwardedFrom">)),

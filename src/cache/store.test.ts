@@ -59,6 +59,7 @@ const message = (id: string, at: number, text: string, editedAt: string | null =
   attachments: [],
   replyTo: null,
   forwardedFrom: null,
+  reactions: null,
 })
 
 describe("searching the store", () => {

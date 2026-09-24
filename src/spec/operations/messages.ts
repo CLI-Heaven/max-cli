@@ -35,6 +35,25 @@ export const messagesSend = defineOperation({
   },
 })
 
+export const messagesReactions = defineOperation({
+  name: "messages.reactions",
+  constant: "MSG_GET_REACTIONS",
+  opcode: 180,
+  auth: true,
+  request: v.strictObject({ chatId: id(), messageIds: v.array(id()) }),
+  response: v.looseObject({ messagesReactions: v.optional(v.looseObject({})) }),
+  provenance: {
+    confidence: "measured",
+    sources: [
+      "measured against MAX 2026-09-24 in Saved messages (`pnpm probe:message-shapes`)",
+      "tsmax getReactions",
+      "PyMax get_reactions",
+    ],
+    notes:
+      "Answers `{messagesReactions: {<message id>: {counters: [{count, reaction}], yourReaction, totalCount}}}`. History carries no reactions (measured 2026-09-23), so this is the only way to read them.",
+  },
+})
+
 export const messagesReact = defineOperation({
   name: "messages.react",
   constant: "MSG_REACTION",

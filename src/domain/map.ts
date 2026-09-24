@@ -39,6 +39,7 @@ export const toMessage = (raw: Payload, chatId: Id, lookup: NameLookup = {}): Me
     outgoing: lookup.viewerId === undefined || senderId === undefined ? null : senderId === lookup.viewerId,
     attachments: attachments(raw.attaches),
     ...linked(raw.link, lookup),
+    reactions: null,
   }
 }
 

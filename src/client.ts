@@ -379,14 +379,14 @@ export class MaxClient {
     around: async (
       chatId: Id,
       messageId: Id,
-      { before = 0, after = 0 }: { before?: number; after?: number } = {},
+      { before = 0, after = 0, reactions = true }: { before?: number; after?: number; reactions?: boolean } = {},
     ): Promise<WindowedMessage[]> => {
       const time = timeOfMessageId(messageId)
       if (time === undefined) throw new CliError("validation_error", `"${messageId}" is not a message id`)
 
       const found = this.#offline
         ? (this.#cache?.messages.window(chatId, time, before + 1, after) ?? [])
-        : await this.#history(chatId, { from: time, backward: before + 1, forward: after })
+        : await this.#history(chatId, { from: time, backward: before + 1, forward: after }, { reactions })
 
       if (!found.some((message) => message.id === messageId)) {
         throw new CliError("not_found", `no message ${messageId} in chat ${chatId} — deleted, or in another chat`)
@@ -403,7 +403,7 @@ export class MaxClient {
     links: async (chatId: Id, messageId: Id): Promise<{ links: AttachmentLink[]; skipped: string[] }> => {
       if (this.#offline)
         throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot download")
-      const [message] = await this.messages.around(chatId, messageId)
+      const [message] = await this.messages.around(chatId, messageId, { reactions: false })
       if (!message) throw new CliError("not_found", `no message ${messageId} in chat ${chatId}`)
 
       const links: AttachmentLink[] = []
@@ -760,7 +760,11 @@ export class MaxClient {
    * public for the one command that must reach MAX to mean anything — starting a session.
    */
   /** `interactive: false` and never `CHAT_MARK`: reading history must not mark anything read (§19). */
-  async #history(chatId: Id, window: { from: number; backward: number; forward: number }): Promise<Message[]> {
+  async #history(
+    chatId: Id,
+    window: { from: number; backward: number; forward: number },
+    { reactions = true }: { reactions?: boolean } = {},
+  ): Promise<Message[]> {
     await this.#connectOnce()
     const session = this.#session()
     const answer = await this.#wire.chats.history({
@@ -777,7 +781,23 @@ export class MaxClient {
     const lookup = { names: namesFrom(session.contacts), ...viewer(this.#store) }
     const messages = await this.#nameSenders(asArray(answer.messages).map((raw) => toMessage(raw, chatId, lookup)))
     this.#cache?.messages.write(chatId, messages)
-    return messages
+    return reactions ? this.#withReactions(chatId, messages) : messages
+  }
+
+  /** One request per page: history carries no reactions (measured 2026-09-23). */
+  async #withReactions(chatId: Id, messages: Message[]): Promise<Message[]> {
+    if (messages.length === 0) return messages
+    try {
+      const answer = await this.#wire.messages.reactions({ chatId, messageIds: messages.map((message) => message.id) })
+      const byId = record(answer.messagesReactions) ?? {}
+      return messages.map((message) => {
+        const raw = record(byId[message.id])
+        return { ...message, reactions: raw ? toReactions(raw) : { counts: [], mine: null, total: 0 } }
+      })
+    } catch (error) {
+      this.#warn(`reactions are not shown: they could not be read (${reasonOf(error)})`)
+      return messages
+    }
   }
 
   /**
