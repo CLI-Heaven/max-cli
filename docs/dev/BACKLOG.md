@@ -185,10 +185,10 @@ which; the plan for it starts by saying so.
   `NEED-213`; research G5 §3.13). Deferred by the owner the same day, then made the most important
   next item the same evening. Measured 2026-09-24 on Node 24 and Bun 1.3.14: 5 min of Ogg Opus in
   42 s through VAD, ~700 MB peak; without VAD it crashes at 5 min. Done 2026-09-24: `max messages
-  transcribe`, `max models list|download`, three pinned models (`gigaam-v3`, `gigaam-v3-ctc`,
-  `parakeet-v3`), the text kept in the cache (schema 5), MCP tool `max_messages_transcribe`. Left:
-  `--transcribe` on `messages list` and `inbox`, after the owner judges the quality on real voice
-  messages.
+  transcribe`, `max models audio list|download`, three pinned models (`gigaam-v3`, `gigaam-v3-ctc`,
+  `parakeet-v3`), the text kept in the cache (schema 5), MCP tool `max_messages_transcribe`. On the
+  owner's own voice messages `gigaam-v3` was best and stays the default (`NEED-235`). Left:
+  `--transcribe` on `messages list` and `inbox`.
 - **CLI-25** · P3 · `max bot …` — work with a MAX bot through the official bot API and a bot token,
   beside the personal account. Reopens REQUIREMENTS §3 ("not a bot-account client"). Bots are
   issued only to verified organisations, sole traders and the self-employed
