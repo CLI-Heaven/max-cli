@@ -10,7 +10,7 @@ import { recorded } from "../runs/recording.js"
 import { sendGuard } from "../sends/guard.js"
 import { SendJournal, sendsPathFor } from "../sends/journal.js"
 import { RecipientList, recipientsPathFor } from "../sends/recipients.js"
-import { ServerConnection } from "../server/server-connection.js"
+import { ServerConnection, stopServer } from "../server/server-connection.js"
 import { ensureServer } from "../server/start.js"
 import { type BrowserDoors, realBrowser } from "../session/browser.js"
 import { readSecret } from "../session/prompt.js"
@@ -64,8 +64,18 @@ export interface CommandContext {
   color: boolean
   streams: Streams
   store: SessionStore
-  /** Not connected yet: the action owns the `finally` that closes it — and the cache, if it opened one. */
-  createClient: (extra?: Partial<Omit<MaxClientOptions, "store">>) => MaxClient
+  /**
+   * Not connected yet: the action owns the `finally` that closes it — and the cache, if it opened one.
+   * It goes through the profile's one `max serve`; `own` is for logging in, which cannot.
+   */
+  createClient: (extra?: Partial<Omit<MaxClientOptions, "store">>, options?: { own?: boolean }) => MaxClient
+  /**
+   * Starts the profile's server if none is running and waits for it; `false` when it did not come
+   * up, or when this is not the place to start one (`serve: false`, a test).
+   */
+  shareServer: () => Promise<boolean>
+  /** Stops the profile's server however it was started — `max session start` replaces its session. */
+  stopServer: () => Promise<"stopped" | "refused" | "none">
   /**
    * Runs the body with diagnostics on and the run finalized on every path, if anything asked for
    * either. The body gets the emitter to hand to `createClient`.
@@ -116,6 +126,9 @@ export const contextFor = (
   // on that is what makes the second one, some day, the leak that keeps the process alive.
   const clients: Closeable[] = []
 
+  // Only for the real thing: a test hands in its own store, and must never start a process.
+  const starts = !environment.store && !environment.connection && settings.serve
+
   return {
     settings,
     renderer,
@@ -123,12 +136,13 @@ export const contextFor = (
     color,
     streams,
     store,
-    createClient: (extra = {}) => {
+    shareServer: async () => starts && ensureServer(store),
+    stopServer: () => stopServer(store.socketPath(), { force: true }),
+    createClient: (extra = {}, { own = false } = {}) => {
       const timeout = settings.timeoutMs ? { timeoutMs: settings.timeoutMs } : {}
-      // Only for the real thing: a test hands in its own store, and must never start a process.
-      const shares = !environment.store && !environment.connection && flags.offline !== true && settings.serve
+      const shares = starts && flags.offline !== true
       const wire =
-        shares || existsSync(store.socketPath())
+        !own && (shares || existsSync(store.socketPath()))
           ? new ServerConnection({
               path: store.socketPath(),
               store,

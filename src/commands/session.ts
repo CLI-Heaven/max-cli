@@ -69,8 +69,13 @@ export const sessionCommand = (): Command => {
       }
 
       await run("session start", async (events) => {
+        // One connection per profile at any moment (`NEED-229`): a login needs one of its own — MAX
+        // logs in before there is a token to share — so the server holding the old session goes
+        // first, and comes back on the new one below.
+        if ((await context.stopServer()) === "stopped")
+          renderer.note("stopped `max serve`; it starts again on the new session")
         const token = method === "token" ? String(pasted) : await obtain(method, context, events)
-        const client = createClient({ events })
+        const client = createClient({ events }, { own: true })
 
         // No account on record means this profile has never logged in, or `session end` forgot it.
         const firstLogin = store.readState().viewerId === undefined
@@ -84,6 +89,7 @@ export const sessionCommand = (): Command => {
         } finally {
           await client.close()
         }
+        if (await context.shareServer()) renderer.note("`max serve` is up on the new session")
       })
     })
 
@@ -140,7 +146,7 @@ const obtain = async (
     return await browser.chromiumToken({ track, waitMs: BROWSER_WAIT_MS })
   }
 
-  const client = createClient({ events })
+  const client = createClient({ events }, { own: true })
   let page: Awaited<ReturnType<typeof serveQrPage>> | undefined
   try {
     return await client.login.byQr({
