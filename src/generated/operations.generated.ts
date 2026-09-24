@@ -11,7 +11,7 @@ import {
   loginSmsCode,
   loginSmsRequest,
 } from "../spec/operations/login.js"
-import { messagesReact, messagesSend } from "../spec/operations/messages.js"
+import { messagesReact, messagesReactions, messagesSend } from "../spec/operations/messages.js"
 import { sessionInit, sessionLogin } from "../spec/operations/session.js"
 
 /** Every operation that may be sent, by the name the client calls it. */
@@ -29,6 +29,7 @@ export const OPERATIONS = {
   "chats.list": chatsList,
   "messages.send": messagesSend,
   "messages.react": messagesReact,
+  "messages.reactions": messagesReactions,
   "attachments.video": attachmentsVideo,
   "attachments.file": attachmentsFile,
 } as const
