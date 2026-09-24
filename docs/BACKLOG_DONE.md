@@ -5,6 +5,9 @@ what exists now, and where it is described. The numbers stay reserved — commit
 
 ## Foundation and repository
 
+- **MAX-44** — the cache keeps messages through a schema upgrade: `messages` and `ranges` are
+  carried over and the search index is rebuilt over them; everything else still comes back from
+  MAX. `docs/architecture/store.md`, «A version bump is a rebuild, except for the history».
 - **CLI-32** — text from other people cannot rewrite the terminal: control characters are shown as
   `\xNN` in the message view, in tables and diagnostics (`@leemour/cli-core` 0.5.0) and in Tab
   completion. JSON unchanged. `SEC-9` in the research journal; braze-cli's `SEC-2` is the same fix.

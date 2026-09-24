@@ -103,7 +103,8 @@ bin/max chats list --json --limit 5
 ```
 
 It runs the build with config, state and cache in `.max/` inside the worktree (gitignored). A
-build with a newer cache schema migrates whatever cache it opens and drops the read history, so a
+build with a newer cache schema migrates whatever cache it opens and ~~drops the read history~~
+(correction 2026-09-24, `MAX-44`: keeps messages but drops chats, people and memberships), so a
 branch must never open the owner's real one.
 
 ⚠ **Each worktree therefore has its own session.** The directory variables also move the keyring

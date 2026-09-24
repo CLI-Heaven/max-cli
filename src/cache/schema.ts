@@ -207,17 +207,24 @@ const STATEMENTS = [
  * A newer `max` may have added a column this one does not know about. Reading it is survivable;
  * writing to it is how one version quietly destroys what another stored.
  *
- * **An older file is rebuilt, not altered.** Everything in here comes back from MAX, so a
- * column-by-column migration would be code that runs once, is tested never, and is how the second
- * schema change corrupts somebody's file. What a rebuild costs is one full login — which is what
- * every command did before the delta sync existed.
+ * **An older file is rebuilt, except for the history.** Chats, people and memberships come back
+ * from MAX with one login, so they are dropped and refilled rather than altered. Messages do not:
+ * getting a chat's history back costs a request per page, and a backup (`CLI-34`) is exactly what
+ * cannot be allowed to vanish on the next upgrade (`MAX-44`). `messages` and `ranges` therefore
+ * keep their rows — copied, by the columns both versions share, into the tables this version
+ * creates.
  *
- * ⚠ **This stops being the right answer the day the database holds something MAX cannot re-send.**
- * Contacts that are in no chat would be exactly that (`RES-7`), and the day they arrive this
- * becomes `ALTER TABLE … ADD COLUMN` and this paragraph gets rewritten.
+ * ⚠ **A column added to `messages` or `ranges` must be nullable or have a default.** The copy
+ * leaves it out, and a `NOT NULL` column without one fails it. A test holds every shipped shape of
+ * those tables to that.
+ *
+ * Contacts that are in no chat would be another thing MAX cannot re-send (`RES-7`); the day they
+ * arrive, their table joins `KEPT`.
  */
 /** Ours, so its message is known to hold no path and can be shown as it is. */
 export class NewerCacheError extends Error {}
+
+const KEPT = ["messages", "ranges"]
 
 export const migrate = (database: CacheDatabase): void => {
   const current = Number(
@@ -231,7 +238,20 @@ export const migrate = (database: CacheDatabase): void => {
     )
   }
 
-  if (current > 0 && current < SCHEMA_VERSION) rebuild(database)
+  if (current > 0 && current < SCHEMA_VERSION) {
+    database.exec("BEGIN IMMEDIATE")
+    try {
+      const kept = rebuild(database)
+      for (const statement of STATEMENTS) database.exec(statement)
+      for (const table of kept) restore(database, table)
+      database.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
+      database.exec("COMMIT")
+    } catch (error) {
+      database.exec("ROLLBACK")
+      throw error
+    }
+    return
+  }
 
   for (const statement of STATEMENTS) database.exec(statement)
   database.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`)
@@ -240,27 +260,67 @@ export const migrate = (database: CacheDatabase): void => {
 /**
  * Drops what is there by asking the file rather than by listing what we think a previous version
  * wrote. A version that added a table we have since forgotten would otherwise survive the rebuild
- * and collide with a later name.
+ * and collide with a later name. The tables in `KEPT` are set aside under another name instead, and
+ * returned so `restore` can bring them back.
  *
  * The `fetched` table goes with the rest on purpose: it records that a collection was complete,
  * and keeping it would claim a sweep whose rows have just been thrown away.
  */
-const rebuild = (database: CacheDatabase): void => {
-  // ⚠ **Virtual tables first.** An FTS5 index keeps four shadow tables of its own, and
+const rebuild = (database: CacheDatabase): string[] => {
+  const names = (sql: string) =>
+    database
+      .prepare(sql)
+      .all()
+      .map(({ name }) => String(name))
+
+  // Triggers and indexes first: a kept table takes both along when it is renamed, and then the new
+  // table's `CREATE … IF NOT EXISTS` finds the name taken and quietly creates nothing. A trigger
+  // that writes to a search index about to be dropped also makes the rename itself fail.
+  for (const name of names("SELECT name FROM sqlite_master WHERE type = 'trigger'")) {
+    database.exec(`DROP TRIGGER IF EXISTS "${name}"`)
+  }
+  for (const name of names("SELECT name FROM sqlite_master WHERE type = 'index' AND sql IS NOT NULL")) {
+    database.exec(`DROP INDEX IF EXISTS "${name}"`)
+  }
+
+  // ⚠ **Virtual tables before ordinary ones.** An FTS5 index keeps four shadow tables of its own, and
   // `sqlite_master` lists them as ordinary tables. Dropping one of those out from under a live
   // index is how a rebuild leaves a corrupt file behind. Dropping the virtual table takes its
   // shadows with it, and the second pass then finds only real tables.
   //
   // It happens to work without this today, because `sqlite_master` returns them in creation order
   // and `IF EXISTS` swallows the leftovers. That is an accident of ordering, not a guarantee.
-  const virtual = database
-    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND sql LIKE 'CREATE VIRTUAL TABLE%'")
-    .all()
-  for (const { name } of virtual) database.exec(`DROP TABLE IF EXISTS "${String(name)}"`)
+  for (const name of names(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND sql LIKE 'CREATE VIRTUAL TABLE%'",
+  )) {
+    database.exec(`DROP TABLE IF EXISTS "${name}"`)
+  }
 
-  const tables = database
-    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
-    .all()
+  const kept: string[] = []
+  for (const name of names("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")) {
+    if (KEPT.includes(name)) {
+      database.exec(`ALTER TABLE "${name}" RENAME TO "${name}_previous"`)
+      kept.push(name)
+    } else {
+      database.exec(`DROP TABLE IF EXISTS "${name}"`)
+    }
+  }
+  return kept
+}
 
-  for (const { name } of tables) database.exec(`DROP TABLE IF EXISTS "${String(name)}"`)
+/** The search index fills itself: the insert trigger runs for every copied message. */
+const restore = (database: CacheDatabase, table: string): void => {
+  const columns = (name: string) =>
+    database
+      .prepare(`PRAGMA table_info("${name}")`)
+      .all()
+      .map((row) => String(row.name))
+  const now = new Set(columns(table))
+  const shared = columns(`${table}_previous`)
+    .filter((column) => now.has(column))
+    .map((column) => `"${column}"`)
+    .join(", ")
+
+  database.exec(`INSERT OR IGNORE INTO "${table}" (${shared}) SELECT ${shared} FROM "${table}_previous"`)
+  database.exec(`DROP TABLE "${table}_previous"`)
 }
