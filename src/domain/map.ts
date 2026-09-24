@@ -1,9 +1,11 @@
 import { asId, type Payload } from "../protocol/frame.js"
 import type {
+  AccountSession,
   Attachment,
   Chat,
   ChatKind,
   Contact,
+  Folder,
   GroupCard,
   GroupSettings,
   Id,
@@ -120,9 +122,25 @@ export const toProfile = (raw: Payload): Profile => {
   return {
     id: asId(contact.id) ?? "",
     name: displayName(contact.names) ?? text(contact.name),
-    phone: phone(contact.phones) ?? text(contact.phone),
+    // Measured 2026-09-24: the login's own profile carries `phone` as a number.
+    phone: phone(contact.phones) ?? text(contact.phone) ?? digits(contact.phone),
+    description: text(contact.description),
   }
 }
+
+export const toFolder = (raw: Payload): Folder => ({
+  id: text(raw.id) ?? "",
+  title: text(raw.title) ?? "",
+  chatIds: (Array.isArray(raw.include) ? raw.include : []).map(asId).filter((id): id is Id => id !== undefined),
+})
+
+export const toSession = (raw: Payload): AccountSession => ({
+  current: raw.current === true,
+  client: text(raw.client),
+  device: text(raw.info),
+  location: text(raw.location),
+  lastActiveAt: timestamp(raw.time),
+})
 
 /** The names a login response carries, so a message can name its sender without another request. */
 export const namesFrom = (contacts: unknown): Map<Id, string> => {
@@ -177,6 +195,9 @@ const displayName = (value: unknown): string | null => {
   const full = entries.find((entry) => entry.type === "FULL_NAME")
   return text(full?.name) ?? text(entries[0]?.name)
 }
+
+const digits = (value: unknown): string | null =>
+  typeof value === "number" || typeof value === "bigint" ? `+${value}` : null
 
 const phone = (value: unknown): string | null => {
   if (!Array.isArray(value)) return null

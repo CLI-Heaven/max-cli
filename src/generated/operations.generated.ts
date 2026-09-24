@@ -2,7 +2,16 @@
 
 import { accountCloseSessions, accountSessions, accountUpdate } from "../spec/operations/account.js"
 import { attachmentsFile, attachmentsVideo } from "../spec/operations/attachments.js"
-import { chatsHistory, chatsList, chatsUpdate } from "../spec/operations/chats.js"
+import {
+  chatsHistory,
+  chatsJoin,
+  chatsLeave,
+  chatsLinkInfo,
+  chatsList,
+  chatsMembers,
+  chatsUpdate,
+  chatsUpdateMembers,
+} from "../spec/operations/chats.js"
 import { contactsByPhone, contactsImport, contactsInfo, contactsUpdate } from "../spec/operations/contacts.js"
 import { foldersDelete, foldersList, foldersUpdate } from "../spec/operations/folders.js"
 import {
@@ -45,7 +54,12 @@ export const OPERATIONS = {
   "folders.delete": foldersDelete,
   "chats.history": chatsHistory,
   "chats.list": chatsList,
+  "chats.linkInfo": chatsLinkInfo,
+  "chats.join": chatsJoin,
+  "chats.leave": chatsLeave,
   "chats.update": chatsUpdate,
+  "chats.members": chatsMembers,
+  "chats.updateMembers": chatsUpdateMembers,
   "messages.send": messagesSend,
   "messages.edit": messagesEdit,
   "messages.react": messagesReact,

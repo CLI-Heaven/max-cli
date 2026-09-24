@@ -129,7 +129,7 @@ describe("MaxClient", () => {
     const { client } = clientWith(max)
 
     await client.connect()
-    expect(await client.account.me()).toEqual({ id: "10000001", name: "Test Person", phone: null })
+    expect(await client.account.me()).toEqual({ id: "10000001", name: "Test Person", phone: null, description: null })
 
     const { items: chats } = await client.chats.list()
     expect(chats).toHaveLength(2)

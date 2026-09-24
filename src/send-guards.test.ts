@@ -218,7 +218,7 @@ describe("a reaction", () => {
 
   it("is refused by a read-only profile and by the recipient list, but not counted by the limit", () => {
     expect(() => guardFor("g-react-ro", { readOnly: true }).check("111", "reaction")).toThrow(
-      "cannot send, react or change chats",
+      "cannot send, react, change chats or change the account",
     )
 
     new RecipientList(recipientsPathFor("g-react-list")).add({

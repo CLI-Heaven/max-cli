@@ -160,7 +160,7 @@ describe("toProfile", () => {
       },
     })
 
-    expect(profile).toEqual({ id: "10000001", name: "Full Name", phone: "+71234567890" })
+    expect(profile).toEqual({ id: "10000001", name: "Full Name", phone: "+71234567890", description: null })
   })
 
   it("prefers the full name but accepts any name over none", () => {
@@ -168,7 +168,7 @@ describe("toProfile", () => {
   })
 
   it("survives a profile with no name and no phone", () => {
-    expect(toProfile({ contact: { id: 1 } })).toEqual({ id: "1", name: null, phone: null })
+    expect(toProfile({ contact: { id: 1 } })).toEqual({ id: "1", name: null, phone: null, description: null })
   })
 })
 
