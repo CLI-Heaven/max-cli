@@ -745,3 +745,8 @@ the server keeps MAX-16.~~ «3 A» — overtaken: before the answer came, #66 ha
 and #75 had renumbered the server to `MAX-35`. Both numbers were already in merged commits, and a
 number is never changed twice, so the server stays `MAX-35`. The question rested on a stale fact
 (that the server's number reached `main` first while #66 was open).
+
+**NEED-214 · Does a command start `max serve` when none is running?** **Yes, unless told not to**
+(`--no-serve`, `serve: false`). «I think we should start the server on each request if it's not
+started unless there's a flag to not start». A server started that way stops after 15 minutes
+unused — added so that no command leaves a connection to MAX open for good.
