@@ -32,6 +32,7 @@ import { type QrLogin, tokenByQr } from "./session/login.js"
 import type { SessionStore } from "./session/store.js"
 import { WEB_USER_AGENT } from "./spec/identity.js"
 import { buildRequest, checkResponse, type Operation, type RequestOf } from "./spec/index.js"
+import { isImage, readUpload, uploadFile, uploadPhoto } from "./upload.js"
 
 export interface MaxClientOptions {
   store: SessionStore
@@ -478,7 +479,7 @@ export class MaxClient {
     send: async (
       chatId: Id,
       text: string,
-      options: { cid?: number; notify?: boolean; replyTo?: Id; markdown?: boolean } = {},
+      options: { cid?: number; notify?: boolean; replyTo?: Id; markdown?: boolean; files?: string[] } = {},
     ): Promise<Message> => {
       if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot send")
 
@@ -491,9 +492,24 @@ export class MaxClient {
       }
 
       const cid = options.cid ?? this.#nextCid()
+      const files = await Promise.all(
+        (options.files ?? []).map(async (path) => ({ path, bytes: await readUpload(path), photo: isImage(path) })),
+      )
+      // Measured 2026-09-24: photos share a message, but a file with anything beside it is refused `proto.payload`.
+      if (files.some((file) => !file.photo) && files.length > 1) {
+        throw new CliError(
+          "validation_error",
+          "a file goes in a message of its own — photos can share one; send them apart",
+        )
+      }
+      const attachments = files.map(({ bytes, photo }) => ({
+        kind: photo ? ("photo" as const) : ("file" as const),
+        bytes: bytes.length,
+      }))
+      const summary = attachments.length > 0 ? { attachments } : {}
       try {
-        const sent = await this.#deliver(chatId, text, cid, options)
-        this.#sends?.record({ chatId, outcome: "sent", messageId: sent.id, cid, length: text.length })
+        const sent = await this.#deliver(chatId, text, cid, { ...options, files })
+        this.#sends?.record({ chatId, outcome: "sent", messageId: sent.id, cid, length: text.length, ...summary })
         return sent
       } catch (error) {
         const failure = asCliError(error)
@@ -502,6 +518,7 @@ export class MaxClient {
           outcome: failure.code === "outcome_unknown" ? "outcome_unknown" : "failed",
           cid,
           length: text.length,
+          ...summary,
           errorCode: failure.code,
         })
         throw error
@@ -619,10 +636,17 @@ export class MaxClient {
     chatId: Id,
     text: string,
     cid: number,
-    options: { notify?: boolean; replyTo?: Id; markdown?: boolean },
+    options: {
+      notify?: boolean
+      replyTo?: Id
+      markdown?: boolean
+      files?: { path: string; bytes: Buffer; photo: boolean }[]
+    },
   ): Promise<Message> {
     await this.#connectOnce()
     const session = this.#session()
+    const attaches = []
+    for (const file of options.files ?? []) attaches.push(await this.#upload(file))
     const { text: plain, markup } = options.markdown ? parseMarkdown(text) : { text, markup: [] }
     const request = {
       chatId,
@@ -630,7 +654,7 @@ export class MaxClient {
         text: plain,
         cid,
         elements: markup,
-        attaches: [],
+        attaches,
         ...(options.replyTo ? { link: { type: "REPLY" as const, messageId: options.replyTo } } : {}),
       },
       notify: options.notify ?? true,
@@ -638,7 +662,7 @@ export class MaxClient {
 
     let answer: Payload
     try {
-      answer = await this.#wire.messages.send(request)
+      answer = await this.#untilAttachmentsReady(() => this.#wire.messages.send(request))
     } catch (error) {
       const failure = asCliError(error)
       if (failure.code !== "timeout" && failure.code !== "network_error") throw failure
@@ -1021,6 +1045,41 @@ export class MaxClient {
    * by a test, not by a lost message. Across processes this is still millisecond-grained, which is
    * safe while one invocation sends one message.
    */
+  /**
+   * Uploads one file and answers what the message attaches (measured 2026-09-24). An upload is never
+   * retried: a failure here happens before `MSG_SEND`, so nothing was sent.
+   */
+  async #upload({ path, bytes, photo }: { path: string; bytes: Buffer; photo: boolean }): Promise<Payload> {
+    const request = { count: 1, type: 0, uploaderType: 0, profile: false } as const
+    if (photo) {
+      const { url } = await this.#wire.uploads.photo(request)
+      if (typeof url !== "string") throw new CliError("provider_error", "MAX gave no address to upload the photo to")
+      return { _type: "PHOTO", photoToken: await uploadPhoto(url, path, bytes) }
+    }
+    const info = record(asArray((await this.#wire.uploads.file(request)).info)[0]) ?? {}
+    if (typeof info.url !== "string" || info.fileId === undefined) {
+      throw new CliError("provider_error", "MAX gave no address to upload the file to")
+    }
+    await uploadFile(info.url, path, bytes)
+    return { _type: "FILE", fileId: info.fileId }
+  }
+
+  /**
+   * **A file is processed after its upload**, and a send before that is refused
+   * `attachment.not.ready` (measured 2026-09-24). A refusal means nothing was sent, so asking again
+   * with the same request — the same `cid` — is safe. Once a second, for up to thirty.
+   */
+  async #untilAttachmentsReady(send: () => Promise<Payload>): Promise<Payload> {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await send()
+      } catch (error) {
+        if (attempt >= 30 || !asCliError(error).message.includes("attachment.not.ready")) throw error
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+      }
+    }
+  }
+
   #nextCid(): number {
     const now = Date.now()
     this.#previousCid = now > this.#previousCid ? now : this.#previousCid + 1

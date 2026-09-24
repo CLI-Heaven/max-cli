@@ -34,6 +34,8 @@ sources disagree.
 | `messages.delete` | 66 | `MSG_DELETE` | **never sent** | observed | tsmax |
 | `attachments.video` | 83 | `VIDEO_PLAY` | after login | measured | measured against MAX 2026-09-23 (`pnpm probe:download`); tsmax getVideoById; PyMax get_video_by_id |
 | `attachments.file` | 88 | `FILE_DOWNLOAD` | after login | measured | measured against MAX 2026-09-23 (`pnpm probe:download`); tsmax getFileById; PyMax get_file_by_id |
+| `uploads.photo` | 80 | `PHOTO_UPLOAD` | after login | measured | measured against MAX 2026-09-24 in Saved messages (`pnpm probe:upload`); PyMax upload_photo |
+| `uploads.file` | 87 | `FILE_UPLOAD` | after login | measured | measured against MAX 2026-09-24 in Saved messages (`pnpm probe:upload`); PyMax upload_file |
 
 ## The numbers that are declared and never sent
 

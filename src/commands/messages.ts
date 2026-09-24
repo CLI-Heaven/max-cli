@@ -179,7 +179,7 @@ export const messagesCommand = (): Command => {
    */
   annotate(command.command("send"), { mutates: true })
     .argument("<chat>", "chat id, or part of a chat name")
-    .argument("[text]", "what to say; leave it off to read the message from stdin")
+    .argument("[text]", "what to say; leave it off to read it from stdin, or to send only a file")
     .description("send one text message")
     .option("--cid <n>", "reuse a client id from an earlier ambiguous send; MAX collapses the duplicate", (value) =>
       Number.parseInt(value, 10),
@@ -189,6 +189,11 @@ export const messagesCommand = (): Command => {
     // somebody up, and there was no way to say otherwise.
     .option("--silent", "deliver without a notification")
     .option("--reply-to <message>", "answer this message id in the same chat")
+    .option(
+      "--file <path>",
+      "attach a file; .jpg .png .webp .gif go as a photo. Repeat it for more than one",
+      (value: string, previous: string[] = []) => [...previous, value],
+    )
     .option("--md, --markdown", "read **bold**, _italic_, ~~struck~~ and `code` in the text; \\ keeps a mark literal")
     .action(async function (this: Command, chat: string, text: string | undefined) {
       const options = this.optsWithGlobals()
@@ -196,7 +201,8 @@ export const messagesCommand = (): Command => {
 
       // Before the run directory and before the socket: a body we cannot read is a command that
       // never attempted anything, so there is nothing to record and nothing to close.
-      const body = text ?? (await readBody())
+      const files: string[] = options.file ?? []
+      const body = text ?? (files.length > 0 ? "" : await readBody())
 
       const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
 
@@ -210,6 +216,7 @@ export const messagesCommand = (): Command => {
             ...(options.silent === true ? { notify: false } : {}),
             ...(options.replyTo === undefined ? {} : { replyTo: String(options.replyTo).trim() }),
             ...(options.markdown === true ? { markdown: true } : {}),
+            ...(files.length > 0 ? { files } : {}),
           })
           renderer.result(sent)
         } finally {

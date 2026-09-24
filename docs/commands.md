@@ -244,13 +244,14 @@ max messages send <chat> [text] [options]
 | Аргумент | | Что это |
 |---|---|---|
 | `chat` | обязательный | chat id, or part of a chat name |
-| `text` | необязательный | what to say; leave it off to read the message from stdin |
+| `text` | необязательный | what to say; leave it off to read it from stdin, or to send only a file |
 
 | Опция | Что делает |
 |---|---|
 | `--cid <n>` | reuse a client id from an earlier ambiguous send; MAX collapses the duplicate |
 | `--silent` | deliver without a notification |
 | `--reply-to <message>` | answer this message id in the same chat |
+| `--file <path>` | attach a file; .jpg .png .webp .gif go as a photo. Repeat it for more than one |
 | `--md, --markdown` | read **bold**, _italic_, ~~struck~~ and `code` in the text; \ keeps a mark literal |
 
 ## `max reactions`
