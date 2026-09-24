@@ -7,7 +7,7 @@ import { Connection } from "../protocol/connection.js"
 import { SessionStore } from "../session/store.js"
 import { mockMax } from "../testing/mock-max.js"
 import { MaxServer, type ServerEvent } from "./server.js"
-import { ServerConnection, stopServer } from "./server-connection.js"
+import { ServerConnection, serverStatus, stopServer } from "./server-connection.js"
 import { subscribe } from "./subscribe.js"
 
 const ME = 10000001
@@ -169,6 +169,19 @@ describe("max serve", () => {
 
     expect(await stopServer(store.socketPath())).toBe("refused")
     expect(server.connected).toBe(true)
+  })
+
+  it("started by hand, stops for `max serve --stop`, which forces it", async () => {
+    const { server, store } = await serve("s-forced")
+
+    expect(await stopServer(store.socketPath(), { force: true })).toBe("stopped")
+    await expect(server.done).resolves.toBeUndefined()
+  })
+
+  it("says whether it was started by hand, and its process", async () => {
+    const { store } = await serve("s-status")
+
+    expect(await serverStatus(store.socketPath())).toMatchObject({ connected: true, byHand: true, pid: process.pid })
   })
 
   it("started by hand, takes over from one a command started", async () => {

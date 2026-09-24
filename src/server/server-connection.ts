@@ -206,7 +206,7 @@ export const READS = new Set<number>([
  * Asks a running server to stop. `"refused"` is a server started by hand, which only Ctrl-C
  * stops; `"none"` is nobody listening.
  */
-export const stopServer = (path: string): Promise<"stopped" | "refused" | "none"> =>
+export const stopServer = (path: string, { force = false } = {}): Promise<"stopped" | "refused" | "none"> =>
   new Promise((resolve) => {
     const socket = connect(path)
     let answer: "stopped" | "refused" | "none" = "none"
@@ -214,7 +214,8 @@ export const stopServer = (path: string): Promise<"stopped" | "refused" | "none"
       socket.destroy()
       resolve(answer)
     }, 2000)
-    socket.once("connect", () => socket.write(toLine({ id: 1, stop: true })))
+    // `force` is a person's own `max serve --stop`, which a server started by hand obeys too.
+    socket.once("connect", () => socket.write(toLine({ id: 1, stop: true, ...(force ? { force } : {}) })))
     socket.on(
       "data",
       lineReader((line) => {
@@ -230,4 +231,22 @@ export const stopServer = (path: string): Promise<"stopped" | "refused" | "none"
       clearTimeout(timer)
       resolve(answer)
     })
+  })
+
+/** What a running server says about itself, or `undefined` when nobody answers. */
+export const serverStatus = (path: string): Promise<Record<string, unknown> | undefined> =>
+  new Promise((resolve) => {
+    const socket = connect(path)
+    const done = (status: Record<string, unknown> | undefined) => {
+      clearTimeout(timer)
+      socket.destroy()
+      resolve(status)
+    }
+    const timer = setTimeout(() => done(undefined), 2000)
+    socket.once("connect", () => socket.write(toLine({ status: true })))
+    socket.on(
+      "data",
+      lineReader((line) => done(fromLine(line))),
+    )
+    socket.once("error", () => done(undefined))
   })

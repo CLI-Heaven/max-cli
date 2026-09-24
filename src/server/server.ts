@@ -12,7 +12,7 @@ import { READS, stopServer } from "./server-connection.js"
 
 export type ServerEvent =
   | { event: "message"; message: MessageHit }
-  | { event: "status"; connected: boolean; at: string }
+  | { event: "status"; connected: boolean; at: string; byHand?: boolean; pid?: number }
 
 export interface MaxServerOptions {
   store: SessionStore
@@ -276,7 +276,13 @@ export class MaxServer {
       socket.write(toLine({ error: { code: "bad_request", message: "one JSON object per line" } }))
       return
     }
-    const status = { event: "status", connected: this.connected, at: new Date().toISOString() }
+    const status = {
+      event: "status",
+      connected: this.connected,
+      at: new Date().toISOString(),
+      byHand: !this.#options.startedByCommand,
+      pid: process.pid,
+    }
     const { id } = request
     this.#lastUse = Date.now()
 
@@ -288,8 +294,8 @@ export class MaxServer {
     } else if (request.stop === true) {
       // Only the owner can reach this socket (mode 600). `max session end` asks, so a forgotten
       // session is not kept alive by a server a command started — one started by hand stays.
-      if (!this.#options.startedByCommand) {
-        socket.end(toLine({ id, stopped: false, reason: "started by hand; only Ctrl-C stops it" }))
+      if (!this.#options.startedByCommand && request.force !== true) {
+        socket.end(toLine({ id, stopped: false, reason: "started by hand; Ctrl-C, or `max serve --stop`" }))
         return
       }
       socket.end(toLine({ id, stopped: true }))

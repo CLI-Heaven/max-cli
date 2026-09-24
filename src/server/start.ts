@@ -17,8 +17,14 @@ const START_GRACE_MS = 30_000
  * Its stderr goes to `<state>/profiles/<profile>.serve.log`, mode 600: nobody is watching a
  * terminal for it, and that file is where a login that failed says so.
  */
-export const startInBackground = (store: SessionStore, entry = process.argv[1]): boolean => {
-  if (!entry || store.readToken() === undefined) return false
+/** Where a background server writes what it would have said on a terminal. */
+export const logPath = (store: SessionStore): string => `${store.socketPath().replace(/\.sock$/, "")}.serve.log`
+
+export const startInBackground = (
+  store: SessionStore,
+  { serveArgs = ["--idle", `${IDLE_MS / 60_000}m`, "--started-by-command"], entry = process.argv[1] } = {},
+): number | undefined => {
+  if (!entry || store.readToken() === undefined) return undefined
 
   const lock = startingPath(store)
   mkdirSync(dirname(lock), { recursive: true, mode: 0o700 })
@@ -26,22 +32,18 @@ export const startInBackground = (store: SessionStore, entry = process.argv[1]):
     closeSync(openSync(lock, "wx", 0o600))
   } catch {
     const since = statSync(lock, { throwIfNoEntry: false })?.mtimeMs ?? 0
-    if (Date.now() - since <= START_GRACE_MS) return false
+    if (Date.now() - since <= START_GRACE_MS) return undefined
     rmSync(lock, { force: true })
     closeSync(openSync(lock, "wx", 0o600))
   }
 
-  const log = openSync(`${store.socketPath().replace(/\.sock$/, "")}.serve.log`, "a", 0o600)
-  const child = spawn(
-    process.execPath,
-    [entry, "--no-record", "serve", "--idle", `${IDLE_MS / 60_000}m`, "--started-by-command"],
-    {
-      detached: true,
-      stdio: ["ignore", "ignore", log],
-      env: { ...process.env, MAX_PROFILE: store.profile },
-    },
-  )
+  const log = openSync(logPath(store), "a", 0o600)
+  const child = spawn(process.execPath, [entry, "--no-record", "serve", ...serveArgs], {
+    detached: true,
+    stdio: ["ignore", "ignore", log],
+    env: { ...process.env, MAX_PROFILE: store.profile },
+  })
   child.unref()
   closeSync(log)
-  return true
+  return child.pid
 }
