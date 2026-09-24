@@ -656,7 +656,7 @@ max inbox [options]
 stay connected to MAX and stream new messages to `max watch`, until Ctrl-C
 
 ```sh
-max serve [options]
+max serve
 ```
 
 ## `max watch`
@@ -664,7 +664,7 @@ max serve [options]
 print new messages as they arrive, from a running `max serve`
 
 ```sh
-max watch [options]
+max watch
 ```
 
 ## `max config`
