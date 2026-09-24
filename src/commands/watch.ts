@@ -29,15 +29,15 @@ export const watchCommand = (): Command =>
               renderer.note(event.connected ? "connected" : "MAX dropped the connection; the server is reconnecting")
             } else if (format === "pretty") {
               streams.data(
-                `${renderMessages([event.message], {
+                renderMessages([event.message], {
                   color: context.color,
                   senderColors: settings.senderColors,
                   verbosity: settings.detail,
                   width: process.stdout.columns ?? 80,
                   profile: settings.profile,
-                })}\n`,
+                }),
               )
-            } else streams.data(`${JSON.stringify(event.message)}\n`)
+            } else streams.data(JSON.stringify(event.message))
           },
           stop.signal,
         )

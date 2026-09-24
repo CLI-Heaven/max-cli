@@ -733,3 +733,15 @@ on the plan. `--confirm-send` without `--allow-send` refuses to start rather tha
 owner's "yes" is bound to the chat and text the form showed — an HMAC under a per-process key in
 `requestState` — because the state round-trips through the client and an answer must not carry
 over to another message. A client that cannot show a form gets an error and nothing is sent.
+
+## 2026-09-24 — `max serve` (`MAX-35`)
+
+**NEED-185 · Which requests may a command send through `max serve`?** **Reads only.** «2 A».
+Sending and reacting log in on the command's own connection and go through the send guards, which
+live in the client and nowhere else. The server refuses anything else on its socket.
+
+**NEED-186 · Two backlog items numbered MAX-16.** ~~**The QR login (PR #66) takes a new number**;
+the server keeps MAX-16.~~ «3 A» — overtaken: before the answer came, #66 had merged as `MAX-16`
+and #75 had renumbered the server to `MAX-35`. Both numbers were already in merged commits, and a
+number is never changed twice, so the server stays `MAX-35`. The question rested on a stale fact
+(that the server's number reached `main` first while #66 was open).
