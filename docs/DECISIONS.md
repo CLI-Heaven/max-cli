@@ -640,7 +640,10 @@ change it too — «3 B» over the recommendation to require a terminal for `add
 **NEED-160 · Check on the account whether a draft saved through the protocol reaches the phone?**
 **No; the idea of a draft instead of a send is dropped.** «2 B».
 
-**NEED-161 · Build an MCP server?** **No.** «3 don't build mcp». Instead, four guards in the CLI: an
+**NEED-161 · Build an MCP server?** ~~**No.** «3 don't build mcp».~~ **Correction, the same day: yes —
+«все-таки строим mcp».** The guards below stay and apply to `max mcp` unchanged, because they sit in
+the client every command and tool builds (`createClient`); ARCHITECTURE §17. The ruling as first
+given: instead of MCP, four guards in the CLI: an
 optional recipient list (code 7), a read-only profile (`readOnly`, code 5), an hourly limit
 (`sendsPerHour`, code 8) and a journal of every send attempt without its text (`max sends list`).
 The limit is on by default at 30 an hour — «1 A» — because a limit that is off protects nobody from
@@ -679,3 +682,15 @@ them, at P1, except live events at P3.** «add all of this in backlog all is hig
 for live events». `MAX-23`…`MAX-33`, `MAX-34`, and `MAX-8` raised to P1. What is already in progress
 was left as it is: login by SMS and QR (#66), new messages since the last check (`CLI-23`),
 scheduled send (`CLI-22`), reactions when reading (`MAX-15`).
+
+**NEED-152 · One login per tool call, or one connection for the agent's session?** **One connection
+for the session.** «B». Bounded by the implementation, not the ruling: closed after 2 minutes idle
+and 5 minutes after the login — ARCHITECTURE §17.
+
+**NEED-153 · `max mcp` in this package, or a package of its own?** **`max <profile> mcp`, shipped with
+`max`.** «max <профиль> mcp но надо, чтобы пакет mcp шел вместе с max cli». The SDK is a dependency
+of every install; if its weight is ever felt, that is the reason to revisit, not this ruling.
+
+**NEED-151 · How does the server confirm a send?** Not answered; built as recommended: sending off
+unless `--allow-send`, and the client's own approval (`destructiveHint`, Claude Code's
+`requiresUserInteraction`). A form from the server itself (elicitation) is `CLI-28`.

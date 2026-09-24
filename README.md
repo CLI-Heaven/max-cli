@@ -168,6 +168,13 @@ mkdir -p ~/.agents/skills/max-cli && max skill show > ~/.agents/skills/max-cli/S
 Где какая среда ищет навыки: [Codex](https://learn.chatgpt.com/docs/build-skills),
 [Gemini CLI](https://geminicli.com/docs/cli/skills/) (сверено 2026-09-24).
 
+**Для клиентов без терминала** — Claude Desktop, Cursor — тот же профиль по MCP. Без `--allow-send`
+сервер только читает. Подробно — [docs/mcp.md](docs/mcp.md).
+
+```sh
+claude mcp add max -- max mcp
+```
+
 ## Документация
 
 | | |
@@ -176,6 +183,7 @@ mkdir -p ~/.agents/skills/max-cli && max skill show > ~/.agents/skills/max-cli/S
 | [docs/usage.md](docs/usage.md) | вход, чтение, отправка, машинный режим |
 | [docs/sessions.md](docs/sessions.md) | токен, ключница, профили |
 | [docs/configuration.md](docs/configuration.md) | настройки, переменные, порядок разрешения |
+| [docs/mcp.md](docs/mcp.md) | MCP-сервер: подключение, отправка, соединение с MAX |
 | [docs/diagnostics.md](docs/diagnostics.md) | `--trace`, `--record`, `max runs` |
 | [docs/security.md](docs/security.md) | что пишется на диск, а что никогда |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | по симптому: что делать, когда не работает |

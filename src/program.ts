@@ -10,6 +10,7 @@ import { contactsCommand } from "./commands/contacts.js"
 import { type Environment, provide } from "./commands/context.js"
 import { doctorCommand } from "./commands/doctor.js"
 import { inboxCommand } from "./commands/inbox.js"
+import { mcpCommand } from "./commands/mcp.js"
 import { messagesCommand } from "./commands/messages.js"
 import { reactionsCommand } from "./commands/reactions.js"
 import { recipientsCommand } from "./commands/recipients.js"
@@ -89,6 +90,7 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
   program.addCommand(commandsCommand())
   program.addCommand(selfUpdateCommand())
   program.addCommand(completeCommand(), { hidden: true })
+  program.addCommand(mcpCommand())
 
   // Depth-first: Commander does not pass `configureOutput` down to a command added with
   // `addCommand`, so `max messages --help` would write to the real terminal while the top level

@@ -51,6 +51,8 @@
   "dependencies": {
     "@bomb.sh/tab": "0.0.22",
     "@leemour/cli-core": "^0.4.0",
+    "@modelcontextprotocol/server": "~2.0.0",
+    "@valibot/to-json-schema": "^1.8.0",
     "commander": "^15.0.0",
     "lossless-json": "^4.3.1",
     "qrcode-generator": "2.0.4",
@@ -61,6 +63,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.14",
+    "@modelcontextprotocol/client": "~2.0.0",
     "@types/node": "^22.10.2",
     "@types/ws": "^8.18.1",
     "lefthook": "^2.1.8",

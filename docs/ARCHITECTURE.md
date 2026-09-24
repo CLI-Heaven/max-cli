@@ -416,3 +416,29 @@ Cyrillic names; `trigram` matches inside words like `chats.resolve`'s `includes(
 search` never connects, so it finds what has been read, not what exists. Measurements, the three
 traps (short queries, input as FTS5 syntax, index drift) and the offline rule:
 [`architecture/store.md`](architecture/store.md#searching-why-fts5-and-not-like).
+
+## 17. The MCP server is a second adapter, and it keeps the connection for minutes
+
+`max mcp` (`src/mcp/`) is a sibling of `src/commands/`, not a layer under it (REQUIREMENTS §6): each
+tool calls `MaxClient`, and the Biome rule that keeps commands off `protocol/`, `spec/` and
+`generated/` covers `src/mcp/` too. The context comes from `contextFor` — the same settings,
+keyring, deadline and run record as a command, built from flags instead of argv.
+
+- **One connection per agent session, never for long** (`NEED-152`): `MaxSession` logs in on the
+  first call and keeps the client; it drops it after 2 minutes idle, 5 minutes after the login
+  whatever the traffic (the chat list is the login's snapshot), after any error that may have been
+  the connection's, and on stdin EOF. Calls run one at a time.
+- **Sending is absent, not refused**, without `--allow-send`. With it, the tool carries
+  `destructiveHint` and Claude Code's `anthropic/requiresUserInteraction`, and goes through the same
+  `MaxClient.messages.send` as the command — so the send guards apply unchanged.
+- **Discovery is the client's.** Clients that defer tools keep only the names and the server's
+  `instructions` in context; `instructions` is `max --help` plus the skill's boundaries, under the
+  2048 characters Claude Code keeps. No meta-tools, no tool with an `action` parameter: approval is
+  per tool name, and one tool for reading and sending would share one approval.
+- **stdout is the protocol.** Nothing in `src/mcp/` writes data through the renderer; notes go to
+  stderr. The process exits on stdin EOF — measured 110 ms under Node and Bun, 2026-09-24.
+- `serveStdio` may build a probe server before settling on the protocol era, so the server is a
+  factory over one `MaxSession`, never one instance.
+
+User side: [`mcp.md`](mcp.md). The research behind the choices is local-only
+(`docs_ai/plans/2026-09-23-mcp-research.md`).

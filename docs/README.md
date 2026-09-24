@@ -41,6 +41,7 @@ so a reference that quotes a command the program no longer has cannot reach `mai
 | [usage.md](usage.md) | вход, профили, чтение, страницы, отправка, машинный режим — по порядку |
 | [sessions.md](sessions.md) | откуда берётся токен, ключница, профили, `MAX_TOKEN` |
 | [configuration.md](configuration.md) | каждая настройка, каждая переменная, порядок разрешения |
+| [mcp.md](mcp.md) | MCP-сервер для клиентов без терминала: подключение, отправка, соединение с MAX |
 | [diagnostics.md](diagnostics.md) | `--trace`, `--record`, `max runs` — и чего в записи нет |
 | [security.md](security.md) | что попадает на диск, а что не попадает никогда |
 | [troubleshooting.md](troubleshooting.md) | по симптому: что видно на экране и что делать |
