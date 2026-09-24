@@ -130,6 +130,8 @@ export interface CacheStore {
     write(chatId: Id, messages: Message[]): void
     /** After a send, what we hold for that chat is missing the message we just added. */
     invalidate(chatId: Id): void
+    /** Messages deleted in MAX: gone from reading and from search, not merely stale. */
+    forget(chatId: Id, messageIds: Id[]): void
     /** What `max messages transcribe` heard in a voice message, and which model heard it. */
     transcript(chatId: Id, messageId: Id): { text: string; model: string } | undefined
     keepTranscript(chatId: Id, messageId: Id, text: string, model: string): void
@@ -579,6 +581,11 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
         markFetched.run(`messages:${chatId}`, at)
       },
       invalidate: (chatId) => {
+        database.prepare("DELETE FROM fetched WHERE kind = ?").run(`messages:${chatId}`)
+      },
+      forget: (chatId, messageIds) => {
+        const remove = database.prepare("DELETE FROM messages WHERE chat_id = ? AND id = ?")
+        for (const messageId of messageIds) remove.run(chatId, messageId)
         database.prepare("DELETE FROM fetched WHERE kind = ?").run(`messages:${chatId}`)
       },
       transcript: (chatId, messageId) => {

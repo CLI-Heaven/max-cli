@@ -147,6 +147,15 @@ describe("searching the store", () => {
     expect(store.messages.countSearch({ query: "четве" })).toBe(1)
   })
 
+  it("**forgets a deleted message** — neither read back nor found", async () => {
+    const store = await open()
+    store.messages.write("5", [message("a", 100, "удалю потом"), message("b", 200, "оставлю")])
+    store.messages.forget("5", ["a"])
+
+    expect(store.messages.search({ query: "удалю", limit: 20, offset: 0 })).toEqual([])
+    expect(store.messages.window("5", 300, 10, 0).map((m) => m.id)).toEqual(["b"])
+  })
+
   it("**stops finding a message whose text was edited away**", async () => {
     const store = await open()
     store.messages.write("5", [message("a", 100, "the original text")])

@@ -41,10 +41,6 @@ export const Opcode = {
   CHAT_LEAVE: 58,
   CHAT_MEMBERS: 59,
   MSG_SEND: 64,
-  /**
-   * **Declared, never sent.** Deliberately never called. Giving this tool the ability to destroy somebody's messages,
-   * in order to tidy up after a test, is a poor trade (`NEED-32`).
-   */
   MSG_DELETE: 66,
   MSG_EDIT: 67,
   CHAT_MEMBERS_UPDATE: 77,

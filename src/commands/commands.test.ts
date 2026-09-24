@@ -70,6 +70,7 @@ describe("max commands", () => {
       "contacts import",
       "messages send",
       "messages edit",
+      "messages delete",
       "messages forward",
       "messages pin",
       "messages unpin",

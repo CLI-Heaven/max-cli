@@ -79,6 +79,8 @@ export const wireClient = (invoke: Invoke) => ({
       invoke(OPERATIONS["messages.unreact"], request),
     reactions: (request: RequestOf<(typeof OPERATIONS)["messages.reactions"]>) =>
       invoke(OPERATIONS["messages.reactions"], request),
+    delete: (request: RequestOf<(typeof OPERATIONS)["messages.delete"]>) =>
+      invoke(OPERATIONS["messages.delete"], request),
   },
   attachments: {
     video: (request: RequestOf<(typeof OPERATIONS)["attachments.video"]>) =>

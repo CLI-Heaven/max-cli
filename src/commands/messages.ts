@@ -2,6 +2,7 @@ import { CliError } from "@leemour/cli-core"
 import { annotate } from "@leemour/cli-core/commands"
 import { Command } from "commander"
 import { openProfileCache } from "../cache/index.js"
+import { DELETE_AT_ONCE } from "../client.js"
 import { sendTime } from "../config.js"
 import type { Id, Message, WindowedMessage } from "../domain/models.js"
 import { type Saved, save } from "../download.js"
@@ -330,6 +331,43 @@ export const messagesCommand = (): Command => {
           renderer.result(
             await client.messages.edit(chatId, messageId.trim(), body, { markdown: options.markdown === true }),
           )
+        } finally {
+          await client.close()
+          cache?.close()
+        }
+      })
+    })
+
+  /**
+   * ⚠ **`--allow-dangerous` is required** and nothing asks instead (`NEED-239`): a deletion cannot be
+   * undone, and a prompt is one Enter away from it. For everyone only with `--for-everyone` (`NEED-238`).
+   */
+  annotate(command.command("delete"), { mutates: true })
+    .argument("<chat>", "chat id, or part of a chat name")
+    .argument("<messages...>", `ids of the messages, at most ${DELETE_AT_ONCE}`)
+    .description("delete messages for you only; with --for-everyone, for everyone in the chat")
+    .option("--for-everyone", "delete for everyone in the chat, not only for you — they cannot get it back")
+    .option("--allow-dangerous", "yes, delete — it cannot be undone")
+    .action(async function (this: Command, chat: string, messageIds: string[]) {
+      const options = this.opts<{ forEveryone?: boolean; allowDangerous?: boolean }>()
+      const forEveryone = options.forEveryone === true
+      if (options.allowDangerous !== true) {
+        throw new CliError(
+          "confirmation_required",
+          `this deletes ${messageIds.length === 1 ? "a message" : `${messageIds.length} messages`} ` +
+            `${forEveryone ? "for everyone in the chat" : "for you"}, and it cannot be undone — ` +
+            "add --allow-dangerous to go ahead",
+        )
+      }
+      const { renderer, settings, createClient, run } = forCommand(this)
+      const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
+
+      await run("messages delete", async (events) => {
+        const client = createClient({ events, ...(cache ? { cache } : {}) })
+        try {
+          const chatId = await client.chats.resolve(chat)
+          const ids = messageIds.map((messageId) => messageId.trim())
+          renderer.result(await client.messages.delete(chatId, ids, { forEveryone }))
         } finally {
           await client.close()
           cache?.close()

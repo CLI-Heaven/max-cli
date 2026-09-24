@@ -38,6 +38,7 @@
     "probe:upload": "pnpm build && node --experimental-strip-types scripts/probe-upload.ts",
     "probe:reply": "pnpm build && node --experimental-strip-types scripts/probe-reply.ts",
     "probe:scheduled": "pnpm build && node --experimental-strip-types scripts/probe-scheduled.ts",
+    "probe:delete": "pnpm build && node --experimental-strip-types scripts/probe-delete.ts",
     "probe:edits": "pnpm build && node --experimental-strip-types scripts/probe-edits.ts",
     "probe:attachments": "pnpm build && node --experimental-strip-types scripts/probe-attachments.ts",
     "verify:live": "pnpm build && node --experimental-strip-types scripts/verify-commands.ts",

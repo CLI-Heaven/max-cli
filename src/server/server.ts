@@ -372,6 +372,8 @@ export class MaxServer {
       if (opcode === Opcode.MSG_SEND && answer.message && !scheduled) {
         this.#pushed(client, NEW_MESSAGE, { chatId: request.chatId, message: answer.message })
       }
+      // Nor does it push our own deletion back; the chat's last message may be the one deleted.
+      if (opcode === Opcode.MSG_DELETE) this.#goneStale()
       return { payload: answer }
     } catch (error) {
       if (error instanceof ProtocolError) {

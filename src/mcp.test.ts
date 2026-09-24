@@ -317,6 +317,23 @@ describe("the MCP server", () => {
     expect(marks.map(({ payload }) => String(payload.messageId))).toEqual(["116762160362694583"])
   })
 
+  it("offers deleting only with --allow-delete, which --allow-send does not imply, and only for the owner", async () => {
+    const names = async (options: Partial<ServerOptions>) =>
+      (await (await connect(options)).client.listTools()).tools.map(({ name }) => name)
+    expect(await names({ allowSend: true, allowMarkRead: true })).not.toContain("max_messages_delete")
+
+    const { client, max } = await connect({ allowDelete: true }, { answers: { [Opcode.MSG_DELETE]: {} } })
+    const { isError } = await call(client, "max_messages_delete", {
+      chat: "111",
+      messages: ["116762160362694583"],
+      forEveryone: true,
+    })
+
+    expect(isError).toBe(false)
+    const deletes = max.sent.filter(({ opcode }) => opcode === Opcode.MSG_DELETE)
+    expect(deletes.map(({ payload }) => payload.forMe)).toEqual([true])
+  })
+
   it("starts without a session and says which command logs in", async () => {
     const { client } = await connect({}, { token: false })
 
