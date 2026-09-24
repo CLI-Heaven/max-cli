@@ -14,8 +14,7 @@ export const accountCommand = (): Command => {
         const client = createClient({ events })
 
         try {
-          await client.connect()
-          renderer.result(client.account.me())
+          renderer.result(await client.account.me())
         } finally {
           // Nothing below this line: an open socket keeps the process alive after the answer printed.
           await client.close()

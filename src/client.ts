@@ -101,7 +101,10 @@ export class MaxClient {
   }
 
   readonly account = {
-    me: (): Profile => toProfile(record(this.#session().profile) ?? {}),
+    me: async (): Promise<Profile> => {
+      await this.#connectOnce()
+      return toProfile(record(this.#session().profile) ?? {})
+    },
   }
 
   /**
