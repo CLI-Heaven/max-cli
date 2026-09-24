@@ -226,10 +226,11 @@ export class NewerCacheError extends Error {}
 
 const KEPT = ["messages", "ranges"]
 
+const versionOf = (database: CacheDatabase): number =>
+  Number((database.prepare("PRAGMA user_version").get() as { user_version?: number })?.user_version ?? 0)
+
 export const migrate = (database: CacheDatabase): void => {
-  const current = Number(
-    (database.prepare("PRAGMA user_version").get() as { user_version?: number })?.user_version ?? 0,
-  )
+  const current = versionOf(database)
 
   if (current > SCHEMA_VERSION) {
     throw new NewerCacheError(
@@ -241,6 +242,11 @@ export const migrate = (database: CacheDatabase): void => {
   if (current > 0 && current < SCHEMA_VERSION) {
     database.exec("BEGIN IMMEDIATE")
     try {
+      // Another max may have waited on the same lock and upgraded the file while we did.
+      if (versionOf(database) === SCHEMA_VERSION) {
+        database.exec("COMMIT")
+        return
+      }
       const kept = rebuild(database)
       for (const statement of STATEMENTS) database.exec(statement)
       for (const table of kept) restore(database, table)

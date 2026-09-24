@@ -28,7 +28,7 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   <n>`: without `--run` only the estimate (what the cache holds, what is missing, requests and
   minutes); with `--run` it fills the gaps within limits and stops on any error. One chat per call
   (`NEED-217`). Waits on `RES-9` (`MAX-44` is done). Plan: `docs_ai/plans/2026-09-24-history-backup.md`.
-- **CLI-35** · P2 · `max export messages <chat> --format jsonl|md`: writes what the cache holds,
+- **CLI-35** · 🚧 `export-messages` · P2 · `max export messages <chat> --format jsonl|md`: writes what the cache holds,
   never connects, file mode `0600` (photo links open without a login). Plan: same, Р6.
 - **CLI-22** · P2 · Scheduled send: `max messages send <chat> <text> --at <time>`. MAX schedules
   messages itself, and the official web client does it with `MSG_SEND` (64) carrying
