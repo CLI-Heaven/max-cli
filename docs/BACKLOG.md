@@ -22,12 +22,13 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 
 ## Features
 
-- **CLI-22** · P2 · Scheduled send: `max messages send <chat> <text> --at <time>`. Starts with a
-  question: does MAX schedule messages itself? If the official client can, capture that request
-  and use it — the message then leaves even with this machine off. If it cannot, `--at` is not
-  built into `max`; the docs show how the OS scheduler (`at`, a systemd timer) runs a plain
-  `send` at the time. Asked by the owner 2026-09-24; also asked of PyMax
-  ([#45](https://github.com/MaxApiTeam/PyMax/issues/45)).
+- **CLI-22** · P2 · Scheduled send: `max messages send <chat> <text> --at <time>`. MAX schedules
+  messages itself, and the official web client does it with `MSG_SEND` (64) carrying
+  `message.delayedAttributes.timeToFire` in milliseconds (web.max.ru source, read 2026-09-24,
+  `FIND-78`), so the message leaves even with this machine off. Plan:
+  `docs_ai/plans/2026-09-24-latest-and-scheduled.md`. Builds on `MSG_SEND` as #56 leaves it.
+  Correction 2026-09-24: this line first asked whether MAX can schedule at all, with the OS
+  scheduler as the fallback. It can.
 - **CLI-23** · P2 · Check the latest messages across all chats in one command, readable by default
   and `--json` for scripts. `messages list` reads one chat only (`docs/commands.md`,
   `max messages list`). Remembers the last check in the profile on its own, so a scheduled run
