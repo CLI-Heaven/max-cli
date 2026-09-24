@@ -630,7 +630,7 @@ export class MaxClient {
      *
      * **Never in a personal chat**: the web client's dialog class answers `viewerCanPin` with `false`, and
      * MAX refused both in Saved messages and in a dialog with a person (measured 2026-09-24, `FIND-107`).
-     * A chat the login did not list is left to MAX. ⚠ A pin in a group is still unmeasured.
+     * A chat the login did not list is left to MAX. In a group, pin and unpin were measured the same day.
      */
     pin: async (chatId: Id, messageId: Id | null, { notify = false } = {}): Promise<Pin> => {
       if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot pin")

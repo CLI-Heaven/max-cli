@@ -56,8 +56,9 @@ export const chatsUpdate = defineOperation({
   }),
   response: v.looseObject({ chat: v.optional(v.looseObject({})) }),
   provenance: {
-    confidence: "confirmed",
+    confidence: "measured",
     sources: [
+      "measured against MAX 2026-09-24 in a group the owner named (`pnpm probe:edit-pin-forward`, `PIN_CHAT`)",
       "web.max.ru `_app/immutable/chunks/5oCuRT0F.js` (2026-09-24)",
       "PyMax `api/messages/payloads.py:95-98` (53103f0)",
     ],
@@ -65,7 +66,7 @@ export const chatsUpdate = defineOperation({
       "The web client does not notify by default and PyMax does; ours follows the web client (`NEED-196`). " +
       "Refused on 2026-09-24 in Saved messages and in a dialog with a person — `not.found` to pin, " +
       "`chat.not.found` to unpin. The web client's dialog class answers `viewerCanPin` with `false`: MAX pins " +
-      "only in groups and channels, and a pin there is unmeasured.",
+      "only in groups and channels. In a group it answers `{chat}` with `pinnedMessage`, and 0 clears it.",
   },
 })
 
