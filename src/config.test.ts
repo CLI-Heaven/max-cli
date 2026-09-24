@@ -292,3 +292,10 @@ describe("changing a setting", () => {
     expect(file()).toEqual({ profiles: { work: { limit: 5 } } })
   })
 })
+
+describe("the serve setting", () => {
+  it("starts a server by default, and `--no-serve` or `serve: false` says not to", () => {
+    expect(resolveSettings({}).serve).toBe(true)
+    expect(resolveSettings({ serve: false }).serve).toBe(false)
+  })
+})

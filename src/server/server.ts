@@ -26,6 +26,11 @@ export interface MaxServerOptions {
   /** The least time between two background logins after the snapshot went stale. */
   refreshEveryMs?: number
   retryAfterMs?: (attempt: number) => number
+  /**
+   * Stop after this long with nobody using it — no request, no `max watch`. Absent, it runs until
+   * stopped; a server started by a command gets one, or it would outlive every reason it had.
+   */
+  idleMs?: number
   /** One event per request, for `--trace` and the run log — pings included. */
   events?: MaxClientOptions["events"]
 }
@@ -63,6 +68,8 @@ export class MaxServer {
   #stale = false
   #refresh: ReturnType<typeof setTimeout> | undefined
   #lastRefresh = 0
+  #lastUse = Date.now()
+  #idle: ReturnType<typeof setInterval> | undefined
   #finish: ((error?: Error) => void) | undefined
   /** Settles when the server stops — cleanly, or with the error that stopped it. */
   readonly done: Promise<void>
@@ -80,8 +87,24 @@ export class MaxServer {
 
   /** Logs in first: a token that does not work should fail here, before anything listens. */
   async start(): Promise<void> {
-    await this.#connect()
-    await this.#listen()
+    try {
+      await this.#connect()
+      await this.#listen()
+    } finally {
+      rmSync(startingPath(this.#options.store), { force: true })
+    }
+    const { idleMs } = this.#options
+    if (idleMs !== undefined) {
+      this.#idle = setInterval(
+        () => {
+          if (this.#subscribers.size === 0 && Date.now() - this.#lastUse >= idleMs) {
+            this.#options.note(`nobody has used it for ${Math.round(idleMs / 60_000)} min — stopping`)
+            void this.stop()
+          }
+        },
+        Math.min(idleMs, 30_000),
+      )
+    }
   }
 
   async stop(error?: Error): Promise<void> {
@@ -90,6 +113,7 @@ export class MaxServer {
     clearInterval(this.#ping)
     clearTimeout(this.#retry)
     clearTimeout(this.#refresh)
+    clearInterval(this.#idle)
     for (const socket of this.#subscribers) socket.destroy()
     this.#subscribers.clear()
     await new Promise<void>((resolve) => (this.#listener ? this.#listener.close(() => resolve()) : resolve()))
@@ -226,7 +250,10 @@ export class MaxServer {
 
   #serve(socket: Socket): void {
     socket.on("error", () => this.#subscribers.delete(socket))
-    socket.on("close", () => this.#subscribers.delete(socket))
+    socket.on("close", () => {
+      this.#subscribers.delete(socket)
+      this.#lastUse = Date.now()
+    })
     socket.on(
       "data",
       lineReader((line) => {
@@ -245,12 +272,18 @@ export class MaxServer {
     }
     const status = { event: "status", connected: this.connected, at: new Date().toISOString() }
     const { id } = request
+    this.#lastUse = Date.now()
 
     if (request.subscribe === true) {
       this.#subscribers.add(socket)
       socket.write(toLine(status))
     } else if (request.status === true) {
       socket.write(toLine(status))
+    } else if (request.stop === true) {
+      // Only the owner can reach this socket (mode 600); `max session end` asks, so a forgotten
+      // session is not kept alive by a server still logged in with it.
+      socket.end(toLine({ id, stopped: true }))
+      await this.stop()
     } else if (request.login === true) {
       const client = this.#client
       socket.write(
@@ -288,6 +321,9 @@ export class MaxServer {
 
 /** 1 s, 2 s, 4 s … a minute at most — a server that hammers MAX after a drop looks like nothing MAX knows. */
 const backoff = (attempt: number): number => Math.min(60_000, 1000 * 2 ** attempt)
+
+/** Present while a server is being started in the background, so two commands do not start two. */
+export const startingPath = (store: SessionStore): string => `${store.socketPath()}.starting`
 
 /** Whether something is listening on the socket — a live server, not a leftover file. */
 export const answers = (path: string): Promise<boolean> =>

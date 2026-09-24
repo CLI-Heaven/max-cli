@@ -46,6 +46,8 @@ const profileEntries = {
   keepRunsForDays: v.optional(count),
   readOnly: v.optional(flag),
   sendsPerHour: v.optional(count),
+  /** Start `max serve` in the background when a command needs MAX and none is running (`MAX-35`). */
+  serve: v.optional(flag),
 }
 const profileSettings = v.strictObject(profileEntries, objectMessage(Object.keys(profileEntries)))
 
@@ -80,6 +82,7 @@ export interface GlobalFlags {
   page?: number
   all?: boolean
   record?: boolean
+  serve?: boolean
   /** Raw text from `--timeout`, parsed here so the unit rule lives in one place. */
   timeout?: string
 }
@@ -118,6 +121,7 @@ export interface Settings {
    */
   commandTimeoutMs: number | undefined
   record: boolean
+  serve: boolean
   keepRunsForDays: number
   readOnly: boolean
   sendsPerHour: number
@@ -148,6 +152,7 @@ export type SourcedSetting =
   | "color"
   | "senderColors"
   | "record"
+  | "serve"
   | "keepRunsForDays"
   | "readOnly"
   | "sendsPerHour"
@@ -232,6 +237,14 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
     ],
     false,
   )
+  const serve = first(
+    [
+      ["flag", flags.serve],
+      ["config file", configured.serve],
+      ["config defaults", shared.serve],
+    ],
+    true,
+  )
   const keepRunsForDays = first(
     [
       ["config file", configured.keepRunsForDays],
@@ -284,6 +297,7 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
     timeoutMs: timeoutMs.value,
     commandTimeoutMs: durationMs(timeout.value, timeout.from),
     record: record.value,
+    serve: serve.value,
     keepRunsForDays: keepRunsForDays.value,
     readOnly: readOnly.value,
     sendsPerHour: sendsPerHour.value,
@@ -299,6 +313,7 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
       color: color.from,
       senderColors: senderColors.from,
       record: record.from,
+      serve: serve.from,
       keepRunsForDays: keepRunsForDays.from,
       readOnly: readOnly.from,
       sendsPerHour: sendsPerHour.from,
@@ -356,7 +371,11 @@ const durationMs = (value: string | undefined, from: Source): number | undefined
 
   // Named by where it came from, so somebody who set `MAX_TIMEOUT` in a shell profile weeks ago is
   // told which thing is wrong rather than shown a flag they never typed.
-  const source = from === "MAX_TIMEOUT" ? "MAX_TIMEOUT" : "--timeout"
+  return parseDuration(value, from === "MAX_TIMEOUT" ? "MAX_TIMEOUT" : "--timeout")
+}
+
+/** `30s`, `2m`, `500ms` — the one spelling of a duration, whatever it is for. */
+export const parseDuration = (value: string, source: string): number => {
   const match = DURATION.exec(value.trim())
   if (!match?.[1] || !match[2]) {
     throw new CliError("validation_error", `${source} takes a duration with a unit — 30s, 2m or 500ms — not "${value}"`)

@@ -27,6 +27,7 @@ export class ServerConnection implements Wire {
   readonly #store: SessionStore
   readonly #timeoutMs: number
   readonly #direct: () => Connection
+  readonly #onUnreachable: (() => void) | undefined
   readonly #pending = new Map<number, Pending>()
   #socket: Socket | undefined
   #id = 0
@@ -41,12 +42,16 @@ export class ServerConnection implements Wire {
     store,
     timeoutMs = 30_000,
     direct,
+    onUnreachable,
   }: {
     path: string
     store: SessionStore
     timeoutMs?: number
     direct?: () => Connection
+    /** The socket file is there and nobody answers — a server that died; start another. */
+    onUnreachable?: () => void
   }) {
+    this.#onUnreachable = onUnreachable
     this.#path = path
     this.#store = store
     this.#timeoutMs = timeoutMs
@@ -60,7 +65,10 @@ export class ServerConnection implements Wire {
 
     if (opcode === Opcode.SESSION_INIT) {
       this.#init = payload
-      this.#login = await this.#ask({ login: true }).catch(() => undefined)
+      this.#login = await this.#ask({ login: true }).catch((error: NodeJS.ErrnoException) => {
+        if (error.code === "ECONNREFUSED" || error.code === "ENOENT") this.#onUnreachable?.()
+        return undefined
+      })
       if (!this.#login) return this.#fallBack(opcode, payload, watch)
       return {}
     }
@@ -193,3 +201,24 @@ export const READS = new Set<number>([
   Opcode.VIDEO_PLAY,
   Opcode.MSG_GET_REACTIONS,
 ])
+
+/** Asks a running server to stop. Resolves whether or not one was there. */
+export const stopServer = (path: string): Promise<boolean> =>
+  new Promise((resolve) => {
+    const socket = connect(path)
+    const timer = setTimeout(() => {
+      socket.destroy()
+      resolve(false)
+    }, 2000)
+    socket.once("connect", () => socket.write(toLine({ id: 1, stop: true })))
+    // Nobody reads the answer, and a socket nobody reads never sees its end, so never closes.
+    socket.resume()
+    socket.once("error", () => {
+      clearTimeout(timer)
+      resolve(false)
+    })
+    socket.once("close", () => {
+      clearTimeout(timer)
+      resolve(true)
+    })
+  })

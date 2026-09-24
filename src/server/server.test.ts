@@ -7,7 +7,7 @@ import { Connection } from "../protocol/connection.js"
 import { SessionStore } from "../session/store.js"
 import { mockMax } from "../testing/mock-max.js"
 import { MaxServer, type ServerEvent } from "./server.js"
-import { ServerConnection } from "./server-connection.js"
+import { ServerConnection, stopServer } from "./server-connection.js"
 import { subscribe } from "./subscribe.js"
 
 const ME = 10000001
@@ -37,7 +37,7 @@ afterEach(async () => {
 const serve = async (
   profile: string,
   max = scripted(),
-  extra: { pingEveryMs?: number; refreshEveryMs?: number } = {},
+  extra: { pingEveryMs?: number; refreshEveryMs?: number; idleMs?: number } = {},
 ) => {
   const store = new SessionStore({ profile, keyring: memoryKeyring() })
   store.writeToken("a-token")
@@ -137,6 +137,30 @@ describe("max serve", () => {
 
     await expect(serve("s-refused", max)).rejects.toThrow("login.token")
     expect(max.closed).toBe(true)
+  })
+
+  it("stops by itself after the idle time when nobody uses it", async () => {
+    const { server, store } = await serve("s-idle", scripted(), { idleMs: 40 })
+
+    await expect(server.done).resolves.toBeUndefined()
+    expect(existsSync(store.socketPath())).toBe(false)
+  })
+
+  it("stays up while a watcher listens, however long it is idle", async () => {
+    const { server, store } = await serve("s-idle-watched", scripted(), { idleMs: 40 })
+    const watch = watching(store)
+    await settle(120)
+
+    expect(server.connected).toBe(true)
+    watch.stop()
+    await watch.listening
+  })
+
+  it("stops when `max session end` asks it to", async () => {
+    const { server, store } = await serve("s-asked")
+
+    expect(await stopServer(store.socketPath())).toBe(true)
+    await expect(server.done).resolves.toBeUndefined()
   })
 
   it("removes its socket when it stops, and says it stopped", async () => {
