@@ -34,7 +34,8 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
   measured): a plain `BEGIN` is deferred, and two readers upgrading to writers at once get
   SQLITE_BUSY without waiting — `BEGIN IMMEDIATE` takes the write lock first. With one shared
   `max serve` every command gets the same login and writes it at the same moment, so it happens
-  more often now.
+  more often now. Handoff:
+  `docs_ai/plans/2026-09-24-max-46-cache-concurrency-handoff.md`.
 - **CLI-34** · P2 · `max backup messages <chat> --since <date> | --last
   <n>`: without `--run` only the estimate (what the cache holds, what is missing, requests and
   minutes); with `--run` it fills the gaps within limits and stops on any error. One chat per call
