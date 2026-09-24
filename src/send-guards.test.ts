@@ -25,6 +25,7 @@ const messenger = () => {
         ],
       },
       [Opcode.MSG_SEND]: { message: { id: 116762160362694583n, time: 1789776000000, sender: 10000001, text: TEXT } },
+      [Opcode.MSG_REACTION]: { reactionInfo: { counters: [{ count: 1, reaction: "👍" }], totalCount: 1 } },
     },
   })
   const keyring = memoryKeyring()
@@ -143,6 +144,38 @@ describe("sending", () => {
 
     const listed = await runWith(["g-keep", "sends", "list", "--json"])
     expect(JSON.parse(listed.stdout).map((entry: { outcome: string }) => entry.outcome)).toEqual(["refused", "sent"])
+  })
+})
+
+describe("reacting", () => {
+  const MESSAGE = "116762160362694583"
+
+  it("from a read-only profile, refuses with 5 and never connects", async () => {
+    const { max, environment } = messenger()
+    await runWith(["g-react-ro", "config", "set", "readOnly", "true"])
+
+    const refused = await runWith(["g-react-ro", "reactions", "add", "111", MESSAGE, "👍", "--json"], environment)
+
+    expect(refused.code).toBe(5)
+    expect(max.sent).toEqual([])
+    expect(journalOf("g-react-ro")).toMatchObject([
+      { kind: "reaction", outcome: "refused", errorCode: "permission_error" },
+    ])
+  })
+
+  it("with the list on, reacts only in the chats on it, and is not counted by the hourly limit", async () => {
+    const { max, environment } = messenger()
+    const reactions = () => max.sent.filter((request) => request.opcode === Opcode.MSG_REACTION)
+    await runWith(["g-react-list", "recipients", "add", "111"], environment)
+    await runWith(["g-react-list", "config", "set", "sendsPerHour", "1"])
+    await runWith(["g-react-list", "messages", "send", "111", "one"], environment)
+
+    expect((await runWith(["g-react-list", "reactions", "add", "222", MESSAGE, "👍"], environment)).code).toBe(7)
+    expect(reactions()).toHaveLength(0)
+
+    expect((await runWith(["g-react-list", "reactions", "add", "111", MESSAGE, "👍"], environment)).code).toBe(0)
+    expect(reactions()).toHaveLength(1)
+    expect(journalOf("g-react-list").at(-1)).toMatchObject({ kind: "reaction", outcome: "sent", chatId: "111" })
   })
 })
 
