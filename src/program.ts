@@ -70,6 +70,8 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
     .option("--offline", "answer from what was recorded and never connect; fails if nothing was")
     .option("--record", "keep this run under `max runs` — ids and timings, never message content")
     .option("--no-record", "do not keep it, whatever the configuration says")
+    .option("--serve", "start `max serve` in the background if it is not running (the default)")
+    .option("--no-serve", "do not start it; log in on this command's own connection unless one is running")
     .showHelpAfterError()
 
   // One resource per command, one action per subcommand — `max chats list`, `max messages send`.

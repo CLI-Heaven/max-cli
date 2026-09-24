@@ -1,6 +1,7 @@
 import { Argument, Command } from "commander"
 import type { MaxClientOptions } from "../client.js"
 import { commandWords, refuseCommandName, rootOf } from "../profile.js"
+import { stopServer } from "../server/server-connection.js"
 import { adoptToken } from "../session/adopt.js"
 import { serveQrPage } from "../session/browser.js"
 import { readSecret } from "../session/prompt.js"
@@ -103,6 +104,8 @@ export const sessionCommand = (): Command => {
       // It contacts nobody, so the run holds no events — but forgetting a session is an action, and
       // "when did this profile stop working" is a question the record is kept to answer.
       await run("session end", async () => {
+        // A server still logged in with the forgotten session would keep using it.
+        await stopServer(store.socketPath())
         const had = store.forget()
 
         renderer.result({ profile: store.profile, forgotten: had, revokedOnServer: false })

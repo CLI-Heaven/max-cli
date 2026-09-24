@@ -34,6 +34,8 @@ max [профиль] [опции] <команда> <действие> [аргу�
 | `--offline` | answer from what was recorded and never connect; fails if nothing was |
 | `--record` | keep this run under `max runs` — ids and timings, never message content |
 | `--no-record` | do not keep it, whatever the configuration says |
+| `--serve` | start `max serve` in the background if it is not running (the default) |
+| `--no-serve` | do not start it; log in on this command's own connection unless one is running |
 
 ## `max session`
 
@@ -656,8 +658,12 @@ max inbox [options]
 stay connected to MAX and stream new messages to `max watch`, until Ctrl-C
 
 ```sh
-max serve
+max serve [options]
 ```
+
+| Опция | Что делает |
+|---|---|
+| `--idle <duration>` | stop after this long with nobody using it — 15m, 1h is 60m |
 
 ## `max watch`
 
@@ -689,7 +695,7 @@ max config set <setting> <value> [options]
 
 | Аргумент | | Что это |
 |---|---|---|
-| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour, updateCheck |
+| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour, serve, updateCheck |
 | `value` | обязательный | a number, true or false |
 
 | Опция | Что делает |
@@ -706,7 +712,7 @@ max config unset <setting> [options]
 
 | Аргумент | | Что это |
 |---|---|---|
-| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour, updateCheck |
+| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour, serve, updateCheck |
 
 | Опция | Что делает |
 |---|---|

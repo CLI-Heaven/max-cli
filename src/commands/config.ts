@@ -12,6 +12,7 @@ const SHOWN: SourcedSetting[] = [
   "color",
   "senderColors",
   "record",
+  "serve",
   "keepRunsForDays",
   "readOnly",
   "sendsPerHour",
