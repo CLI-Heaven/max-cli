@@ -44,7 +44,7 @@ export const MODELS: SpeechModel[] = [
   {
     id: "gigaam-v3",
     title: "GigaAM v3, with punctuation",
-    languages: "Russian",
+    languages: "Russian — the best of the three for Russian",
     featureDim: 64,
     files: [
       {
@@ -81,7 +81,7 @@ export const MODELS: SpeechModel[] = [
   {
     id: "gigaam-v3-ctc",
     title: "GigaAM v3 CTC, with punctuation — a little faster",
-    languages: "Russian",
+    languages: "Russian — a little faster, rougher with capital letters",
     featureDim: 64,
     files: [
       {
@@ -102,7 +102,8 @@ export const MODELS: SpeechModel[] = [
   {
     id: "parakeet-v3",
     title: "NVIDIA Parakeet TDT 0.6B v3",
-    languages: "25 European languages, Russian, English and Spanish among them",
+    /** The model card's list: huggingface.co/nvidia/parakeet-tdt-0.6b-v3, read 2026-09-24. */
+    languages: "25: bg cs da de el en es et fi fr hr hu it lt lv mt nl pl pt ro ru sk sl sv uk",
     featureDim: 80,
     files: [
       {
