@@ -151,7 +151,10 @@ const obtain = async (
         await browser.open(page.url)
         renderer.note("the terminal is too narrow for the QR code, so it is open in your browser — scan it there")
       },
-      askPassword: (hint) => ask(hint ? `MAX password (hint: ${hint}): ` : "MAX password: ", { secret: true }),
+      askPassword: (hint, again) =>
+        ask(`${again ? "wrong password, try again" : "MAX password"}${hint ? ` (hint: ${hint})` : ""}: `, {
+          secret: true,
+        }),
     })
   } finally {
     await page?.close()

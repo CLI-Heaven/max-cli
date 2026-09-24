@@ -126,7 +126,7 @@ describe("max session start qr", () => {
     for (const secret of ["qr-token", "track-secret", "qr-link-secret"]) expect(everything).not.toContain(secret)
   })
 
-  it("asks for the cloud password when MAX wants one, and sends it once", async () => {
+  it("asks for the cloud password when MAX wants one, and sends it", async () => {
     const login = mockMax({
       answers: {
         [Opcode.SESSION_INIT]: {},
@@ -150,6 +150,37 @@ describe("max session start qr", () => {
     expect(asked).toEqual(["MAX password (hint: the cat):  (secret)"])
     expect(login.sent.at(-1)?.payload).toEqual({ trackId: "password-track", password: "hunter2" })
     expect(stored()).toBe("password-token")
+  })
+
+  it("asks again after a wrong password, and gives up after three", async () => {
+    const login = mockMax({
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.GET_QR]: qrCode(),
+        [Opcode.GET_QR_STATUS]: { status: { loginAvailable: true } },
+        [Opcode.LOGIN_BY_QR]: { passwordChallenge: { trackId: "password-track", hint: "the cat" } },
+      },
+      refuse: { [Opcode.AUTH_LOGIN_CHECK_PASSWORD]: "password2fa.wrong" },
+    })
+    const asked: string[] = []
+    const { start, stored, streams } = setUp(login, adopting(), {
+      browser: { ...noBrowser, open: async () => {} },
+      ask: async (prompt) => {
+        asked.push(prompt)
+        return "not-it"
+      },
+    })
+
+    expect(await start("qr")).toBe(4)
+
+    expect(asked).toEqual([
+      "MAX password (hint: the cat): ",
+      "wrong password, try again (hint: the cat): ",
+      "wrong password, try again (hint: the cat): ",
+    ])
+    expect(streams.stderr.join("\n")).toContain("the password was wrong 3 times")
+    expect(streams.stderr.join("\n")).not.toContain("opcode 115")
+    expect(stored()).toBeUndefined()
   })
 
   it("gives up when the code expires unscanned, and stores nothing", async () => {

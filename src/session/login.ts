@@ -4,8 +4,8 @@ import type { WireClient } from "../generated/client.generated.js"
 import type { Payload } from "../protocol/frame.js"
 
 export interface SecondFactor {
-  /** Asked only when the account has a cloud password; the hint MAX stores is passed along. */
-  askPassword: (hint: string | undefined) => Promise<string>
+  /** Asked only when the account has a cloud password; `again` after a wrong one. */
+  askPassword: (hint: string | undefined, again: boolean) => Promise<string>
 }
 
 export interface QrLogin extends SecondFactor {
@@ -45,8 +45,8 @@ export const tokenByQr = async (
 }
 
 /**
- * One password attempt, not PyMax's loop: a wrong password ends the command, because a loop asking
- * a script's stdin again and again is a hang.
+ * A few attempts, not PyMax's endless loop, and not one: a mistyped password would otherwise cost a
+ * fresh QR code. Only a person at a terminal gets here, so asking again cannot hang a script.
  */
 const tokenFrom = async (wire: WireClient, answer: Payload, askPassword: SecondFactor["askPassword"]) => {
   const issued = loginToken(answer)
@@ -55,26 +55,30 @@ const tokenFrom = async (wire: WireClient, answer: Payload, askPassword: SecondF
   const challenge = record(answer.passwordChallenge)
   if (!challenge) throw new CliError("authentication_error", "MAX confirmed the login but sent no token")
 
+  const trackId = text(challenge.trackId, "trackId")
   const hint = typeof challenge.hint === "string" && challenge.hint !== "" ? challenge.hint : undefined
-  const password = await askPassword(hint)
-  if (!password) throw new CliError("validation_error", "no password given")
 
-  const checked = await wire.login
-    .password({ trackId: text(challenge.trackId, "trackId"), password })
-    .catch(refusedAs("MAX did not accept the password"))
-  const token = loginToken(checked)
-  if (token) return token
-  throw new CliError("authentication_error", "MAX did not accept the password")
+  for (let attempt = 1; attempt <= PASSWORD_ATTEMPTS; attempt++) {
+    const password = await askPassword(hint, attempt > 1)
+    if (!password) throw new CliError("validation_error", "no password given")
+
+    const checked = await wire.login.password({ trackId, password }).catch((error: unknown) => {
+      if (wrongPassword(error)) return undefined
+      throw error
+    })
+    const token = checked && loginToken(checked)
+    if (token) return token
+  }
+  throw new CliError(
+    "authentication_error",
+    `the password was wrong ${PASSWORD_ATTEMPTS} times — run the command again`,
+  )
 }
 
-/** Otherwise a refusal reads as an expired session, which is what every other command means by it. */
-const refusedAs =
-  (message: string) =>
-  (error: unknown): never => {
-    if (error instanceof CliError && error.code === "authentication_error")
-      throw new CliError("authentication_error", message)
-    throw error
-  }
+const PASSWORD_ATTEMPTS = 3
+
+// Measured 2026-09-24: a wrong cloud password is refused as `password2fa.wrong`.
+const wrongPassword = (error: unknown): boolean => error instanceof CliError && /password2fa\.wrong/.test(error.message)
 
 const loginToken = (answer: Payload): string | undefined => {
   const token = record(record(answer.tokenAttrs)?.LOGIN)?.token
