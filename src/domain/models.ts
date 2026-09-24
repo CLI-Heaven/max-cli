@@ -110,6 +110,8 @@ export interface Message {
    * reactions; they come from a request of their own, and the cache does not keep them.
    */
   reactions: Reactions | null
+  /** ISO 8601 — when MAX will send it. Present only on a message still waiting in the queue. */
+  scheduledFor?: string
 }
 
 /**

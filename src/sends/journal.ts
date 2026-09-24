@@ -50,6 +50,8 @@ export interface SendEntry {
   length?: number
   /** What was attached, by kind and size — never a file name. */
   attachments?: { kind: "photo" | "file"; bytes: number }[]
+  /** When MAX will send it; the entry is written when it was queued, and the guard counted it then. */
+  scheduledFor?: string
   errorCode?: string
 }
 
