@@ -103,6 +103,17 @@ describe("a profile with an allow list", () => {
     expect(saved.profiles["p-json"].allow).toEqual(["send", "reaction"])
   })
 
+  it("shows the list in config show, and says all when there is none", async () => {
+    await runWith(["p-show", "config", "set", "allow", "send"])
+    const shown = (profile: string) =>
+      runWith([profile, "config", "show", "--json"]).then(({ stdout }) =>
+        JSON.parse(stdout).settings.find((s: { setting: string }) => s.setting === "allow"),
+      )
+
+    expect(await shown("p-show")).toEqual({ setting: "allow", value: ["send"], from: "config file" })
+    expect(await shown("p-none")).toEqual({ setting: "allow", value: "all", from: "default" })
+  })
+
   it("refuses an action name it does not know, and lists the ones it does", async () => {
     const refused = await runWith(["p-typo", "config", "set", "allow", "send,delet", "--json"])
 
