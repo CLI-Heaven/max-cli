@@ -104,6 +104,15 @@ const runWith = async (argv: string[], environment: Environment = {}) => {
 }
 
 describe("the program", () => {
+  it("shows a control character from the command line in an error, instead of passing it to the terminal", async () => {
+    const streams = captureStreams()
+    const code = await run(["config", "set", "limit", "x\u001b[2Ky"], { streams, tty: true })
+
+    expect(code).toBe(2)
+    expect(streams.stderr.join("")).toContain("x\\x1b[2Ky")
+    expect(streams.stderr.join("")).not.toContain("\u001b")
+  })
+
   it("prints a version, and prints it on stdout", async () => {
     const { stdout, stderr, code } = await runWith(["--version"])
     expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+$/)
