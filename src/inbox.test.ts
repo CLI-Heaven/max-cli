@@ -25,7 +25,7 @@ const message = (minutesAgo: number, sender: number, text: string) => {
  */
 const inboxMax = (
   histories: Record<number, ReturnType<typeof message>[]>,
-  { lastEventMinutesAgo = {} as Record<number, number> } = {},
+  { lastEventMinutesAgo = {} as Record<number, number>, unread = {} as Record<number, number> } = {},
 ) => {
   const chats = Object.entries(histories).map(([id, messages]) => ({
     id: Number(id),
@@ -35,6 +35,7 @@ const inboxMax = (
       lastEventMinutesAgo[Number(id)] === undefined
         ? Math.max(...messages.map((m) => m.time))
         : now - (lastEventMinutesAgo[Number(id)] ?? 0) * 60 * 1000,
+    newMessages: unread[Number(id)] ?? 0,
   }))
   const max = mockMax({
     answers: {
@@ -68,7 +69,65 @@ const runWith = async (argv: string[], environment: Environment, { tty = false }
   return { code, stdout: streams.stdout.join("\n"), stderr: streams.stderr.join("\n") }
 }
 
-describe("max inbox", () => {
+describe("max inbox — unread", () => {
+  it("shows each chat's newest unread messages, and reads no chat with nothing unread", async () => {
+    const { max, environment, historiesAsked } = inboxMax(
+      {
+        111: [
+          message(300, 10000002, "read long ago"),
+          message(30, 10000002, "unread 1"),
+          message(20, 10000002, "unread 2"),
+        ],
+        222: [message(10, 10000002, "read already")],
+      },
+      { unread: { 111: 2 } },
+    )
+
+    const { stdout, code } = await runWith(["u-basic", "inbox", "--json"], environment)
+
+    expect(max.unexpected).toEqual([])
+    expect(code).toBe(0)
+    const inbox = JSON.parse(stdout)
+    expect(inbox.mode).toBe("unread")
+    expect(inbox.chats[0].messages.map((m: { text: string }) => m.text)).toEqual(["unread 1", "unread 2"])
+    expect(historiesAsked()).toEqual(["111"])
+    expect(max.sent.find((call) => call.opcode === Opcode.CHAT_HISTORY)?.payload).toMatchObject({ backward: 2 })
+    expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.CHAT_MARK)
+  })
+
+  it("answers the same twice, and never touches the saved point", async () => {
+    const { environment, store } = inboxMax({ 111: [message(30, 10000002, "unread")] }, { unread: { 111: 1 } })
+
+    const first = await runWith(["u-twice", "inbox", "--json"], environment)
+    const second = await runWith(["u-twice", "inbox", "--json"], environment)
+
+    expect(JSON.parse(second.stdout).chats).toEqual(JSON.parse(first.stdout).chats)
+    expect(store("u-twice").readState().lastCheckAt).toBeUndefined()
+  })
+
+  it("shows the newest `--limit` of a long unread run and says how to read all of it", async () => {
+    const { environment } = inboxMax(
+      { 111: [message(30, 10000002, "a"), message(20, 10000002, "b"), message(10, 10000002, "c")] },
+      { unread: { 111: 3 } },
+    )
+
+    const { stdout, stderr } = await runWith(["u-more", "inbox", "--limit", "2", "--json"], environment)
+
+    expect(JSON.parse(stdout).chats[0]).toMatchObject({ more: true, unreadCount: 3 })
+    expect(stderr).toContain("max messages list 111 --limit 3")
+  })
+
+  it("says so when nothing is unread", async () => {
+    const { environment } = inboxMax({ 111: [message(30, 10000002, "read")] })
+
+    const { stdout, stderr } = await runWith(["u-none", "inbox"], environment, { tty: true })
+
+    expect(stdout).toBe("")
+    expect(stderr).toContain("nothing unread")
+  })
+})
+
+describe("max inbox --new", () => {
   it("shows other people's new messages from changed chats, and saves where it stopped", async () => {
     const { max, environment, store, historiesAsked } = inboxMax({
       111: [message(120, 10000002, "old"), message(30, 10000002, "new"), message(10, ME, "my reply")],
@@ -76,7 +135,7 @@ describe("max inbox", () => {
     })
     store("i-first").writeState({ ...store("i-first").readState(), lastCheckAt: new Date(now - HOUR).toISOString() })
 
-    const { stdout, code } = await runWith(["i-first", "inbox", "--json"], environment)
+    const { stdout, code } = await runWith(["i-first", "inbox", "--new", "--json"], environment)
 
     expect(max.unexpected).toEqual([])
     expect(code).toBe(0)
@@ -98,7 +157,7 @@ describe("max inbox", () => {
     )
     store("i-race").writeState({ ...store("i-race").readState(), lastCheckAt: new Date(now - HOUR).toISOString() })
 
-    const { stdout } = await runWith(["i-race", "inbox", "--json"], environment)
+    const { stdout } = await runWith(["i-race", "inbox", "--new", "--json"], environment)
 
     expect(JSON.parse(stdout).chats[0].messages.map((m: { text: string }) => m.text)).toEqual(["seen at login"])
     expect(store("i-race").readState().lastCheckAt).toBe(new Date(now - 30 * 60 * 1000).toISOString())
@@ -109,7 +168,7 @@ describe("max inbox", () => {
     const saved = new Date(now - HOUR).toISOString()
     store("i-quiet").writeState({ ...store("i-quiet").readState(), lastCheckAt: saved })
 
-    const { stdout, stderr, code } = await runWith(["i-quiet", "inbox"], environment, { tty: true })
+    const { stdout, stderr, code } = await runWith(["i-quiet", "inbox", "--new"], environment, { tty: true })
 
     expect(code).toBe(0)
     expect(stdout).toBe("")
@@ -120,7 +179,7 @@ describe("max inbox", () => {
   it("prints the conversation for a person, each message with its chat", async () => {
     const { environment } = inboxMax({ 111: [message(30, 10000002, "hello there")] })
 
-    const { stdout } = await runWith(["i-pretty", "inbox"], environment, { tty: true })
+    const { stdout } = await runWith(["i-pretty", "inbox", "--new"], environment, { tty: true })
 
     expect(stdout).toContain("hello there")
     expect(stdout).toContain("Chat 111")
@@ -129,7 +188,7 @@ describe("max inbox", () => {
   it("looks back 24 hours the first time", async () => {
     const { environment } = inboxMax({ 111: [message(25 * 60, 10000002, "too old"), message(60, 10000002, "today")] })
 
-    const { stdout } = await runWith(["i-fresh", "inbox", "--jsonl"], environment)
+    const { stdout } = await runWith(["i-fresh", "inbox", "--new", "--jsonl"], environment)
 
     expect(stdout.split("\n").map((line) => JSON.parse(line).text)).toEqual(["today"])
     expect(JSON.parse(stdout).chatTitle).toBe("Chat 111")
@@ -141,7 +200,7 @@ describe("max inbox", () => {
     store("i-since").writeState({ ...store("i-since").readState(), lastCheckAt: saved })
 
     const { stdout } = await runWith(
-      ["i-since", "inbox", "--since", new Date(now - HOUR).toISOString(), "--json"],
+      ["i-since", "inbox", "--new", "--since", new Date(now - HOUR).toISOString(), "--json"],
       environment,
     )
 
@@ -154,7 +213,7 @@ describe("max inbox", () => {
       111: [message(40, 10000002, "a"), message(30, 10000002, "b"), message(20, 10000002, "c")],
     })
 
-    const { stdout, stderr } = await runWith(["i-more", "inbox", "--limit", "2", "--json"], environment)
+    const { stdout, stderr } = await runWith(["i-more", "inbox", "--new", "--limit", "2", "--json"], environment)
 
     const [chat] = JSON.parse(stdout).chats
     expect(chat.more).toBe(true)
@@ -168,17 +227,17 @@ describe("max inbox", () => {
     )
     const { environment, historiesAsked } = inboxMax(histories)
 
-    const { stdout, stderr } = await runWith(["i-many", "inbox", "--json"], environment)
+    const { stdout, stderr } = await runWith(["i-many", "inbox", "--new", "--json"], environment)
 
     expect(historiesAsked()).toHaveLength(20)
-    expect(JSON.parse(stdout).skipped.map((chat: { id: string }) => chat.id)).toEqual(["1000", "1001"])
-    expect(stderr).toContain("too many at once")
+    expect(JSON.parse(stdout).skipped.map((chat: { id: string }) => chat.id)).toEqual(["1001", "1000"])
+    expect(stderr).toContain("too many chats at once")
   })
 
   it("keeps the saved point through the next login of any command", async () => {
     const { environment, store } = inboxMax({ 111: [message(30, 10000002, "new")] })
 
-    await runWith(["i-keep", "inbox", "--json"], environment)
+    await runWith(["i-keep", "inbox", "--new", "--json"], environment)
     const saved = store("i-keep").readState().lastCheckAt
     await runWith(["i-keep", "chats", "list", "--json"], environment)
 

@@ -319,7 +319,7 @@ max sends list [options]
 
 ## `max inbox`
 
-what other people wrote in any chat since the last check
+other people's unread messages in every chat; --new for what arrived since the last check
 
 ```sh
 max inbox [options]
@@ -327,7 +327,8 @@ max inbox [options]
 
 | Опция | Что делает |
 |---|---|
-| `--since <id-or-time>` | from this message id or ISO 8601 time instead; the saved point stays put |
+| `--new` | what arrived since the last check, each message once — for scheduled runs |
+| `--since <id-or-time>` | what arrived after this message id or ISO 8601 time; the saved point stays put |
 | `--limit <n>` | at most this many per chat, the newest |
 
 ## `max config`

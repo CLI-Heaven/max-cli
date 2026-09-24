@@ -532,6 +532,29 @@ export class MaxClient {
 
   readonly inbox = {
     /**
+     * Other people's unread messages, as MAX counts them: for each chat with a count, its newest
+     * that many. Reading changes nothing — no `CHAT_MARK` — so the same messages come back until
+     * they are read somewhere else. That is right for a person and wrong for a scheduled run,
+     * which is what `since` is for.
+     */
+    unread: async ({ limit }: { limit: number }): Promise<Inbox> => {
+      const chats = (await this.chats.list()).items
+      const waiting = byRecency(chats.filter((chat) => (chat.unreadCount ?? 0) > 0))
+      const { read, skipped } = capped(waiting)
+
+      const found: InboxChat[] = []
+      for (const { id, title, kind, unreadCount } of read) {
+        const count = unreadCount ?? 0
+        const wanted = Math.min(count, limit)
+        const { items } = await this.messages.list(id, { limit: wanted })
+        const theirs = items.slice(-wanted).filter((message) => message.outgoing !== true)
+        if (theirs.length > 0) found.push({ id, title, kind, unreadCount, messages: theirs, more: count > limit })
+      }
+
+      return { mode: "unread", chats: found, skipped, partial: !this.#cache && chats.length >= LOGIN_CHATS }
+    },
+
+    /**
      * Other people's messages in every chat that changed after `since`.
      *
      * A chat changed if its last message is later than `since`; the chat list says so without a
@@ -544,21 +567,17 @@ export class MaxClient {
      * read; had the saved point followed the later read, that message would sit behind it and
      * never show. Anything newer than the snapshot waits for the next run and shows once there.
      */
-    read: async ({ since, limit }: { since: number; limit: number }): Promise<Inbox> => {
+    since: async ({ since, limit }: { since: number; limit: number }): Promise<Inbox> => {
       const chats = (await this.chats.list()).items
-      const changed = chats
-        .filter((chat) => chat.lastMessageAt !== null && Date.parse(chat.lastMessageAt) > since)
-        .sort((a, b) => Date.parse(a.lastMessageAt ?? "") - Date.parse(b.lastMessageAt ?? ""))
-
+      const changed = byRecency(
+        chats.filter((chat) => chat.lastMessageAt !== null && Date.parse(chat.lastMessageAt) > since),
+      )
       const cut = Math.max(since, ...changed.map((chat) => Date.parse(chat.lastMessageAt ?? "")))
-      const read = changed.slice(-INBOX_CHATS)
-      const skipped = changed
-        .slice(0, -INBOX_CHATS)
-        .map(({ id, title, lastMessageAt }) => ({ id, title, lastMessageAt }))
+      const { read, skipped } = capped(changed)
 
       let until = since
       const found: InboxChat[] = []
-      for (const { id, title, kind } of read) {
+      for (const { id, title, kind, unreadCount } of read) {
         const { items } = await this.messages.list(id, { limit })
         const fresh = items.filter((message) => {
           const time = Date.parse(message.timestamp)
@@ -567,10 +586,12 @@ export class MaxClient {
         for (const message of fresh) until = Math.max(until, Date.parse(message.timestamp))
 
         const theirs = fresh.filter((message) => message.outgoing !== true)
-        if (theirs.length > 0) found.push({ id, title, kind, messages: theirs, more: fresh.length >= limit })
+        if (theirs.length > 0)
+          found.push({ id, title, kind, unreadCount, messages: theirs, more: fresh.length >= limit })
       }
 
       return {
+        mode: "new",
         since: new Date(since).toISOString(),
         until: new Date(until).toISOString(),
         chats: found,
@@ -1096,6 +1117,15 @@ export const timeOfMessageId = (id: Id): number | undefined => {
  * account rarely has that many chats change between two checks, and the rest are named, not lost.
  */
 const INBOX_CHATS = 20
+
+/** Newest first — the chats a reader most likely came for are read before the cap. */
+const byRecency = (chats: Chat[]): Chat[] =>
+  chats.toSorted((a, b) => Date.parse(b.lastMessageAt ?? "") - Date.parse(a.lastMessageAt ?? ""))
+
+const capped = (chats: Chat[]) => ({
+  read: chats.slice(0, INBOX_CHATS),
+  skipped: chats.slice(INBOX_CHATS).map(({ id, title, lastMessageAt }) => ({ id, title, lastMessageAt })),
+})
 
 const isPresent = <T>(value: T | null | undefined): value is T => value !== null && value !== undefined
 

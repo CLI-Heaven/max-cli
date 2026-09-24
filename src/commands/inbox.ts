@@ -8,17 +8,21 @@ import { forCommand } from "./context.js"
 const FIRST_LOOK_MS = 24 * 60 * 60 * 1000
 
 /**
- * What arrived in every chat since the last look.
+ * Two questions, one command (`NEED-171`).
  *
- * **The point it starts from is kept in the profile and moved only by a run that printed** — so a
- * scheduled `max inbox` shows each message once, and one that fails shows it again rather than
- * never (`NEED-162`). `--since` is a one-off look and leaves that point where it was. Like every
- * read here it never sends `CHAT_MARK`: looking is not reading (REQUIREMENTS §19).
+ * **Plain `max inbox` — what is unread**, as MAX counts it. For a person. Since nothing here marks
+ * anything read (REQUIREMENTS §19), it answers the same until the messages are read elsewhere.
+ *
+ * **`--new` — what arrived since the last check.** For a scheduled run: the point it starts from is
+ * kept in the profile and moved only by a run that printed, so each message shows once, and a run
+ * that fails shows it again rather than never (`NEED-162`). `--since` is a one-off look from a time
+ * of your choosing and leaves that point where it was.
  */
 export const inboxCommand = (): Command =>
   new Command("inbox")
-    .description("what other people wrote in any chat since the last check")
-    .option("--since <id-or-time>", "from this message id or ISO 8601 time instead; the saved point stays put")
+    .description("other people's unread messages in every chat; --new for what arrived since the last check")
+    .option("--new", "what arrived since the last check, each message once — for scheduled runs")
+    .option("--since <id-or-time>", "what arrived after this message id or ISO 8601 time; the saved point stays put")
     .option("--limit <n>", "at most this many per chat, the newest", (value) => Number.parseInt(value, 10))
     .action(async function (this: Command) {
       const options = this.optsWithGlobals()
@@ -35,14 +39,18 @@ export const inboxCommand = (): Command =>
 
         try {
           const saved = store.readState().lastCheckAt
-          const since =
+          const inbox =
             options.since !== undefined
-              ? client.messages.moment(String(options.since), "--since")
-              : saved !== undefined
-                ? Date.parse(saved)
-                : Date.now() - FIRST_LOOK_MS
-
-          const inbox = await client.inbox.read({ since, limit: settings.limit })
+              ? await client.inbox.since({
+                  since: client.messages.moment(String(options.since), "--since"),
+                  limit: settings.limit,
+                })
+              : options.new === true
+                ? await client.inbox.since({
+                    since: saved === undefined ? Date.now() - FIRST_LOOK_MS : Date.parse(saved),
+                    limit: settings.limit,
+                  })
+                : await client.inbox.unread({ limit: settings.limit })
           notes(inbox, renderer.note.bind(renderer))
 
           const messages: MessageHit[] = inbox.chats.flatMap((chat) =>
@@ -50,8 +58,9 @@ export const inboxCommand = (): Command =>
           )
           if (format === "jsonl") renderer.stream(messages)
           else if (format !== "pretty") renderer.result(inbox)
-          else if (messages.length === 0) renderer.note(`nothing new since ${inbox.since}`)
-          else {
+          else if (messages.length === 0) {
+            renderer.note(inbox.mode === "unread" ? "nothing unread" : `nothing new since ${inbox.since}`)
+          } else {
             messages.sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp))
             streams.data(
               `${renderMessages(messages, {
@@ -64,7 +73,7 @@ export const inboxCommand = (): Command =>
             )
           }
 
-          if (options.since === undefined && inbox.until !== inbox.since) {
+          if (options.new === true && options.since === undefined && inbox.until !== inbox.since) {
             store.writeState({ ...store.readState(), lastCheckAt: inbox.until })
           }
         } finally {
@@ -77,12 +86,14 @@ export const inboxCommand = (): Command =>
 const notes = (inbox: Inbox, note: (message: string) => void): void => {
   for (const chat of inbox.chats) {
     if (chat.more) {
-      note(`${chat.title ?? chat.id}: only the newest shown — \`max messages list ${chat.id} --after ${inbox.since}\``)
+      const rest = inbox.since === undefined ? `--limit ${chat.unreadCount}` : `--after ${inbox.since}`
+      note(`${chat.title ?? chat.id}: only the newest shown — \`max messages list ${chat.id} ${rest}\``)
     }
   }
   if (inbox.skipped.length > 0) {
     const names = inbox.skipped.map((chat) => chat.title ?? chat.id).join(", ")
-    note(`also changed, not shown — too many at once: ${names} — \`max messages list <chat> --after ${inbox.since}\``)
+    const after = inbox.since === undefined ? "" : ` --after ${inbox.since}`
+    note(`not read — too many chats at once: ${names} — \`max messages list <chat>${after}\` reads one`)
   }
-  if (inbox.partial) note("every chat the login named had changed, so older ones may have too")
+  if (inbox.partial) note("only the 40 newest chats were looked at; an older one may have more")
 }
