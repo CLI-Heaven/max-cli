@@ -189,7 +189,7 @@ export const messagesCommand = (): Command => {
     // somebody up, and there was no way to say otherwise.
     .option("--silent", "deliver without a notification")
     .option("--reply-to <message>", "answer this message id in the same chat")
-    .option("--markdown", "read **bold**, _italic_, ~~struck~~ and `code` in the text; \\ keeps a mark literal")
+    .option("--md, --markdown", "read **bold**, _italic_, ~~struck~~ and `code` in the text; \\ keeps a mark literal")
     .action(async function (this: Command, chat: string, text: string | undefined) {
       const options = this.optsWithGlobals()
       const { renderer, settings, createClient, run } = forCommand(this)

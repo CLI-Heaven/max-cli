@@ -240,7 +240,7 @@ max messages send [options] <chat> [text]
 | `--cid <n>` | reuse a client id from an earlier ambiguous send; MAX collapses the duplicate |
 | `--silent` | deliver without a notification |
 | `--reply-to <message>` | answer this message id in the same chat |
-| `--markdown` | read **bold**, _italic_, ~~struck~~ and `code` in the text; \ keeps a mark literal |
+| `--md, --markdown` | read **bold**, _italic_, ~~struck~~ and `code` in the text; \ keeps a mark literal |
 
 ## `max reactions`
 

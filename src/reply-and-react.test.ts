@@ -47,6 +47,15 @@ describe("answering and reacting", () => {
     expect(message.elements).toEqual([])
   })
 
+  it("`--md` is `--markdown`: the marks go out as markup", async () => {
+    const { code, max } = await runAgainst(["messages", "send", "0", "**yes**", "--md"])
+
+    expect(code).toBe(0)
+    expect(max.sent.find((call) => call.opcode === Opcode.MSG_SEND)?.payload).toMatchObject({
+      message: { text: "yes", elements: [{ type: "STRONG", from: 0, length: 3 }] },
+    })
+  })
+
   it("`reactions add` sends one emoji reaction and answers the counts", async () => {
     const { code, max, stdout } = await runAgainst(["reactions", "add", "0", "116762160362694583", "👍"])
 
