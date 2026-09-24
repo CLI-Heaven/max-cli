@@ -18,13 +18,23 @@ const message = (minutesAgo: number, sender: number, text: string) => {
   return { id: (BigInt(time) << 16n) + 1n, time, sender, text, attaches: [] }
 }
 
-/** Chats by id, each with its history; a chat's last event is its newest message. */
-const inboxMax = (histories: Record<number, ReturnType<typeof message>[]>) => {
+/**
+ * Chats by id, each with its history. A chat's last event at login is its newest message, unless
+ * the test says the login saw an earlier one — a message that arrives between the login and the
+ * history read.
+ */
+const inboxMax = (
+  histories: Record<number, ReturnType<typeof message>[]>,
+  { lastEventMinutesAgo = {} as Record<number, number> } = {},
+) => {
   const chats = Object.entries(histories).map(([id, messages]) => ({
     id: Number(id),
     title: `Chat ${id}`,
     type: "CHAT",
-    lastEventTime: Math.max(...messages.map((m) => m.time)),
+    lastEventTime:
+      lastEventMinutesAgo[Number(id)] === undefined
+        ? Math.max(...messages.map((m) => m.time))
+        : now - (lastEventMinutesAgo[Number(id)] ?? 0) * 60 * 1000,
   }))
   const max = mockMax({
     answers: {
@@ -79,6 +89,19 @@ describe("max inbox", () => {
 
     // The owner's own reply is the newest thing read, so the next check starts after it.
     expect(store("i-first").readState().lastCheckAt).toBe(new Date(now - 10 * 60 * 1000).toISOString())
+  })
+
+  it("leaves a message that arrived during the run for the next one, and does not step over it", async () => {
+    const { environment, store } = inboxMax(
+      { 111: [message(30, 10000002, "seen at login"), message(2, 10000002, "arrived mid-run")] },
+      { lastEventMinutesAgo: { 111: 30 } },
+    )
+    store("i-race").writeState({ ...store("i-race").readState(), lastCheckAt: new Date(now - HOUR).toISOString() })
+
+    const { stdout } = await runWith(["i-race", "inbox", "--json"], environment)
+
+    expect(JSON.parse(stdout).chats[0].messages.map((m: { text: string }) => m.text)).toEqual(["seen at login"])
+    expect(store("i-race").readState().lastCheckAt).toBe(new Date(now - 30 * 60 * 1000).toISOString())
   })
 
   it("says there is nothing new, prints nothing on stdout, and leaves the saved point alone", async () => {

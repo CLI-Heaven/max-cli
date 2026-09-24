@@ -321,6 +321,15 @@ max sends list [options]
 
 what other people wrote in any chat since the last check
 
+```sh
+max inbox [options]
+```
+
+| Опция | Что делает |
+|---|---|
+| `--since <id-or-time>` | from this message id or ISO 8601 time instead; the saved point stays put |
+| `--limit <n>` | at most this many per chat, the newest |
+
 ## `max config`
 
 the settings in force, and where each one came from
@@ -368,6 +377,10 @@ max config unset [options] <setting>
 ## `max doctor`
 
 the state this installation is in, without contacting MAX
+
+```sh
+max doctor [options]
+```
 
 ## `max cache`
 

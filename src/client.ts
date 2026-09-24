@@ -539,8 +539,10 @@ export class MaxClient {
      * changed chat then costs one history read of its newest `limit` — the newest, because the
      * reader wants what just arrived, and one request rather than paging forward to reach it.
      *
-     * `until` is the newest message read, the owner's own included, never the clock: a message
-     * that lands while this runs is later than it and is shown next time instead of lost.
+     * **Everything is cut at the chat list's newest message**, the snapshot this login took. The
+     * reads run one after another, so a chat read early can gain a message while a later one is
+     * read; had the saved point followed the later read, that message would sit behind it and
+     * never show. Anything newer than the snapshot waits for the next run and shows once there.
      */
     read: async ({ since, limit }: { since: number; limit: number }): Promise<Inbox> => {
       const chats = (await this.chats.list()).items
@@ -548,6 +550,7 @@ export class MaxClient {
         .filter((chat) => chat.lastMessageAt !== null && Date.parse(chat.lastMessageAt) > since)
         .sort((a, b) => Date.parse(a.lastMessageAt ?? "") - Date.parse(b.lastMessageAt ?? ""))
 
+      const cut = Math.max(since, ...changed.map((chat) => Date.parse(chat.lastMessageAt ?? "")))
       const read = changed.slice(-INBOX_CHATS)
       const skipped = changed
         .slice(0, -INBOX_CHATS)
@@ -557,7 +560,10 @@ export class MaxClient {
       const found: InboxChat[] = []
       for (const { id, title, kind } of read) {
         const { items } = await this.messages.list(id, { limit })
-        const fresh = items.filter((message) => Date.parse(message.timestamp) > since)
+        const fresh = items.filter((message) => {
+          const time = Date.parse(message.timestamp)
+          return time > since && time <= cut
+        })
         for (const message of fresh) until = Math.max(until, Date.parse(message.timestamp))
 
         const theirs = fresh.filter((message) => message.outgoing !== true)
