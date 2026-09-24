@@ -266,6 +266,24 @@ describe("a command through max serve", () => {
     expect(max.sent.filter((call) => call.opcode === Opcode.LOGIN)).toHaveLength(1)
   })
 
+  it("hands a message sent through it to the watchers, once, since MAX does not push it back", async () => {
+    const { store } = await serve("c-send-watched")
+    const watch = watching(store)
+    await settle()
+    const { client } = commandClient(store)
+
+    await client.messages.send("111", "sent")
+    await client.messages.send("111", "sent", { cid: 1 })
+    await client.close()
+    await settle()
+    watch.stop()
+    await watch.listening
+
+    const messages = watch.events.filter((event) => event.event === "message")
+    expect(messages).toHaveLength(1)
+    expect(messages[0]).toMatchObject({ message: { id: "116762160362694599", outgoing: true, chatTitle: "First" } })
+  })
+
   it("starts a server when none answers and uses it, rather than a connection of its own", async () => {
     const store = new SessionStore({ profile: "c-ensure", keyring: memoryKeyring() })
     store.writeToken("a-token")

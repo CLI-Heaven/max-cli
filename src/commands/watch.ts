@@ -22,6 +22,7 @@ export const watchCommand = (): Command =>
       process.once("SIGINT", end)
       process.once("SIGTERM", end)
 
+      let seen = false
       try {
         const listen = () =>
           subscribe(
@@ -29,7 +30,15 @@ export const watchCommand = (): Command =>
             settings.profile,
             (event) => {
               if (event.event === "status") {
-                renderer.note(event.connected ? "connected" : "MAX dropped the connection; the server is reconnecting")
+                // The first "not connected" is a server still logging in; only a later one is a drop.
+                renderer.note(
+                  event.connected
+                    ? "connected"
+                    : seen
+                      ? "MAX dropped the connection; the server is reconnecting"
+                      : "the server is logging in to MAX",
+                )
+                seen ||= event.connected
               } else if (format === "pretty") {
                 streams.data(
                   renderMessages([event.message], {
