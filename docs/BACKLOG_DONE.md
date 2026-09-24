@@ -5,6 +5,9 @@ what exists now, and where it is described. The numbers stay reserved — commit
 
 ## Foundation and repository
 
+- **CLI-32** — text from other people cannot rewrite the terminal: control characters are shown as
+  `\xNN` in the message view, in tables and diagnostics (`@leemour/cli-core` 0.5.0) and in Tab
+  completion. JSON unchanged. `SEC-9` in the research journal; braze-cli's `SEC-2` is the same fix.
 - **CORE-9** — self-update: `max update [--check]` through the package manager that installed it,
   and a daily "newer version" line for a person at a terminal only. `@leemour/cli-core/update` (0.4.0);
   `updateCheck` in `defaults`. `docs/installation.md`, `docs/configuration.md`.

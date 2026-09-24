@@ -194,3 +194,40 @@ describe("a conversation", () => {
     expect(out).toContain("── 4 января 2026 ──")
   })
 })
+
+describe("text other people wrote", () => {
+  const HOSTILE = "a\u001b[2K\u001b[1Gb"
+  // Our own colours and hyperlinks are removed first; what is left must hold no escape and no bell.
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: matching them is the test
+  const OWN = /\u001b\]8;;[^\u0007]*\u0007|\u001b\[[0-9;]*m/g
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: matching them is the test
+  const CONTROL = /[\u0007\u001b]/
+  const stray = (out: string) => CONTROL.test(out.replaceAll(OWN, ""))
+
+  it("cannot move the cursor or clear a line: every control character is shown, not obeyed", () => {
+    const out = renderMessages(
+      [
+        message({
+          senderName: HOSTILE,
+          text: HOSTILE,
+          replyTo: quoted({ senderName: HOSTILE, text: HOSTILE }),
+          attachments: [{ kind: "file", name: HOSTILE, url: "https://x/\u0007\u001b]8;;https://evil" } as never],
+          reactions: { counts: [{ reaction: HOSTILE, count: 1 }], mine: HOSTILE, total: 1 },
+        }),
+      ],
+      { color: true, verbosity: 1 },
+    )
+    expect(stray(out)).toBe(false)
+    expect(out).toContain("a\\x1b[2K\\x1b[1Gb")
+  })
+
+  it("keeps a link's address inside the one hyperlink it belongs to", () => {
+    const out = renderMessage(
+      message({
+        attachments: [{ kind: "file", name: "a.pdf", url: "https://x/\u0007\u001b]8;;https://evil" } as never],
+      }),
+      { color: true },
+    )
+    expect(out.split("\u001b]8;;")).toHaveLength(3)
+  })
+})

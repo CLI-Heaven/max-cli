@@ -55,7 +55,7 @@
   },
   "dependencies": {
     "@bomb.sh/tab": "0.0.22",
-    "@leemour/cli-core": "^0.4.0",
+    "@leemour/cli-core": "^0.5.0",
     "@modelcontextprotocol/server": "~2.0.0",
     "@valibot/to-json-schema": "^1.8.0",
     "commander": "^15.0.0",

@@ -24,10 +24,6 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 
 ## Features
 
-- **CLI-32** · P1 · 🚧 `cli-32-terminal-escapes` · Text from other people reaches the terminal with
-  its control characters: a message can erase a line and print over it (`SEC-9`, checked by
-  running it). Make them visible, as `braze-cli` does (its `SEC-2`) — in `cli-core`'s pretty
-  renderer and in `src/rendering/messages.ts`.
 - **CLI-22** · P2 · Scheduled send: `max messages send <chat> <text> --at <time>`. MAX schedules
   messages itself, and the official web client does it with `MSG_SEND` (64) carrying
   `message.delayedAttributes.timeToFire` in milliseconds (web.max.ru source, read 2026-09-24,
