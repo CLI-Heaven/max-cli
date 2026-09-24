@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest"
 import { contextFor } from "./commands/context.js"
 import { Opcode } from "./generated/opcodes.generated.js"
 import { createMaxServer, type ServerOptions } from "./mcp/server.js"
+import { run } from "./program.js"
 import { Connection } from "./protocol/connection.js"
 import { SessionStore } from "./session/store.js"
 import { type MockMaxOptions, mockMax } from "./testing/mock-max.js"
@@ -21,6 +22,7 @@ const scriptedMax = (extra: MockMaxOptions["answers"] = {}) =>
           { id: 222, title: "Team Beta", type: "CHAT", lastEventTime: 1789775000000 },
         ],
       },
+      [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
       [Opcode.CHAT_HISTORY]: {
         messages: [{ id: 116762160362694583n, time: 1789776000000, sender: 10000001, text: "hi", attaches: [] }],
       },
@@ -36,13 +38,17 @@ let profiles = 0
 
 const connect = async (
   options: Partial<ServerOptions> = {},
-  { token = true, answers = {} }: { token?: boolean; answers?: MockMaxOptions["answers"] } = {},
+  {
+    token = true,
+    answers = {},
+    profile = `mcp-${++profiles}`,
+  }: { token?: boolean; answers?: MockMaxOptions["answers"]; profile?: string } = {},
 ) => {
   const max = scriptedMax(answers)
   const keyring = memoryKeyring()
   const streams = captureStreams()
   const context = contextFor(
-    { profile: `mcp-${++profiles}` },
+    { profile },
     {
       streams,
       tty: false,
@@ -178,6 +184,18 @@ describe("the MCP server", () => {
 
     expect(isError).toBe(true)
     expect(body.error).toMatchObject({ code: "outcome_unknown", cid: expect.any(Number) })
+  })
+
+  it("goes through the send guards: a read-only profile refuses, and nothing is sent", async () => {
+    const profile = "mcp-read-only"
+    await run([profile, "config", "set", "readOnly", "true"], { streams: captureStreams(), tty: false })
+    const { client, max } = await connect({ allowSend: true }, { profile })
+
+    const { isError, body } = await call(client, "max_messages_send", { chat: "111", text: "hello" })
+
+    expect(isError).toBe(true)
+    expect(body.error).toMatchObject({ code: "permission_error" })
+    expect(max.sent.map(({ opcode }) => opcode)).not.toContain(Opcode.MSG_SEND)
   })
 
   it("starts without a session and says which command logs in", async () => {
