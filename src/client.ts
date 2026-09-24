@@ -1,12 +1,23 @@
 import { CliError } from "@leemour/cli-core"
 import type { CacheStore, PersonOrder, SyncSummary } from "./cache/store.js"
-import { namesFrom, toChat, toContact, toMessage, toProfile, toReactions } from "./domain/map.js"
+import {
+  namesFrom,
+  SETTING_FLAGS,
+  toChat,
+  toContact,
+  toGroupCard,
+  toMessage,
+  toProfile,
+  toReactions,
+} from "./domain/map.js"
 import type {
   AttachmentLink,
   Chat,
   ChatCard,
   ChatKind,
   Contact,
+  GroupCard,
+  GroupSettings,
   Id,
   Inbox,
   InboxChat,
@@ -28,12 +39,13 @@ import { asId, type Payload } from "./protocol/frame.js"
 import { isId, pickChat, pickPerson } from "./resolve.js"
 import { countsIn, type DiagnosticEvent, idsOf } from "./runs/events.js"
 import type { SendGuard } from "./sends/guard.js"
-import type { SendKind } from "./sends/journal.js"
+import type { ChatAction, SendKind } from "./sends/journal.js"
 import { LOGIN_CHATS, startSession } from "./session/handshake.js"
 import { type QrLogin, tokenByQr } from "./session/login.js"
 import type { SessionStore } from "./session/store.js"
 import { WEB_USER_AGENT } from "./spec/identity.js"
 import { buildRequest, checkResponse, type Operation, type RequestOf } from "./spec/index.js"
+import type { chatsUpdateMembers } from "./spec/operations/chats.js"
 import { isImage, readUpload, uploadFile, uploadPhoto } from "./upload.js"
 
 export interface MaxClientOptions {
@@ -193,6 +205,132 @@ export class MaxClient {
 
       const cache = this.#cache
       return { ...chat, members: chat.kind === "channel" || !cache ? null : cache.chats.members(chat.id) }
+    },
+
+    /** What a link leads to, without joining it. */
+    inspect: async (link: string): Promise<GroupCard> => {
+      if (this.#offline)
+        throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot read a link")
+      const wire = wireLink(link)
+      await this.#connectOnce()
+      return toGroupCard(record((await this.#wire.chats.linkInfo({ link: wire })).chat) ?? {})
+    },
+
+    join: (link: string): Promise<GroupCard> => {
+      const wire = wireLink(link)
+      return this.#changeChat(null, "join", async () => {
+        const chat = toGroupCard(record((await this.#wire.chats.join({ link: wire })).chat) ?? {})
+        return { chatId: chat.id, result: chat }
+      })
+    },
+
+    leave: async (reference: string): Promise<ChatChange> => {
+      const chatId = await this.chats.resolve(reference)
+      return this.#changeChat(chatId, "leave", async () => {
+        await this.#wire.chats.leave({ chatId })
+        return { chatId, result: { chatId, action: "leave", people: [], chat: null } }
+      })
+    },
+
+    /**
+     * Not retried, unlike a message: a second attempt with a new `cid` is a second group, and
+     * whether MAX deduplicates a creation by `cid` is not measured.
+     */
+    create: (title: string, people: string[] = []): Promise<GroupCard> =>
+      this.#changeChat(null, "create", async () => {
+        const userIds = await this.#personIds(people)
+        const answer = await this.#wire.messages.send({
+          message: {
+            cid: this.#nextCid(),
+            attaches: [{ _type: "CONTROL", event: "new", chatType: "CHAT", title, userIds }],
+          },
+          notify: true,
+        })
+        const chat = toGroupCard(record(answer.chat) ?? {})
+        return { chatId: chat.id, result: chat, people: userIds.length }
+      }),
+
+    members: {
+      add: (reference: string, people: string[], { history = true }: { history?: boolean } = {}) =>
+        this.#updateMembers(reference, people, "members.add", { operation: "add", showHistory: history }),
+      remove: (reference: string, people: string[]) =>
+        this.#updateMembers(reference, people, "members.remove", { operation: "remove", cleanMsgPeriod: 0 }),
+    },
+
+    admins: {
+      add: (reference: string, person: string, rights: AdminRight[]) =>
+        this.#updateMembers(reference, [person], "admins.add", {
+          operation: "add",
+          type: "ADMIN",
+          permissions: rights.reduce((sum, right) => sum | ADMIN_RIGHTS[right], 0),
+        }),
+      remove: (reference: string, person: string) =>
+        this.#updateMembers(reference, [person], "admins.remove", { operation: "remove", type: "ADMIN" }),
+    },
+
+    requests: {
+      list: async (reference: string): Promise<Contact[]> => {
+        if (this.#offline)
+          throw new CliError("validation_error", "`--offline` reads what was recorded; join requests never are")
+        const chatId = await this.chats.resolve(reference)
+        await this.#connectOnce()
+        const answer = await this.#wire.chats.members({ chatId, type: "JOIN_REQUEST", count: JOIN_REQUESTS })
+        return asArray(answer.members).map((member) => toContact(record(member.contact) ?? {}))
+      },
+      accept: (reference: string, people: string[]) =>
+        this.#updateMembers(reference, people, "requests.accept", {
+          operation: "add",
+          type: "JOIN_REQUEST",
+          showHistory: true,
+        }),
+      decline: (reference: string, people: string[]) =>
+        this.#updateMembers(reference, people, "requests.decline", { operation: "remove", type: "JOIN_REQUEST" }),
+    },
+
+    update: async (reference: string, { title, description }: { title?: string; description?: string }) => {
+      if (title === undefined && description === undefined) {
+        throw new CliError("validation_error", "nothing to change — give --title, --description or both")
+      }
+      const chatId = await this.chats.resolve(reference)
+      return this.#changeChat(chatId, "update", async () => {
+        const answer = await this.#wire.chats.update({
+          chatId,
+          ...(title === undefined ? {} : { theme: title }),
+          ...(description === undefined ? {} : { description }),
+        })
+        return { chatId, result: toGroupCard(record(answer.chat) ?? {}) }
+      })
+    },
+
+    /** With no changes, reads the settings the login carried; nothing is sent. */
+    settings: async (reference: string, changes: Partial<GroupSettings> = {}): Promise<GroupCard> => {
+      if (this.#offline)
+        throw new CliError("validation_error", "`--offline` reads what was recorded; settings never are")
+      const chatId = await this.chats.resolve(reference)
+      const entries = Object.entries(changes).filter(([, value]) => value !== undefined)
+      if (entries.length === 0) {
+        await this.#connectOnce()
+        const raw = asArray(this.#session().chats).find((chat) => asId(chat.id) === chatId)
+        if (!raw) throw new CliError("not_found", `no chat ${chatId} among this account's chats`)
+        return toGroupCard(raw)
+      }
+
+      const options = Object.fromEntries(
+        entries.map(([ours, value]) => [SETTING_FLAGS[ours as keyof GroupSettings], value as boolean]),
+      )
+      return this.#changeChat(chatId, "settings", async () => {
+        const answer = await this.#wire.chats.update({ chatId, options })
+        return { chatId, result: toGroupCard(record(answer.chat) ?? {}) }
+      })
+    },
+
+    /** The old link stops working for everyone who has it. */
+    resetLink: async (reference: string): Promise<GroupCard> => {
+      const chatId = await this.chats.resolve(reference)
+      return this.#changeChat(chatId, "link.reset", async () => {
+        const answer = await this.#wire.chats.update({ chatId, revokePrivateLink: true })
+        return { chatId, result: toGroupCard(record(answer.chat) ?? {}) }
+      })
     },
   }
 
@@ -1241,6 +1379,84 @@ export class MaxClient {
     }
   }
 
+  /**
+   * Every change to a chat, guarded and journalled as a send is. Never retried: none of these is
+   * measured to be safe to repeat, and a repeated `create` is a second group.
+   */
+  async #changeChat<T>(
+    chatId: Id | null,
+    action: ChatAction,
+    act: () => Promise<{ chatId: Id; result: T; people?: number }>,
+  ): Promise<T> {
+    if (this.#offline)
+      throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot change a chat")
+
+    try {
+      this.#sends?.check(chatId, "chat", action)
+    } catch (error) {
+      this.#sends?.record({ chatId, kind: "chat", action, outcome: "refused", errorCode: asCliError(error).code })
+      throw error
+    }
+
+    try {
+      await this.#connectOnce()
+      const done = await act()
+      this.#sends?.record({
+        chatId: done.chatId,
+        kind: "chat",
+        action,
+        outcome: "sent",
+        ...(done.people === undefined ? {} : { people: done.people }),
+      })
+      return done.result
+    } catch (error) {
+      const failure = asCliError(error)
+      this.#sends?.record({
+        chatId,
+        kind: "chat",
+        action,
+        outcome: failure.code === "outcome_unknown" ? "outcome_unknown" : "failed",
+        errorCode: failure.code,
+      })
+      throw error
+    }
+  }
+
+  async #updateMembers(
+    reference: string,
+    people: string[],
+    action: ChatAction,
+    change: Omit<RequestOf<typeof chatsUpdateMembers>, "chatId" | "userIds">,
+  ): Promise<ChatChange> {
+    const chatId = await this.chats.resolve(reference)
+    return this.#changeChat(chatId, action, async () => {
+      const userIds = await this.#personIds(people)
+      const answer = await this.#wire.chats.updateMembers({ chatId, userIds, ...change })
+      const chat = record(answer.chat)
+      return {
+        chatId,
+        people: userIds.length,
+        result: { chatId, action, people: userIds, chat: chat ? toGroupCard(chat) : null },
+      }
+    })
+  }
+
+  /** An id goes as given; a name is looked up in the store, and an ambiguous one is refused. */
+  async #personIds(references: string[]): Promise<Id[]> {
+    if (references.every(isId)) return references.map((reference) => reference.trim())
+
+    const cache = this.#cache
+    if (!cache) {
+      throw new CliError(
+        "configuration_error",
+        `there is no local store for profile "${this.#store.profile}" to look names up in — give people by id`,
+      )
+    }
+    await this.#connectOnce()
+    await this.#peopleFor(asArray(this.#session().chats))
+    return references.map((reference) => (isId(reference) ? reference.trim() : pickPerson(reference, cache).id))
+  }
+
   #nextCid(): number {
     const now = Date.now()
     this.#previousCid = now > this.#previousCid ? now : this.#previousCid + 1
@@ -1311,6 +1527,42 @@ export class MaxClient {
     if (!this.#login) throw new CliError("configuration_error", "connect() was never called")
     return this.#login
   }
+}
+
+/** What a change to a chat answers when MAX sends back no chat of its own. */
+export interface ChatChange {
+  chatId: Id
+  action: ChatAction
+  people: Id[]
+  chat: GroupCard | null
+}
+
+export type AdminRight = "members" | "admins" | "info" | "pin" | "post" | "edit" | "delete"
+
+/** PyMax `AdminPermission`; the sum is what MAX takes. */
+export const ADMIN_RIGHTS: Record<AdminRight, number> = {
+  members: 2,
+  admins: 4,
+  info: 8,
+  pin: 16,
+  post: 256,
+  edit: 512,
+  delete: 1024,
+}
+
+/** PyMax asks for this many; paging join requests is not known. */
+const JOIN_REQUESTS = 100
+
+/**
+ * A private link goes as `join/<token>`, whatever came before it, as PyMax sends it and as
+ * measured. A public one (`https://max.ru/<name>`) goes whole, which is PyMax's claim only.
+ */
+export const wireLink = (link: string): string => {
+  const trimmed = link.trim()
+  const at = trimmed.indexOf("join/")
+  if (at >= 0 && trimmed.length > at + "join/".length) return trimmed.slice(at)
+  if (/^(https:\/\/)?max\.ru\/[\w.-]+\/?$/.test(trimmed)) return trimmed
+  throw new CliError("validation_error", "not a MAX link — expected https://max.ru/join/… or https://max.ru/<name>")
 }
 
 const largestMp4 = (answer: Payload): string | undefined =>

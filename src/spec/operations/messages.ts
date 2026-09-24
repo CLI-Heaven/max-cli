@@ -7,31 +7,52 @@ export const messagesSend = defineOperation({
   constant: "MSG_SEND",
   opcode: 64,
   auth: true,
-  request: v.strictObject({
-    chatId: id(),
-    message: v.strictObject({
-      /** Left out on a forward, as the web client does: the forwarded message is the content. */
-      text: v.optional(v.string()),
-      /**
-       * The client id MAX deduplicates by — measured, and it is what makes one retry safe. It must
-       * never be regenerated on a retry: a fresh one means a second message in somebody's chat.
-       */
-      cid: v.pipe(v.number(), v.integer()),
-      /** Markup in UTF-16 positions. STRONG, EMPHASIZED, STRIKETHROUGH, MONOSPACED read back from MAX 2026-09-24. */
-      elements: v.optional(v.array(v.strictObject({ type: v.string(), from: v.number(), length: v.number() }))),
-      attaches: v.array(v.unknown()),
-      /** Read back as `{type, chatId, message}` — the quoted message whole (measured 2026-09-23). */
-      link: v.optional(
-        v.variant("type", [
-          v.strictObject({ type: v.literal("REPLY"), messageId: id() }),
-          /** `chatId` is the chat the message is forwarded **from** (web.max.ru, PyMax). */
-          v.strictObject({ type: v.literal("FORWARD"), messageId: id(), chatId: id() }),
-        ]),
-      ),
+  request: v.union([
+    v.strictObject({
+      chatId: id(),
+      message: v.strictObject({
+        /** Left out on a forward, as the web client does: the forwarded message is the content. */
+        text: v.optional(v.string()),
+        /**
+         * The client id MAX deduplicates by — measured, and it is what makes one retry safe. It must
+         * never be regenerated on a retry: a fresh one means a second message in somebody's chat.
+         */
+        cid: v.pipe(v.number(), v.integer()),
+        /** Markup in UTF-16 positions. STRONG, EMPHASIZED, STRIKETHROUGH, MONOSPACED read back from MAX 2026-09-24. */
+        elements: v.optional(v.array(v.strictObject({ type: v.string(), from: v.number(), length: v.number() }))),
+        attaches: v.array(v.unknown()),
+        /** Read back as `{type, chatId, message}` — the quoted message whole (measured 2026-09-23). */
+        link: v.optional(
+          v.variant("type", [
+            v.strictObject({ type: v.literal("REPLY"), messageId: id() }),
+            /** `chatId` is the chat the message is forwarded **from** (web.max.ru, PyMax). */
+            v.strictObject({ type: v.literal("FORWARD"), messageId: id(), chatId: id() }),
+          ]),
+        ),
+      }),
+      notify: v.boolean(),
     }),
-    notify: v.boolean(),
-  }),
-  response: v.looseObject({ message: v.optional(v.looseObject({})) }),
+    /**
+     * Creating a group is a message too: a CONTROL attachment with no chat to send it to. Measured
+     * 2026-09-24 with nobody invited (`pnpm probe:groups`); the answer adds `chat` and `chatId`.
+     */
+    v.strictObject({
+      message: v.strictObject({
+        cid: v.pipe(v.number(), v.integer()),
+        attaches: v.tuple([
+          v.strictObject({
+            _type: v.literal("CONTROL"),
+            event: v.literal("new"),
+            chatType: v.literal("CHAT"),
+            title: v.pipe(v.string(), v.minLength(1)),
+            userIds: v.array(id()),
+          }),
+        ]),
+      }),
+      notify: v.boolean(),
+    }),
+  ]),
+  response: v.looseObject({ message: v.optional(v.looseObject({})), chat: v.optional(v.looseObject({})) }),
   provenance: {
     confidence: "measured",
     sources: [
@@ -39,6 +60,7 @@ export const messagesSend = defineOperation({
       "`link` and `elements` measured 2026-09-23 in Saved messages (`pnpm probe:reply`); shapes from tsmax and PyMax",
       "the FORWARD link: web.max.ru `_app/immutable/chunks/5oCuRT0F.js` (2026-09-24), PyMax `api/messages/payloads.py:56-73`",
       "a forward with no `text` and no `elements` measured 2026-09-24 in Saved messages (`pnpm probe:edit-pin-forward`)",
+      "group creation measured 2026-09-24 (`pnpm probe:groups`); shape from PyMax create_group",
     ],
     notes:
       "How long MAX remembers a `cid` is still unmeasured (`PROTO-2`); the two probes were seconds apart. " +

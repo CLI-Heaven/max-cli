@@ -36,8 +36,16 @@ export const Opcode = {
    * `src/client.test.ts` asserts its absence from everything the client sent.
    */
   CHAT_MARK: 50,
+  /**
+   * **Declared, never sent.** Deleting a chat is left out of MAX-31 for the reason of `NEED-32`: a tool that can
+   * destroy a conversation for everyone in it is a poor trade for tidiness.
+   */
+  CHAT_DELETE: 52,
   CHATS_LIST: 53,
   CHAT_UPDATE: 55,
+  CHAT_JOIN: 57,
+  CHAT_LEAVE: 58,
+  CHAT_MEMBERS: 59,
   MSG_SEND: 64,
   /**
    * **Declared, never sent.** Deliberately never called. Giving this tool the ability to destroy somebody's messages,
@@ -45,10 +53,12 @@ export const Opcode = {
    */
   MSG_DELETE: 66,
   MSG_EDIT: 67,
+  CHAT_MEMBERS_UPDATE: 77,
   PHOTO_UPLOAD: 80,
   VIDEO_PLAY: 83,
   FILE_UPLOAD: 87,
   FILE_DOWNLOAD: 88,
+  LINK_INFO: 89,
   AUTH_LOGIN_CHECK_PASSWORD: 115,
   MSG_REACTION: 178,
   MSG_CANCEL_REACTION: 179,

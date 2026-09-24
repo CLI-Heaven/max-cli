@@ -1,6 +1,17 @@
 import type { Entry, Operation, Reservation } from "./define.js"
 import { attachmentsFile, attachmentsVideo } from "./operations/attachments.js"
-import { chatMark, chatsHistory, chatsList, chatsUpdate } from "./operations/chats.js"
+import {
+  chatDelete,
+  chatMark,
+  chatsHistory,
+  chatsJoin,
+  chatsLeave,
+  chatsLinkInfo,
+  chatsList,
+  chatsMembers,
+  chatsUpdate,
+  chatsUpdateMembers,
+} from "./operations/chats.js"
 import { contactsInfo, profile, unidentified36 } from "./operations/contacts.js"
 import {
   loginByQr,
@@ -50,7 +61,13 @@ export const spec: readonly Entry[] = [
   chatsHistory,
   chatMark,
   chatsList,
+  chatsLinkInfo,
+  chatsJoin,
+  chatsLeave,
   chatsUpdate,
+  chatsMembers,
+  chatsUpdateMembers,
+  chatDelete,
   messagesSend,
   messagesEdit,
   messagesReact,

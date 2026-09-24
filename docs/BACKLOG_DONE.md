@@ -52,6 +52,11 @@ what exists now, and where it is described. The numbers stay reserved — commit
 
 ## MAX
 
+- **MAX-30, MAX-31** — groups and channels under `max chats`: `inspect`, `join`, `leave`, `create`,
+  `members add|remove`, `admins add|remove`, `update`, `settings`, `requests list|accept|decline`,
+  `link reset`. Guarded and journalled as sends (`kind: "chat"`). Measured 2026-09-24
+  (`pnpm probe:groups`, `pnpm probe:members`), all but answering a join request (`MAX-41`).
+  Deleting a chat stays out (`NEED-32`).
 - **MAX-25** — `max messages edit <chat> <message> [text]` changes the text of your own message
   (`MSG_EDIT` 67, measured 2026-09-24). The attachments go back as history gives them, since an
   empty list removes a photo; somebody else's message and a forward are refused before MAX is asked.
