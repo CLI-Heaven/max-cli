@@ -7,10 +7,12 @@
  *   pnpm build && bun run scripts/smoke.ts
  */
 import { spawnSync } from "node:child_process"
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs"
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs"
+import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { openCache } from "../dist/cache/open.js"
+import { decodeOgg } from "../dist/transcribe/speech.js"
 
 const runtime = typeof (globalThis as { Bun?: unknown }).Bun === "undefined" ? "node" : "bun"
 const failures: string[] = []
@@ -118,6 +120,14 @@ try {
 } finally {
   database.close()
 }
+
+// Transcription is WebAssembly on purpose — a native module is what usually breaks under Bun — and
+// this is where that choice is proven. The model itself is too large for CI; the engine and the
+// decoder are not.
+const decoded = await decodeOgg(new Uint8Array(readFileSync("src/testing/fixtures/tone.ogg")))
+check("a voice recording decodes under this runtime", decoded.rate === 48_000 && decoded.samples.length > 40_000)
+const sherpa = createRequire(import.meta.url)("sherpa-onnx") as { createOfflineRecognizer?: unknown }
+check("the speech engine loads under this runtime", typeof sherpa.createOfflineRecognizer === "function")
 
 rmSync(isolated, { recursive: true, force: true })
 

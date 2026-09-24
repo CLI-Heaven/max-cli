@@ -2,6 +2,7 @@ import { existsSync } from "node:fs"
 import { CliError, configFilePath, loadConfigFile, resolvePaths, saveConfigFile } from "@leemour/cli-core"
 import * as v from "valibot"
 import { DEFAULT_PROFILE, usableProfileName } from "./profile.js"
+import { DEFAULT_MODEL, MODELS } from "./transcribe/models.js"
 
 const APP = "max-cli"
 const DEFAULT_LIMIT = 20
@@ -51,8 +52,20 @@ const profileEntries = {
 }
 const profileSettings = v.strictObject(profileEntries, objectMessage(Object.keys(profileEntries)))
 
-/** One program, one version: whether to look for a newer one is not a per-profile matter. */
-const defaultsEntries = { ...profileEntries, updateCheck: v.optional(flag) }
+/**
+ * One program, one version: whether to look for a newer one is not a per-profile matter. Nor is the
+ * speech model — it is a download on this machine, not a property of an account.
+ */
+const defaultsEntries = {
+  ...profileEntries,
+  updateCheck: v.optional(flag),
+  transcribeModel: v.optional(
+    v.picklist(
+      MODELS.map((model) => model.id),
+      `has to be one of ${MODELS.map((model) => `"${model.id}"`).join(", ")}`,
+    ),
+  ),
+}
 const defaultsSettings = v.strictObject(defaultsEntries, objectMessage(Object.keys(defaultsEntries)))
 
 const configEntries = {
@@ -67,7 +80,7 @@ export type Config = v.InferOutput<typeof configSchema>
 
 export type ProfileSetting = keyof v.InferOutput<typeof profileSettings>
 export const PROFILE_SETTINGS = Object.keys(profileSettings.entries) as ProfileSetting[]
-export const DEFAULTS_ONLY_SETTINGS = ["updateCheck"] as const
+export const DEFAULTS_ONLY_SETTINGS = ["updateCheck", "transcribeModel"] as const
 export const ALL_SETTINGS: string[] = [...PROFILE_SETTINGS, ...DEFAULTS_ONLY_SETTINGS]
 
 /** Whatever the command line carried. Everything is optional: absent means "not given here". */
@@ -127,6 +140,8 @@ export interface Settings {
   sendsPerHour: number
   /** Whether a person at a terminal hears, once a day, that a newer version exists. */
   updateCheck: boolean
+  /** Which speech model `max messages transcribe` uses unless `--model` says otherwise. */
+  transcribeModel: string
   /** Named in errors and in `max --help`, so a person can find the file that decided this. */
   configPath: string
   configFound: boolean
@@ -157,6 +172,7 @@ export type SourcedSetting =
   | "readOnly"
   | "sendsPerHour"
   | "updateCheck"
+  | "transcribeModel"
 
 /** The first given value wins, and says which it was. */
 const first = <T>(candidates: [Source, T | undefined][], fallback: T): { value: T; from: Source } => {
@@ -268,6 +284,7 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
   )
 
   const updateCheck = first([["config defaults", shared.updateCheck]], true)
+  const transcribeModel = first<string>([["config defaults", shared.transcribeModel]], DEFAULT_MODEL)
 
   /**
    * ⚠ **The only setting with no `config file` row, on purpose.** A budget for one command is
@@ -302,6 +319,7 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
     readOnly: readOnly.value,
     sendsPerHour: sendsPerHour.value,
     updateCheck: updateCheck.value,
+    transcribeModel: transcribeModel.value,
     configPath,
     configFound: existsSync(configPath),
     configuredProfiles: Object.keys(config.profiles),
@@ -318,6 +336,7 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
       readOnly: readOnly.from,
       sendsPerHour: sendsPerHour.from,
       updateCheck: updateCheck.from,
+      transcribeModel: transcribeModel.from,
     },
   }
 

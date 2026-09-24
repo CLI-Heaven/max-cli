@@ -5,6 +5,9 @@ import { openProfileCache } from "../cache/index.js"
 import type { Id, Message, WindowedMessage } from "../domain/models.js"
 import { type Saved, save } from "../download.js"
 import { renderMessages } from "../rendering/messages.js"
+import { transcribe } from "../transcribe/index.js"
+import { modelsDirectory } from "../transcribe/install.js"
+import { speechModel } from "../transcribe/models.js"
 import { readBody } from "./body.js"
 import { type CommandContext, forCommand } from "./context.js"
 import { renderPage } from "./paging.js"
@@ -167,6 +170,46 @@ export const messagesCommand = (): Command => {
           else renderer.result({ items: saved })
         } finally {
           await client.close()
+        }
+      })
+    })
+
+  /**
+   * **On this machine, and only with a model the owner downloaded** (`NEED-231`). The recording is
+   * fetched, the connection closed, and then the model runs — up to a minute for five minutes of
+   * speech, which should not hold a socket open.
+   */
+  command
+    .command("transcribe")
+    .argument("<chat>", "chat id, or part of a chat name")
+    .argument("<message>", "id of a voice message")
+    .description("turn a voice message into text, on this machine — the recording goes nowhere")
+    .option("--model <id>", "which downloaded speech model to use; `max models list` shows them")
+    .action(async function (this: Command, chat: string, messageId: string) {
+      const { model: wanted } = this.opts<{ model?: string }>()
+      const context = forCommand(this)
+      const { renderer, format, streams, settings, createClient, run } = context
+      const model = speechModel(wanted ?? settings.transcribeModel)
+      const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
+
+      await run("messages transcribe", async (events) => {
+        const client = createClient({ events, ...(cache ? { cache } : {}) })
+        try {
+          const chatId = await client.chats.resolve(chat)
+          const transcript = await transcribe(client, chatId, messageId.trim(), {
+            model,
+            directory: modelsDirectory(),
+            cache,
+            release: async () => {
+              await client.close()
+              renderer.note(`transcribing with ${model.id} on this machine`)
+            },
+          })
+          if (format === "pretty") streams.data(`${transcript.text}\n`)
+          else renderer.result(transcript)
+        } finally {
+          await client.close()
+          cache?.close()
         }
       })
     })

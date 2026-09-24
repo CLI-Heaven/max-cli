@@ -466,6 +466,23 @@ max messages download <chat> <message> [options]
 |---|---|
 | `--output <dir>` | where to save them По умолчанию: `.`. |
 
+### `max messages transcribe`
+
+turn a voice message into text, on this machine — the recording goes nowhere
+
+```sh
+max messages transcribe <chat> <message> [options]
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+| `message` | обязательный | id of a voice message |
+
+| Опция | Что делает |
+|---|---|
+| `--model <id>` | which downloaded speech model to use; `max models list` shows them |
+
 ### `max messages send`
 
 send one text message
@@ -562,6 +579,30 @@ max messages unpin <chat>
 | Аргумент | | Что это |
 |---|---|---|
 | `chat` | обязательный | chat id, or part of a chat name |
+
+## `max models`
+
+speech models for transcribing voice messages
+
+### `max models list`
+
+the models max can use, which are downloaded, and which one is the default
+
+```sh
+max models list
+```
+
+### `max models download`
+
+download a speech model once, checked against the sha256 this version of max expects
+
+```sh
+max models download <model>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `model` | обязательный | a model id from `max models list` |
 
 ## `max reactions`
 
@@ -716,7 +757,7 @@ max config set <setting> <value> [options]
 
 | Аргумент | | Что это |
 |---|---|---|
-| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour, serve, updateCheck |
+| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour, serve, updateCheck, transcribeModel |
 | `value` | обязательный | a number, true or false |
 
 | Опция | Что делает |
@@ -733,7 +774,7 @@ max config unset <setting> [options]
 
 | Аргумент | | Что это |
 |---|---|---|
-| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour, serve, updateCheck |
+| `setting` | обязательный | one of: limit, timeoutMs, color, senderColors, record, keepRunsForDays, readOnly, sendsPerHour, serve, updateCheck, transcribeModel |
 
 | Опция | Что делает |
 |---|---|

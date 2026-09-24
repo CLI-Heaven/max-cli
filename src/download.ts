@@ -37,6 +37,18 @@ const safeName = (name: string | undefined): string | undefined => {
  * the name is taken — so an existing file survives, and an interrupted download leaves no half
  * file under the name somebody will open.
  */
+/** Into memory rather than a file: a voice message is a few hundred kilobytes, and transcription reads it once. */
+export const fetchBytes = async (attachment: AttachmentLink): Promise<Uint8Array> => {
+  const response = await fetch(attachment.url, {
+    headers: { "User-Agent": WEB_USER_AGENT.headerUserAgent, Referer: "https://web.max.ru/" },
+  })
+  if (!response.ok) {
+    await response.body?.cancel()
+    throw new CliError("network_error", `the ${attachment.kind} could not be downloaded: HTTP ${response.status}`)
+  }
+  return new Uint8Array(await response.arrayBuffer())
+}
+
 export const save = async (attachment: AttachmentLink, directory: string, fallbackName: string): Promise<Saved> => {
   const response = await fetch(attachment.url, {
     headers: { "User-Agent": WEB_USER_AGENT.headerUserAgent, Referer: "https://web.max.ru/" },
