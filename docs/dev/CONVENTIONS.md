@@ -31,7 +31,7 @@ So a raw protocol field keeps its wire spelling inside the protocol and adapter 
 has to match captured traffic — and above the adapter only our own domain model exists
 (`lastMessageAt`, not whatever the frame happens to call it). A raw MAX object never reaches CLI
 output except behind an explicit debug/raw option —
-[`REQUIREMENTS.md`](REQUIREMENTS.md) §16, §25.
+`docs_ai/REQUIREMENTS.md` §16, §25.
 
 **Reusable core code stays Node-light, and this is a weaker rule than it looks.** ⚠ *`braze-cli`
 requires its core to run unchanged in a Cloudflare Worker and enforces that with three gates.
@@ -103,13 +103,13 @@ that lies at the top. Rewrite the wrong sentence. If the wrong version circulate
 do not hide it.
 
 **User pages state current facts only.** `README.md` and the Russian pages under `docs/` — the
-ones [`README.md`](README.md) lists under "Using it", except `CHANGELOG.md` — carry no «Поправка», no struck-out text, no
+ones [`../README.md`](../README.md) lists under "Using it", except `CHANGELOG.md` — carry no «Поправка», no struck-out text, no
 dated "measured on", no decision or backlog ids. Rewrite the sentence and say nothing about the
 old one; the trail lives in git, `CHANGELOG.md` and the journal. A *why* is allowed when a reader
 would otherwise undo the behaviour. The marked-correction rule above is for the developer
 documents.
 
-**One fact, one home.** A decision lives in [`DECISIONS.md`](DECISIONS.md); a task lives in
+**One fact, one home.** A decision lives in `docs_ai/DECISIONS.md`; a task lives in
 [`BACKLOG.md`](BACKLOG.md); something to delete lives in `docs_ai/CLEANUP.md`; a plan lives in
 `docs_ai/plans/`. Everywhere else links to it. Two copies of a fact drift, and the reader cannot
 tell which is current.

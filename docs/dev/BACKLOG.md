@@ -1,8 +1,8 @@
 # Backlog
 
-Open work only, one item per line. Closed items move to [`BACKLOG_DONE.md`](BACKLOG_DONE.md).
-What the tool does today: [`commands.md`](commands.md) (generated). How it is built:
-[`ARCHITECTURE.md`](ARCHITECTURE.md). What the owner ruled: [`DECISIONS.md`](DECISIONS.md).
+Open work only, one item per line. Closed items move to `docs_ai/BACKLOG_DONE.md`.
+What the tool does today: [`../commands.md`](../commands.md) (generated). How it is built:
+[`ARCHITECTURE.md`](ARCHITECTURE.md). What the owner ruled: `docs_ai/DECISIONS.md`.
 
 ## Rules
 
@@ -20,7 +20,8 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   ⏸️ — deferred by the owner · 🚩 — waits on an owner decision.
 - **Claim before code:** put `🚧 <branch>` on the line in the first push of the branch. Two agents
   built the same command on 2026-09-23 because an open PR was the only signal.
-- **Close in the PR that ships the work:** move the line to `BACKLOG_DONE.md` in the same PR.
+- **Close in the PR that ships the work:** delete the line here in that PR, and append it to
+  `docs_ai/BACKLOG_DONE.md` (local, not in git). Users read what shipped in `CHANGELOG.md`.
 
 ## Features
 

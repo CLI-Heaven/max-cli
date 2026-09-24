@@ -6,14 +6,14 @@ reverse-engineered.
 
 ## Building it
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — how it is built **now**, and which seams you may not cross
-- [architecture/](architecture/) — its detail: session and login sync, reading messages, the store and search
-- [REQUIREMENTS.md](REQUIREMENTS.md) — the owner's brief, cited by section number
-- [DECISIONS.md](DECISIONS.md) — what was ruled, and why — read before "fixing" something odd
-- [CONVENTIONS.md](CONVENTIONS.md) — how code and documents are written here
-- [TESTING.md](TESTING.md) — how to check it yourself, and what each check is for
-- [BACKLOG.md](BACKLOG.md) — what is left
-- [BACKLOG_DONE.md](BACKLOG_DONE.md) — what is closed, one line each
+- [dev/ARCHITECTURE.md](dev/ARCHITECTURE.md) — how it is built **now**, and which seams you may not cross
+- [dev/architecture/](dev/architecture/) — its detail: session and login sync, reading messages, the store and search
+- `docs_ai/REQUIREMENTS.md` — the owner's brief, cited by section number
+- `docs_ai/DECISIONS.md` — what was ruled, and why — read before "fixing" something odd
+- [dev/CONVENTIONS.md](dev/CONVENTIONS.md) — how code and documents are written here
+- [dev/TESTING.md](dev/TESTING.md) — how to check it yourself, and what each check is for
+- [dev/BACKLOG.md](dev/BACKLOG.md) — what is left
+- `docs_ai/BACKLOG_DONE.md` — what is closed, one line each
 
 ## Reference — generated, never hand-written
 
@@ -36,7 +36,7 @@ so a reference that quotes a command the program no longer has cannot reach `mai
 - [security.md](security.md) — что попадает на диск, а что не попадает никогда
 - [troubleshooting.md](troubleshooting.md) — по симптому: что видно на экране и что делать
 - [ROADMAP.md](ROADMAP.md) — что планируется
-- [releasing.md](releasing.md) — как выпускается версия, и кем
+- `docs_ai/releasing.md` — как выпускается версия, и кем
 - [../CHANGELOG.md](../CHANGELOG.md) — что изменилось между версиями
 
 `ARCHITECTURE.md` describes the code as it behaves today. **When a document disagrees with the
