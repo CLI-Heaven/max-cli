@@ -61,6 +61,17 @@ describe("sending", () => {
     expect(readFileSync(sendsPathFor("g-open"), "utf8")).not.toContain(TEXT)
   })
 
+  it("from a read-only profile, refuses a reaction too, and journals it as one", async () => {
+    const { max, environment } = messenger()
+    await runWith(["g-react-read", "config", "set", "readOnly", "true"])
+
+    const refused = await runWith(["g-react-read", "reactions", "add", "111", "116762160362694583", "👍"], environment)
+
+    expect(refused.code).toBe(5)
+    expect(max.sent).toEqual([])
+    expect(journalOf("g-react-read")).toMatchObject([{ chatId: "111", kind: "reaction", outcome: "refused" }])
+  })
+
   it("from a read-only profile, refuses with 5 and never connects", async () => {
     const { max, environment } = messenger()
     await runWith(["g-read", "config", "set", "readOnly", "true"])

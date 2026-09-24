@@ -59,6 +59,8 @@ what exists now, and where it is described. The numbers stay reserved — commit
 - **MAX-19** — `readOnly`: a read-only profile refuses to send with code 5.
 - **MAX-20** — `sendsPerHour`, 30 by default: over it, code 8 with the time the next send is possible.
 - **MAX-21** — every send attempt journalled without its text, always; `max sends list`.
+- **MAX-22** — `max reactions add` goes through the send guards: read-only and the recipient list
+  refuse it, it is journalled as `kind: "reaction"`, the hourly limit does not count it (`NEED-168`).
 
 ## The command
 

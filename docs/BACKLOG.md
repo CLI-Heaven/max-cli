@@ -46,13 +46,6 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 - **MAX-8** · P3 · Telemetry as the official client sends it — only once our own traffic is
   understood (`NEED-16`).
 
-- **MAX-22** · 🚩 P1 · Guard `max reactions add` like a send (`NEED-168`): read-only and the
-  recipient list refuse it, it goes in the send journal with `kind: "reaction"`, the hourly limit
-  does not count it. The guard already takes the kind (`src/sends/guard.ts`); left is one call in
-  `client.messages.react`, which arrives with PR #56.
-
-## Research and protocol unknowns
-
 - **MAX-15** · P3 · Show reactions when reading. History does not carry them: after the owner
   reacted in Saved messages, 653 messages from 25 chats (Saved included) had no reaction field
   (`pnpm probe:reactions`, 2026-09-23). **Found and measured 2026-09-23:** opcode 180

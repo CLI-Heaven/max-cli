@@ -498,13 +498,33 @@ export class MaxClient {
      */
     react: async (chatId: Id, messageId: Id, emoji: string): Promise<Reactions> => {
       if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot react")
-      await this.#connectOnce()
-      const answer = await this.#wire.messages.react({
-        chatId,
-        messageId,
-        reaction: { reactionType: "EMOJI", id: emoji },
-      })
-      return toReactions(record(answer.reactionInfo) ?? {})
+
+      try {
+        this.#sends?.check(chatId, "reaction")
+      } catch (error) {
+        this.#sends?.record({ chatId, kind: "reaction", outcome: "refused", errorCode: asCliError(error).code })
+        throw error
+      }
+
+      try {
+        await this.#connectOnce()
+        const answer = await this.#wire.messages.react({
+          chatId,
+          messageId,
+          reaction: { reactionType: "EMOJI", id: emoji },
+        })
+        this.#sends?.record({ chatId, kind: "reaction", outcome: "sent", messageId })
+        return toReactions(record(answer.reactionInfo) ?? {})
+      } catch (error) {
+        this.#sends?.record({
+          chatId,
+          kind: "reaction",
+          outcome: "failed",
+          messageId,
+          errorCode: asCliError(error).code,
+        })
+        throw error
+      }
     },
   }
 
