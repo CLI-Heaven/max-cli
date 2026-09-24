@@ -601,3 +601,20 @@ Overturned the same day: «почитал, за это банят - не дел�
 **NEED-162 · How does the latest-messages command (`CLI-23`) know what it already showed?** **It
 keeps the point of the last check in the profile by itself; `--since <time>` overrides it.** «1 А».
 A scheduled run is then one line with no storage of its own.
+
+**NEED-148 · Is `max` for its owner's personal use only — the ground on which it keeps other people's
+messages?** **Yes: each person runs it on their own account, for themselves.** «1 A». Keeping the
+correspondence of third parties is lawful under the personal-use exemption in both jurisdictions
+that apply — 152-ФЗ art. 1 part 2 item 1 in Russia, GDPR art. 2(2)(c) in the EU. That exemption
+covers the person using the tool, not its author, so publishing `max` and finding it users
+(`NEED-139`) stays compatible; running it for a business or on other people's accounts does not.
+`docs/security.md` names this ground. Research: `docs_ai/research/G1-max.md`, 3.12.
+
+**NEED-149 · Warn about the risk to the account at the first `max session start`?** **Yes, once, and
+gently.** «2 A но надо быть мягче … просто просить использовать параллельно в браузере макс, чтобы
+был реальный трафик». The MAX terms (legal.max.ru/ps, edition 2026-09-09, 4.3.7) forbid automated
+scripts without the company's permission, and MAX has blocked accounts that used a third-party
+client it could tell apart from its own. The notice does not cite the blocking. It asks the user to
+keep using MAX normally in the browser or on the phone alongside `max`. That the extra ordinary
+traffic lowers the risk is a belief, not a measurement. Shown once per profile, on stderr, never in
+JSON mode's stdout (`CLI-26`).

@@ -4,6 +4,12 @@ import { adoptToken } from "../session/adopt.js"
 import { readSecret } from "../session/prompt.js"
 import { forCommand } from "./context.js"
 
+// NEED-149: gentle on purpose — it asks for ordinary use alongside, and does not cite blocked accounts.
+const TERMS_NOTICE = [
+  "max is not the official MAX app, and the MAX terms do not allow automated programs (legal.max.ru/ps, 4.3.7).",
+  "Keep using MAX as usual in the browser or on your phone alongside it. More: docs/security.md",
+].join("\n")
+
 export const sessionCommand = (): Command => {
   const command = new Command("session").description("the stored MAX session for this profile")
 
@@ -41,11 +47,15 @@ export const sessionCommand = (): Command => {
       await run("session start", async (events) => {
         const client = createClient({ events })
 
+        // No account on record means this profile has never logged in, or `session end` forgot it.
+        const firstLogin = store.readState().viewerId === undefined
+
         try {
           await adoptToken(client, store, token)
           const profile = client.account.me()
           renderer.result({ profile, stored: true })
           renderer.success(`logged in as ${profile.name ?? profile.id}`)
+          if (firstLogin) renderer.note(TERMS_NOTICE)
         } finally {
           await client.close()
         }
