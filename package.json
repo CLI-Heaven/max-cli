@@ -1,6 +1,6 @@
 {
   "name": "@leemour/max-cli",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "A local command line interface for a personal MAX Messenger account, built for agents and scripts",
   "license": "MIT",
   "author": "Viacheslav Ptsarev",
