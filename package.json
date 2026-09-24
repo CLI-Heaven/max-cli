@@ -49,7 +49,8 @@
     "probe:inbox": "pnpm build && node --experimental-strip-types scripts/probe-inbox.ts"
   },
   "dependencies": {
-    "@leemour/cli-core": "^0.2.0",
+    "@bomb.sh/tab": "0.0.22",
+    "@leemour/cli-core": "^0.3.0",
     "commander": "^15.0.0",
     "lossless-json": "^4.3.1",
     "qrcode-generator": "2.0.4",

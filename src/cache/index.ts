@@ -1,5 +1,5 @@
 import { chmodSync, mkdirSync } from "node:fs"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { resolvePaths } from "@leemour/cli-core"
 import { openCache } from "./open.js"
 import { NewerCacheError } from "./schema.js"
@@ -26,17 +26,19 @@ export interface ProfileCacheOptions {
  * The file holds message text, so the directory is `0700` and the database `0600`. It lives under
  * the cache directory rather than the state one: deleting it must lose nothing that was typed.
  */
+export const profileCacheFile = (profile: string, env: NodeJS.ProcessEnv = process.env): string =>
+  join(resolvePaths({ appName: "max-cli", prefix: "MAX", env }).cache, `${profile}.db`)
+
 export const openProfileCache = async (
   profile: string,
   { env = process.env, onProblem }: ProfileCacheOptions = {},
 ): Promise<CacheStore | undefined> => {
-  const paths = resolvePaths({ appName: "max-cli", prefix: "MAX", env })
-  const file = join(paths.cache, `${profile}.db`)
+  const file = profileCacheFile(profile, env)
 
   try {
     // SQLite will not create a file in a directory that does not exist, and on a fresh machine
     // this one never does.
-    mkdirSync(paths.cache, { recursive: true, mode: 0o700 })
+    mkdirSync(dirname(file), { recursive: true, mode: 0o700 })
     const store = openStore({ database: await openCache(file) })
     chmodSync(file, 0o600)
     return store

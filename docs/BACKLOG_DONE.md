@@ -5,6 +5,9 @@ what exists now, and where it is described. The numbers stay reserved — commit
 
 ## Foundation and repository
 
+- **CORE-12** — shell completion from the command registry: `@leemour/cli-core/completion` (0.3.0)
+  suggests, `max complete zsh|bash|fish|powershell` prints the script (`@bomb.sh/tab`, pinned) and
+  answers from the local cache, never the network. `docs/installation.md`.
 - **CLI-29** — `docs/commands.md` is rendered from the command registry: one walk of the tree, and
   the commands that change something in MAX are marked.
 - **CORE-8** — the command registry, `@leemour/cli-core/commands` (0.2.0): the command tree as data,

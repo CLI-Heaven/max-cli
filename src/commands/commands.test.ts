@@ -13,10 +13,14 @@ const commands = async (argv: string[] = ["commands", "--json"], tty = false) =>
   return { code, stdout: streams.stdout, stderr: streams.stderr }
 }
 
+const isHidden = (command: Command) => (command as Command & { _hidden?: boolean })._hidden === true
+
 const leaves = (command: Command, path: string[] = []): string[] =>
-  command.commands.flatMap((child) =>
-    child.commands.length === 0 ? [[...path, child.name()].join(" ")] : leaves(child, [...path, child.name()]),
-  )
+  command.commands
+    .filter((child) => !isHidden(child))
+    .flatMap((child) =>
+      child.commands.length === 0 ? [[...path, child.name()].join(" ")] : leaves(child, [...path, child.name()]),
+    )
 
 const flat = (tree: readonly CommandInfo[]): CommandInfo[] => tree.flatMap((one) => [one, ...flat(one.commands)])
 
