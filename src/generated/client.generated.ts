@@ -60,6 +60,7 @@ export const wireClient = (invoke: Invoke) => ({
   },
   chats: {
     history: (request: RequestOf<(typeof OPERATIONS)["chats.history"]>) => invoke(OPERATIONS["chats.history"], request),
+    mark: (request: RequestOf<(typeof OPERATIONS)["chats.mark"]>) => invoke(OPERATIONS["chats.mark"], request),
     list: (request: RequestOf<(typeof OPERATIONS)["chats.list"]>) => invoke(OPERATIONS["chats.list"], request),
     linkInfo: (request: RequestOf<(typeof OPERATIONS)["chats.linkInfo"]>) =>
       invoke(OPERATIONS["chats.linkInfo"], request),

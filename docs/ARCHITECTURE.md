@@ -104,8 +104,11 @@ socket, so "the next frame is my answer" eventually reads somebody's incoming me
 
 ## 5. Reading is observational, by construction
 
-`CHAT_HISTORY` (49) and `CHAT_MARK` (50) are separate. We never send 50; `src/client.test.ts`
-asserts opcode 50 is absent from everything sent.
+`CHAT_HISTORY` (49) and `CHAT_MARK` (50) are separate. Nothing that reads sends 50;
+`src/client.test.ts` asserts opcode 50 is absent from everything sent. **Correction 2026-09-24:**
+this said "we never send 50". Since `CLI-33` it goes out from `client.chats.markRead` only —
+`max chats read`, `messages list --mark-read`, and the MCP tool behind `--allow-mark-read` — through
+the send guard as kind `read`. Its request is PyMax's shape, not measured (`src/spec/operations/chats.ts`).
 
 ⚠ Until the spec landed (2026-09-19) that assertion compared against a missing `Opcode.CHAT_MARK`,
 so it read `not.toContain(undefined)` and always passed — `tsconfig.json` excluded test files

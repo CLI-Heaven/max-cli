@@ -283,6 +283,19 @@ const SEND_TOOLS = {
   }),
 }
 
+/** Registered only with `--allow-mark-read`: the other person sees it, and `--allow-send` does not imply it. */
+const MARK_READ_TOOLS = {
+  max_chats_read: tool({
+    title: "Mark a chat read",
+    description:
+      "Mark a chat read up to a message, or up to its newest message. The other person sees that it was read. Only when the owner asked for it.",
+    input: v.object({ chat, message: v.optional(message) }),
+    annotations: WRITE,
+    _meta: APPROVE,
+    answer: async (client, args) => client.chats.markRead(await client.chats.resolve(args.chat), args.message),
+  }),
+}
+
 const answered = (value: object): CallToolResult => ({
   content: [{ type: "text", text: JSON.stringify(value) }],
   structuredContent: value as Record<string, unknown>,
@@ -303,13 +316,19 @@ const failed = (error: unknown): CallToolResult => {
 export const registerTools = (
   server: McpServer,
   session: MaxSession,
-  { allowSend, confirmSend = false, defaultLimit }: { allowSend: boolean; confirmSend?: boolean; defaultLimit: number },
+  {
+    allowSend,
+    confirmSend = false,
+    allowMarkRead = false,
+    defaultLimit,
+  }: { allowSend: boolean; confirmSend?: boolean; allowMarkRead?: boolean; defaultLimit: number },
 ): void => {
   const confirmed = confirmSend ? confirmer() : undefined
 
   const tools: Record<string, AnyTool> = {
     ...READ_TOOLS,
     ...(allowSend ? SEND_TOOLS : {}),
+    ...(allowMarkRead ? MARK_READ_TOOLS : {}),
   }
 
   for (const [name, definition] of Object.entries(tools)) {

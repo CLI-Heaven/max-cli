@@ -10,8 +10,13 @@ export const mcpCommand = (): Command =>
       "--confirm-send",
       "show the owner each send in a form from the server — the chat it resolved to and the text",
     )
+    .option("--allow-mark-read", "offer the tool that marks a chat read; the other person sees it")
     .action(async function (this: Command) {
-      const { allowSend, confirmSend } = this.opts<{ allowSend?: boolean; confirmSend?: boolean }>()
+      const { allowSend, confirmSend, allowMarkRead } = this.opts<{
+        allowSend?: boolean
+        confirmSend?: boolean
+        allowMarkRead?: boolean
+      }>()
       if (confirmSend && !allowSend) {
         throw new CliError(
           "validation_error",
@@ -20,5 +25,9 @@ export const mcpCommand = (): Command =>
       }
       // Loaded here, not at the top: every other command would otherwise pay for the SDK and zod.
       const { serveOverStdio } = await import("../mcp/server.js")
-      await serveOverStdio(forCommand(this), { allowSend: allowSend === true, confirmSend: confirmSend === true })
+      await serveOverStdio(forCommand(this), {
+        allowSend: allowSend === true,
+        confirmSend: confirmSend === true,
+        allowMarkRead: allowMarkRead === true,
+      })
     })

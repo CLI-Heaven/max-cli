@@ -50,6 +50,7 @@ describe("max commands", () => {
       "account update",
       "account sessions end-others",
       "chats join",
+      "chats read",
       "chats leave",
       "chats create",
       "chats members add",

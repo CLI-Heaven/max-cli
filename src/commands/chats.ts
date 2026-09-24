@@ -76,6 +76,17 @@ export const chatsCommand = (): Command => {
       await withClient(this, "chats join", (client) => client.chats.join(link))
     })
 
+  annotate(command.command("read"), { mutates: true })
+    .argument("<chat>", "chat id, or part of a chat name")
+    .description("mark a chat read; the other person sees that you read it")
+    .option("--until <message>", "only up to this message id, inclusive; the newest by default")
+    .action(async function (this: Command, chat: string) {
+      const until = this.opts().until
+      await withClient(this, "chats read", async (client) =>
+        client.chats.markRead(await client.chats.resolve(chat), until === undefined ? undefined : String(until).trim()),
+      )
+    })
+
   annotate(command.command("leave"), { mutates: true })
     .argument("<chat>", "chat id, or part of a chat name")
     .description("leave a group or channel; the others in it see that you left")

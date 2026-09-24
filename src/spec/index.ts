@@ -3,12 +3,12 @@ import { accountCloseSessions, accountSessions, accountUpdate } from "./operatio
 import { attachmentsFile, attachmentsVideo } from "./operations/attachments.js"
 import {
   chatDelete,
-  chatMark,
   chatsHistory,
   chatsJoin,
   chatsLeave,
   chatsLinkInfo,
   chatsList,
+  chatsMark,
   chatsMembers,
   chatsUpdate,
   chatsUpdateMembers,
@@ -70,7 +70,7 @@ export const spec: readonly Entry[] = [
   foldersUpdate,
   foldersDelete,
   chatsHistory,
-  chatMark,
+  chatsMark,
   chatsList,
   chatsLinkInfo,
   chatsJoin,

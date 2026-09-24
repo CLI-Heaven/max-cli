@@ -243,6 +243,28 @@ describe("the MCP server", () => {
     expect(max.sent.map(({ opcode }) => opcode)).not.toContain(Opcode.MSG_SEND)
   })
 
+  it("offers marking a chat read only with --allow-mark-read, which --allow-send does not imply", async () => {
+    const names = async (options: Partial<ServerOptions>) =>
+      (await (await connect(options)).client.listTools()).tools.map(({ name }) => name)
+
+    expect(await names({ allowSend: true })).not.toContain("max_chats_read")
+    expect(await names({ allowMarkRead: true })).toContain("max_chats_read")
+  })
+
+  it("marks a chat read up to the message given, through the send guards", async () => {
+    const { client, max } = await connect(
+      { allowMarkRead: true },
+      { answers: { [Opcode.CHAT_MARK]: { unread: 0, mark: 1789776100000 } } },
+    )
+
+    const { isError, body } = await call(client, "max_chats_read", { chat: "111", message: "116762160362694583" })
+
+    expect(isError).toBe(false)
+    expect(body).toEqual({ chatId: "111", messageId: "116762160362694583", unread: 0 })
+    const marks = max.sent.filter(({ opcode }) => opcode === Opcode.CHAT_MARK)
+    expect(marks.map(({ payload }) => String(payload.messageId))).toEqual(["116762160362694583"])
+  })
+
   it("starts without a session and says which command logs in", async () => {
     const { client } = await connect({}, { token: false })
 
