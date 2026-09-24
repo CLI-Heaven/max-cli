@@ -176,6 +176,64 @@ try {
     )
   }
 
+  // The owner named one person's dialog for this (`NEED-197`): pin its newest message quietly, then unpin.
+  if (process.env.PIN_IN) {
+    const me = asId(record(record(record(login).profile).contact).id)
+    const dialogs = (Array.isArray(record(login).chats) ? (record(login).chats as unknown[]) : [])
+      .map(record)
+      .filter((chat) => chat.type === "DIALOG")
+    const other = (chat: Json) => Object.keys(record(chat.participants)).find((id) => id !== me)
+    const ids = dialogs.map(other).filter((id): id is string => id !== undefined)
+    const answer = await connection.invoke(32, { contactIds: ids.map((id) => BigInt(id)) })
+    const wanted = (Array.isArray(answer.contacts) ? answer.contacts : [])
+      .map(record)
+      .filter((contact) =>
+        (Array.isArray(contact.names) ? contact.names : []).some((name) =>
+          String(record(name).name ?? "").includes(String(process.env.PIN_IN)),
+        ),
+      )
+      .map((contact) => asId(contact.id))
+    const matches = dialogs.filter((chat) => wanted.includes(other(chat)))
+    console.log(`dialogs whose person matches the name: ${matches.length}`)
+    const [chat] = matches
+    const last = asId(record(chat?.lastMessage).id)
+    if (matches.length !== 1 || !chat || !last) {
+      console.log("pin skipped: not exactly one dialog, or no last message")
+      process.exit(1)
+    }
+    const chatId = BigInt(String(asId(chat.id)))
+    const held = Object.keys(chat).filter((key) => /pin/i.test(key) && chat[key])
+    if (held.length > 0) {
+      console.log(`pin skipped: the dialog already has ${held.join(",")} — unpinning would remove the owner's pin`)
+      process.exit(1)
+    }
+    const pinned = await step("pin (55) in the named dialog, notifyPin false", () =>
+      connection.invoke(55, { chatId, notifyPin: false, pinMessageId: BigInt(last) }),
+    )
+    const after = record(record(pinned).chat)
+    console.log(
+      `  chat fields about pins: ${
+        Object.keys(after)
+          .filter((key) => /pin/i.test(key))
+          .join(",") || "none"
+      }`,
+    )
+    console.log(`  pinned message is the last one: ${asId(record(after.pinnedMessage).id) === last}`)
+    const unpinned = await step("unpin (55), pinMessageId 0", () =>
+      connection.invoke(55, { chatId, notifyPin: false, pinMessageId: 0n }),
+    )
+    const cleared = record(record(unpinned).chat)
+    console.log(
+      `  after unpin: pin fields ${
+        Object.keys(cleared)
+          .filter((key) => /pin/i.test(key))
+          .join(",") || "none"
+      }`,
+    )
+    await connection.close()
+    process.exit(0)
+  }
+
   if (process.env.PIN_ONLY) {
     await pin(await send({ text: "max-cli probe: pin target" }))
     process.exit(0)
