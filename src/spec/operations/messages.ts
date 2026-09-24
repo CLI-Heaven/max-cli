@@ -16,16 +16,45 @@ export const messagesSend = defineOperation({
        * never be regenerated on a retry: a fresh one means a second message in somebody's chat.
        */
       cid: v.pipe(v.number(), v.integer()),
-      elements: v.array(v.unknown()),
+      /** Markup in UTF-16 positions. STRONG, EMPHASIZED, STRIKETHROUGH, MONOSPACED read back from MAX 2026-09-24. */
+      elements: v.array(v.strictObject({ type: v.string(), from: v.number(), length: v.number() })),
       attaches: v.array(v.unknown()),
+      /** Read back as `{type, chatId, message}` — the quoted message whole (measured 2026-09-23). */
+      link: v.optional(v.strictObject({ type: v.literal("REPLY"), messageId: id() })),
     }),
     notify: v.boolean(),
   }),
   response: v.looseObject({ message: v.optional(v.looseObject({})) }),
   provenance: {
     confidence: "measured",
-    sources: ["measured against MAX 2026-09-19, including deduplication by `cid` across two connections"],
+    sources: [
+      "measured against MAX 2026-09-19, including deduplication by `cid` across two connections",
+      "`link` and `elements` measured 2026-09-23 in Saved messages (`pnpm probe:reply`); shapes from tsmax and PyMax",
+    ],
     notes: "How long MAX remembers a `cid` is still unmeasured (`PROTO-2`); the two probes were seconds apart.",
+  },
+})
+
+export const messagesReact = defineOperation({
+  name: "messages.react",
+  constant: "MSG_REACTION",
+  opcode: 178,
+  auth: true,
+  request: v.strictObject({
+    chatId: id(),
+    messageId: id(),
+    reaction: v.strictObject({ reactionType: v.literal("EMOJI"), id: v.string() }),
+  }),
+  response: v.looseObject({ reactionInfo: v.optional(v.looseObject({})) }),
+  provenance: {
+    confidence: "measured",
+    sources: [
+      "measured against MAX 2026-09-23 in Saved messages (`pnpm probe:reply`)",
+      "tsmax addReaction",
+      "PyMax add_reaction",
+    ],
+    notes:
+      "Answers `{reactionInfo: {counters: [{count, reaction}], yourReaction, totalCount}}`. Allowed by the owner (`NEED-141`).",
   },
 })
 

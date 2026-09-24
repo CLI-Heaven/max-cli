@@ -35,13 +35,9 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   shows only what is new; `--since <time>` overrides it for a one-off look (`NEED-162`). Must not mark anything read (REQUIREMENTS §19). The one
   feature both target users need (`NEED-143`).
 - **MAX-9** · 🟡 P2 · The rest of the messenger surface, in the order of REQUIREMENTS §35.
-  Done: attachments, replies and forwards when reading (`src/domain/models.ts:23-75`). Left:
-  reactions when reading (`MAX-15`, needs its own request), then uploads, sending reactions, edits; group administration
+  Done: attachments, replies and forwards when reading (`src/domain/models.ts:23-75`); sending a
+  reaction (`max reactions add`, `NEED-141`). Left: reactions when reading (`MAX-15`), then uploads, edits; group administration
   last. Each writing operation needs its request shape measured first.
-- **RES-8** · P2 · Does `MSG_SEND` take a reply and markup? `elements` is always sent empty
-  (`src/spec/operations/messages.ts:19`); its meaning is a guess from the name. Needs a frame from
-  the real web client sending a reply and bold text — the owner captures it in the browser's
-  network tab. Unblocks `--reply-to` and markup.
 - **MAX-4** · 🟡 P3 · Chat addressing. Done: an id, or a title matched exactly then as a fragment,
   an ambiguous one refused (`src/client.ts:149`). Left: `@username`, a phone number, a chat the
   account is not in.
@@ -54,9 +50,10 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 
 - **MAX-15** · P3 · Show reactions when reading. History does not carry them: after the owner
   reacted in Saved messages, 653 messages from 25 chats (Saved included) had no reaction field
-  (`pnpm probe:reactions`, 2026-09-23). Next: find the request that reads reactions in the other
-  clients' current source, then measure it read-only. Never try a number blind — it may be the one
-  that adds a reaction. Correction: an earlier line here took `reactionInfo` from test data.
+  (`pnpm probe:reactions`, 2026-09-23). **Found and measured 2026-09-23:** opcode 180
+  `{chatId, messageIds}` answers `{messagesReactions: {<id>: {counters, yourReaction, totalCount}}}`
+  — a read (tsmax `getReactions`, then `pnpm probe:reply`). Next: call it for the messages a read
+  returns. Correction: an earlier line here took `reactionInfo` from test data.
 - **RES-5** · 🟡 P2 · Does `LOGIN` move presence or read state? Reading history does not (no
   `CHAT_MARK`, tested). The login flag `interactive` is unexplained (`ARCHITECTURE.md` §4). Needs a
   second device watching.

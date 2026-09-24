@@ -1,6 +1,6 @@
 import { CliError } from "@leemour/cli-core"
 import type { CacheStore, PersonOrder, SyncSummary } from "./cache/store.js"
-import { namesFrom, toChat, toContact, toMessage, toProfile } from "./domain/map.js"
+import { namesFrom, toChat, toContact, toMessage, toProfile, toReactions } from "./domain/map.js"
 import {
   type AttachmentLink,
   type Chat,
@@ -14,10 +14,12 @@ import {
   type PersonCard,
   type Profile,
   type QuotedMessage,
+  type Reactions,
   timeOfMessageId,
   type WindowedMessage,
 } from "./domain/models.js"
 import { type Invoke, wireClient } from "./generated/client.generated.js"
+import { parseMarkdown } from "./markdown.js"
 import { asFirstWord } from "./profile.js"
 import { Connection, ProtocolError } from "./protocol/connection.js"
 import type { Payload } from "./protocol/frame.js"
@@ -452,15 +454,26 @@ export class MaxClient {
      * answer is `outcome_unknown` — never failed, never sent — and it names the `cid`, because
      * `max messages send … --cid <n>` can then repeat the attempt without risking a second message.
      */
-    send: async (chatId: Id, text: string, options: { cid?: number; notify?: boolean } = {}): Promise<Message> => {
+    send: async (
+      chatId: Id,
+      text: string,
+      options: { cid?: number; notify?: boolean; replyTo?: Id; markdown?: boolean } = {},
+    ): Promise<Message> => {
       if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot send")
 
       await this.#connectOnce()
       const session = this.#session()
       const cid = options.cid ?? this.#nextCid()
+      const { text: plain, markup } = options.markdown ? parseMarkdown(text) : { text, markup: [] }
       const request = {
         chatId,
-        message: { text, cid, elements: [], attaches: [] },
+        message: {
+          text: plain,
+          cid,
+          elements: markup,
+          attaches: [],
+          ...(options.replyTo ? { link: { type: "REPLY" as const, messageId: options.replyTo } } : {}),
+        },
         notify: options.notify ?? true,
       }
 
@@ -490,6 +503,21 @@ export class MaxClient {
 
       const sent = record(answer.message) ?? answer
       return toMessage(sent, chatId, { names: namesFrom(session.contacts), ...viewer(this.#store) })
+    },
+
+    /**
+     * Puts one emoji reaction on a message. Not retried: a reaction lost in transit costs a second
+     * command, and nothing about it is measured to make a blind repeat safe.
+     */
+    react: async (chatId: Id, messageId: Id, emoji: string): Promise<Reactions> => {
+      if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot react")
+      await this.#connectOnce()
+      const answer = await this.#wire.messages.react({
+        chatId,
+        messageId,
+        reaction: { reactionType: "EMOJI", id: emoji },
+      })
+      return toReactions(record(answer.reactionInfo) ?? {})
     },
   }
 

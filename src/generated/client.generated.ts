@@ -30,6 +30,7 @@ export const wireClient = (invoke: Invoke) => ({
   },
   messages: {
     send: (request: RequestOf<(typeof OPERATIONS)["messages.send"]>) => invoke(OPERATIONS["messages.send"], request),
+    react: (request: RequestOf<(typeof OPERATIONS)["messages.react"]>) => invoke(OPERATIONS["messages.react"], request),
   },
   attachments: {
     video: (request: RequestOf<(typeof OPERATIONS)["attachments.video"]>) =>

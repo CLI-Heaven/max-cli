@@ -48,6 +48,8 @@ what exists now, and where it is described. The numbers stay reserved — commit
 - **MAX-12** — a token reaches the keyring only after MAX accepts it (`src/session/adopt.ts`), and a
   profile refuses a token from another account. §7.
 - **MAX-13** — `max messages search`, over the local index; it never connects. §16.
+- **RES-8** — replies and markup when sending: `--reply-to`, and `--markdown` for STRONG,
+  EMPHASIZED, STRIKETHROUGH and MONOSPACED, all read back from MAX 2026-09-24 (`NEED-156`).
 - **MAX-14** — `max messages download`: a file's link from opcode 88, a video's from 83, both measured
   2026-09-23; never overwrites (`src/download.ts`).
 - **MAX-17** — not doing: an alternative MAX client (web, mobile). Accounts on third-party clients
