@@ -18,21 +18,23 @@ const messenger = ({
   link,
   attaches = [PHOTO],
   send,
+  chats = [
+    { id: 111, title: "Friends", type: "CHAT", lastEventTime: 1789776000000 },
+    { id: 222, title: "Strangers", type: "CHAT", lastEventTime: 1789775000000 },
+  ],
 }: {
   sender?: number
   link?: object
   attaches?: object[]
   send?: (request: Payload) => Payload | undefined
+  chats?: object[]
 } = {}) => {
   const max = mockMax({
     answers: {
       [Opcode.SESSION_INIT]: {},
       [Opcode.LOGIN]: {
         profile: { contact: { id: OWNER } },
-        chats: [
-          { id: 111, title: "Friends", type: "CHAT", lastEventTime: 1789776000000 },
-          { id: 222, title: "Strangers", type: "CHAT", lastEventTime: 1789775000000 },
-        ],
+        chats,
       },
       [Opcode.CHAT_HISTORY]: {
         messages: [
@@ -170,6 +172,15 @@ describe("pinning", () => {
       { notifyPin: true, pinMessageId: MESSAGE },
       { notifyPin: false, pinMessageId: "0" },
     ])
+  })
+
+  it("refuses a personal chat without asking MAX, as the web client offers no pin there", async () => {
+    const { environment, sentWith } = messenger({ chats: [{ id: 333, type: "DIALOG" }] })
+    const refused = await runWith(["e-dialog", "messages", "pin", "333", MESSAGE], environment)
+
+    expect(refused.code).toBe(2)
+    expect(JSON.parse(refused.stderr).error.message).toContain("MAX pins only in groups and channels")
+    expect(sentWith(Opcode.CHAT_UPDATE)).toEqual([])
   })
 })
 

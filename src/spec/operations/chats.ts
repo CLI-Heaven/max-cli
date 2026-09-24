@@ -63,8 +63,9 @@ export const chatsUpdate = defineOperation({
     ],
     notes:
       "The web client does not notify by default and PyMax does; ours follows the web client (`NEED-196`). " +
-      "Refused in Saved messages on 2026-09-24 — `not.found` to pin, `chat.not.found` to unpin, by chat 0 and by the " +
-      "dialog's own id alike — so no chat a probe may write to can measure it.",
+      "Refused on 2026-09-24 in Saved messages and in a dialog with a person — `not.found` to pin, " +
+      "`chat.not.found` to unpin. The web client's dialog class answers `viewerCanPin` with `false`: MAX pins " +
+      "only in groups and channels, and a pin there is unmeasured.",
   },
 })
 

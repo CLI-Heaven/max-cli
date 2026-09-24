@@ -628,7 +628,9 @@ export class MaxClient {
      * Pins one message in a chat, or with `null` unpins whatever is pinned — `pinMessageId: 0` is
      * how the web client unpins. No notification unless asked (`NEED-196`). Not retried.
      *
-     * ⚠ Unmeasured: MAX refuses both in Saved messages, the only chat a probe may write to (`FIND-107`).
+     * **Never in a personal chat**: the web client's dialog class answers `viewerCanPin` with `false`, and
+     * MAX refused both in Saved messages and in a dialog with a person (measured 2026-09-24, `FIND-107`).
+     * A chat the login did not list is left to MAX. ⚠ A pin in a group is still unmeasured.
      */
     pin: async (chatId: Id, messageId: Id | null, { notify = false } = {}): Promise<Pin> => {
       if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot pin")
@@ -636,6 +638,13 @@ export class MaxClient {
 
       try {
         await this.#connectOnce()
+        const known = asArray(this.#session().chats).find((raw) => asId(raw.id) === chatId)
+        if (known && toChat(known).kind === "dialog") {
+          throw new CliError(
+            "validation_error",
+            `chat ${chatId} is a personal chat — MAX pins only in groups and channels`,
+          )
+        }
         await this.#wire.chats.update({ chatId, pinMessageId: messageId ?? "0", notifyPin: notify })
         this.#sends?.record({ chatId, kind: "pin", outcome: "sent", ...(messageId ? { messageId } : {}) })
         return { chatId, pinned: messageId }
