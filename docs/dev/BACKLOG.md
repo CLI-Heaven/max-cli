@@ -59,9 +59,6 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   .ogg); the message does not: the web client sends `{_type: "AUDIO", audioId, duration, wave, token}`
   with `wave` as 80 raw bytes in a binary MessagePack frame, and none of six JSON forms was accepted
   (`FIND-104`). Waits on `MAX-40`.
-- **MAX-28** · 🚧 `feat/max-28-polls` · P1 · Polls: show them when reading, and vote (`vote_poll`, `SEND_VOTE` 304
-  `{chatId, messageId, pollId, answersIds}`). Creating one is a `_type: "POLL"` attachment on
-  `MSG_SEND` 64 (PyMax 2.4.1, code; no user report).
 - **MAX-47** · P2 · Delete messages: `MSG_DELETE` 66 `{chatId, messageIds, forMe}` — `forMe: true`
   for this account only, `false` for everyone (PyMax 2.4.1 `delete_message`, code; no user report).
   Reopens `NEED-32` and the "66 is never sent" rule in the opcode registry: the owner asked for it
