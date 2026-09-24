@@ -481,7 +481,7 @@ max messages transcribe <chat> <message> [options]
 
 | Опция | Что делает |
 |---|---|
-| `--model <id>` | which downloaded speech model to use; `max models list` shows them |
+| `--model <id>` | which downloaded speech model to use; `max models audio list` shows them |
 
 ### `max messages send`
 
@@ -582,27 +582,15 @@ max messages unpin <chat>
 
 ## `max models`
 
+models that run on this machine
+
+### `max models audio`
+
 speech models for transcribing voice messages
 
-### `max models list`
-
-the models max can use, which are downloaded, and which one is the default
-
 ```sh
-max models list
+max models audio
 ```
-
-### `max models download`
-
-download a speech model once, checked against the sha256 this version of max expects
-
-```sh
-max models download <model>
-```
-
-| Аргумент | | Что это |
-|---|---|---|
-| `model` | обязательный | a model id from `max models list` |
 
 ## `max reactions`
 

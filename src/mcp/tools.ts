@@ -203,7 +203,7 @@ const READ_TOOLS = {
     description:
       "The text of one voice message, heard on the owner's machine by a local speech model; the recording goes " +
       "nowhere. Up to a minute for five minutes of speech; asked again, it answers from the cache. Refuses when " +
-      "the model is not downloaded: the owner runs `max models download <id>` in a terminal.",
+      "the model is not downloaded: the owner runs `max models audio download <id>` in a terminal.",
     input: v.object({ chat, message }),
     annotations: READ,
     answer: async (client, args, { profile, transcribeModel, release }) => {

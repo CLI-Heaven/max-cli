@@ -30,7 +30,7 @@ export interface TranscribeOptions {
 export const notDownloaded = (model: SpeechModel): CliError =>
   new CliError(
     "not_found",
-    `the speech model ${model.id} is not downloaded — \`max models download ${model.id}\` fetches it ` +
+    `the speech model ${model.id} is not downloaded — \`max models audio download ${model.id}\` fetches it ` +
       `(${megabytes(installedBytes(model) + VAD.bytes)}, once)`,
   )
 

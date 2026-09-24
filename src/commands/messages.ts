@@ -184,7 +184,7 @@ export const messagesCommand = (): Command => {
     .argument("<chat>", "chat id, or part of a chat name")
     .argument("<message>", "id of a voice message")
     .description("turn a voice message into text, on this machine — the recording goes nowhere")
-    .option("--model <id>", "which downloaded speech model to use; `max models list` shows them")
+    .option("--model <id>", "which downloaded speech model to use; `max models audio list` shows them")
     .action(async function (this: Command, chat: string, messageId: string) {
       const { model: wanted } = this.opts<{ model?: string }>()
       const context = forCommand(this)

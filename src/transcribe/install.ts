@@ -9,7 +9,7 @@ import { type ModelFile, type SpeechModel, VAD } from "./models.js"
 
 /** Beside the profile caches, so `max cache clear` — which empties a database — leaves them alone. */
 export const modelsDirectory = (env: NodeJS.ProcessEnv = process.env): string =>
-  join(resolvePaths({ appName: "max-cli", prefix: "MAX", env }).cache, "models")
+  join(resolvePaths({ appName: "max-cli", prefix: "MAX", env }).cache, "models", "audio")
 
 export const modelPath = (directory: string, model: SpeechModel) => (name: string) => join(directory, model.id, name)
 

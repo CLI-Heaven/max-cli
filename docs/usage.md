@@ -153,8 +153,8 @@ max messages download -1000 100000000000000001 --output ~/Downloads
 распознавания скачивается один раз, отдельной командой:
 
 ```sh
-max models list                    # какие модели есть, какие скачаны, какая по умолчанию (*)
-max models download gigaam-v3      # 233 МБ, один раз
+max models audio list                # какие модели есть, какие скачаны, какая по умолчанию (*)
+max models audio download gigaam-v3  # 233 МБ, один раз
 max messages transcribe "Иван Петров" 100000000000000001
 ```
 

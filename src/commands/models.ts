@@ -3,9 +3,13 @@ import { install, installedBytes, isInstalled, megabytes, modelsDirectory } from
 import { MODELS, speechModel, VAD } from "../transcribe/models.js"
 import { forCommand } from "./context.js"
 
-/** The speech models for `max messages transcribe`. Nothing here talks to MAX. */
+/**
+ * Local models, by what they work on. `audio` is the speech models behind `max messages transcribe`;
+ * nothing here talks to MAX.
+ */
 export const modelsCommand = (): Command => {
-  const command = new Command("models").description("speech models for transcribing voice messages")
+  const models = new Command("models").description("models that run on this machine")
+  const command = models.command("audio").description("speech models for transcribing voice messages")
 
   command
     .command("list")
@@ -31,7 +35,7 @@ export const modelsCommand = (): Command => {
 
   command
     .command("download")
-    .argument("<model>", "a model id from `max models list`")
+    .argument("<model>", "a model id from `max models audio list`")
     .description("download a speech model once, checked against the sha256 this version of max expects")
     .action(async function (this: Command, id: string) {
       const { renderer } = forCommand(this)
@@ -44,5 +48,5 @@ export const modelsCommand = (): Command => {
       renderer.result({ id: model.id, downloaded: true, directory })
     })
 
-  return command
+  return models
 }
