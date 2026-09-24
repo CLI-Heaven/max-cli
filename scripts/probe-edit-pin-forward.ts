@@ -176,38 +176,43 @@ try {
     )
   }
 
-  // The owner named one person's dialog for this (`NEED-197`): pin its newest message quietly, then unpin.
-  if (process.env.PIN_IN) {
+  // The owner named the chat for this (`NEED-197`, `NEED-206`): pin its newest message quietly, then unpin.
+  if (process.env.PIN_IN || process.env.PIN_CHAT) {
     const me = asId(record(record(record(login).profile).contact).id)
-    const dialogs = (Array.isArray(record(login).chats) ? (record(login).chats as unknown[]) : [])
-      .map(record)
-      .filter((chat) => chat.type === "DIALOG")
+    const chats = (Array.isArray(record(login).chats) ? (record(login).chats as unknown[]) : []).map(record)
     const other = (chat: Json) => Object.keys(record(chat.participants)).find((id) => id !== me)
-    const ids = dialogs.map(other).filter((id): id is string => id !== undefined)
-    const answer = await connection.invoke(32, { contactIds: ids.map((id) => BigInt(id)) })
-    const wanted = (Array.isArray(answer.contacts) ? answer.contacts : [])
-      .map(record)
-      .filter((contact) =>
-        (Array.isArray(contact.names) ? contact.names : []).some((name) =>
-          String(record(name).name ?? "").includes(String(process.env.PIN_IN)),
-        ),
-      )
-      .map((contact) => asId(contact.id))
-    const matches = dialogs.filter((chat) => wanted.includes(other(chat)))
-    console.log(`dialogs whose person matches the name: ${matches.length}`)
+    let matches: Json[]
+    if (process.env.PIN_CHAT) {
+      matches = chats.filter((chat) => asId(chat.id) === process.env.PIN_CHAT)
+    } else {
+      const dialogs = chats.filter((chat) => chat.type === "DIALOG")
+      const ids = dialogs.map(other).filter((id): id is string => id !== undefined)
+      const answer = await connection.invoke(32, { contactIds: ids.map((id) => BigInt(id)) })
+      const wanted = (Array.isArray(answer.contacts) ? answer.contacts : [])
+        .map(record)
+        .filter((contact) =>
+          (Array.isArray(contact.names) ? contact.names : []).some((name) =>
+            String(record(name).name ?? "").includes(String(process.env.PIN_IN)),
+          ),
+        )
+        .map((contact) => asId(contact.id))
+      matches = dialogs.filter((chat) => wanted.includes(other(chat)))
+    }
+    console.log(`chats matching: ${matches.length}`)
     const [chat] = matches
     const last = asId(record(chat?.lastMessage).id)
     if (matches.length !== 1 || !chat || !last) {
-      console.log("pin skipped: not exactly one dialog, or no last message")
+      console.log("pin skipped: not exactly one chat among the login's, or no last message")
       process.exit(1)
     }
+    console.log(`chat type: ${String(chat.type)}`)
     const chatId = BigInt(String(asId(chat.id)))
     const held = Object.keys(chat).filter((key) => /pin/i.test(key) && chat[key])
     if (held.length > 0) {
-      console.log(`pin skipped: the dialog already has ${held.join(",")} — unpinning would remove the owner's pin`)
+      console.log(`pin skipped: the chat already has ${held.join(",")} — unpinning would remove the owner's pin`)
       process.exit(1)
     }
-    const pinned = await step("pin (55) in the named dialog, notifyPin false", () =>
+    const pinned = await step("pin (55) in the named chat, notifyPin false", () =>
       connection.invoke(55, { chatId, notifyPin: false, pinMessageId: BigInt(last) }),
     )
     const after = record(record(pinned).chat)
