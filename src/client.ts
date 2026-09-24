@@ -28,7 +28,9 @@ import { isId, pickChat, pickPerson } from "./resolve.js"
 import { countsIn, type DiagnosticEvent, idsOf } from "./runs/events.js"
 import type { SendGuard } from "./sends/guard.js"
 import { LOGIN_CHATS, startSession } from "./session/handshake.js"
+import { type QrLogin, type SmsLogin, tokenByQr, tokenBySms } from "./session/login.js"
 import type { SessionStore } from "./session/store.js"
+import { WEB_USER_AGENT } from "./spec/identity.js"
 import { buildRequest, checkResponse, type Operation, type RequestOf } from "./spec/index.js"
 
 export interface MaxClientOptions {
@@ -100,6 +102,16 @@ export class MaxClient {
 
   readonly account = {
     me: (): Profile => toProfile(record(this.#session().profile) ?? {}),
+  }
+
+  /**
+   * Obtaining a token rather than using one. The token comes back to the caller, unstored and not yet
+   * tried: `adoptToken` logs in with it on a connection of its own before the keyring sees it, so
+   * a login that went wrong halfway cannot replace a working session.
+   */
+  readonly login = {
+    byQr: (options: QrLogin): Promise<string> => this.#beforeLogin(() => tokenByQr(this.#wire, options)),
+    bySms: (options: SmsLogin): Promise<string> => this.#beforeLogin(() => tokenBySms(this.#wire, options)),
   }
 
   readonly chats = {
@@ -915,6 +927,17 @@ export class MaxClient {
       replyTo: message.replyTo && name(message.replyTo),
       forwardedFrom: message.forwardedFrom && name(message.forwardedFrom),
     }))
+  }
+
+  /** INIT with the profile's own device, which is the device MAX then issues the token to (bite 8). */
+  async #beforeLogin(flow: () => Promise<string>): Promise<string> {
+    try {
+      await this.#connection.open()
+    } catch (error) {
+      throw asCliError(error)
+    }
+    await this.#wire.session.init({ userAgent: WEB_USER_AGENT, deviceId: this.#store.readState().deviceId })
+    return await flow()
   }
 
   async #connectOnce(): Promise<void> {
