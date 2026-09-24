@@ -21,7 +21,7 @@ sources disagree.
 | `login.qrApprove` | 290 | `AUTH_QR_APPROVE` | **never sent** | observed | PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0 |
 | `login.smsRequest` | 17 | `AUTH_REQUEST` | before login | confirmed | PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0; max-api-docs/protocol/auth.md (dac4b19) |
 | `login.smsCode` | 18 | `AUTH` | before login | confirmed | PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0; max-api-docs/protocol/auth.md (dac4b19) |
-| `login.password` | 115 | `AUTH_LOGIN_CHECK_PASSWORD` | before login | observed | PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0 |
+| `login.password` | 115 | `AUTH_LOGIN_CHECK_PASSWORD` | before login | measured | measured against MAX 2026-09-24: `session start qr` on an account with a cloud password; PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0 |
 | `contacts.info` | 32 | `CONTACT_INFO` | after login | measured | measured against MAX 2026-09-19: asked for ten, got ten |
 | `account.update` | 16 | `PROFILE` | **never sent** | measured | measured against MAX 2026-09-19: refused an empty payload |
 | `protocol.unidentified36` | 36 | `UNIDENTIFIED_36` | **never sent** | unknown | tsmax and PyMax call it CONTACT_LIST; max-api-docs calls it GET_BLOCKED; measured against MAX 2026-09-20: `{}` and `{marker}` are refused with `proto.payload`, `{marker, count}` closes the connection |

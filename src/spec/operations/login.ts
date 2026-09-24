@@ -93,7 +93,11 @@ export const loginPassword = defineOperation({
   auth: false,
   request: v.strictObject({ trackId: v.string(), password: v.string() }),
   response: v.looseObject({ tokenAttrs: Issued.tokenAttrs, error: v.optional(v.string()) }),
-  provenance: { confidence: "observed", sources: [PYMAX] },
+  provenance: {
+    confidence: "measured",
+    sources: ["measured against MAX 2026-09-24: `session start qr` on an account with a cloud password", PYMAX],
+    notes: "A wrong password is refused as `password2fa.wrong`, and the same `trackId` takes another attempt.",
+  },
 })
 
 export const qrApprove = reserveOpcode({
