@@ -45,7 +45,7 @@ max cache clear
 - **Не отправляет ничего, чего не просили.** Что-то меняют только `messages send|edit|forward|pin|unpin`,
   `reactions add|remove`, `contacts add|remove|import`, `account update`, `account sessions end-others`,
   `chats join|leave|create|update|settings`, `chats members|admins|requests …`, `chats link reset` и
-  `chats folders create|update|delete` — и каждая делает только то, что написано в набранной строке.
+  `chats folders create|update|delete`, `chats read` и `messages list --mark-read` — и каждая делает только то, что написано в набранной строке.
   `max commands --json` помечает их `mutates`.
 - **Не берёт номер телефона из командной строки.** `contacts lookup` спрашивает его или читает из
   трубы, `contacts import` — из файла: строку команды видят `ps` и история оболочки. В ошибках,
