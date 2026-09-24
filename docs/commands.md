@@ -651,6 +651,22 @@ max inbox [options]
 | `--since <id-or-time>` | what arrived after this message id or ISO 8601 time; the saved point stays put |
 | `--limit <n>` | at most this many per chat, the newest |
 
+## `max serve`
+
+stay connected to MAX and stream new messages to `max watch`, until Ctrl-C
+
+```sh
+max serve [options]
+```
+
+## `max watch`
+
+print new messages as they arrive, from a running `max serve`
+
+```sh
+max watch [options]
+```
+
 ## `max config`
 
 the settings in force, and where each one came from
