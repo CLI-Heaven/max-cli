@@ -4,7 +4,7 @@
 #   bin/release           # publishes from GitHub Actions (.github/workflows/release.yml)
 #   bin/release --local   # publishes from this machine with the npm token from the keyring
 #
-# Steps 3–7 of docs/releasing.md. Run on a clean, up-to-date `main`. The npm token is never
+# Steps 3–7 of docs_ai/releasing.md. Run on a clean, up-to-date `main`. The npm token is never
 # printed — not on success, not in an error.
 set -eu
 
@@ -87,7 +87,7 @@ for _ in $(seq 36); do
   if published; then seen=1; break; fi
   sleep 5
 done
-[ -n "$seen" ] || { echo "npm does not show $version after three minutes — not tagging; steps 6–7 of docs/releasing.md finish it by hand" >&2; exit 1; }
+[ -n "$seen" ] || { echo "npm does not show $version after three minutes — not tagging; steps 6–7 of docs_ai/releasing.md finish it by hand" >&2; exit 1; }
 
 echo "== tag and release v$version =="
 git tag -a "v$version" -m "$version"

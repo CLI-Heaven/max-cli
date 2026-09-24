@@ -4,21 +4,22 @@
 for which task, and the rules that cost time when broken. It is short; read it before anything
 else.
 
-`docs_ai/` is the working trail — handoff, plans, session journal, cleanup list — and it is **not
-in git**. A fresh clone does not have it. When it is absent, start from
-[`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md) and [`docs/BACKLOG.md`](docs/BACKLOG.md) instead,
-and create `docs_ai/` as you go.
+`docs_ai/` is the working trail — handoff, plans, session journal, cleanup list, and the owner's
+brief (`REQUIREMENTS.md`), rulings (`DECISIONS.md`), closed items (`BACKLOG_DONE.md`) and release
+steps (`releasing.md`) — and it is **not in git**. A fresh clone does not have it. When it is
+absent, start from [`docs/dev/BACKLOG.md`](docs/dev/BACKLOG.md) and
+[`docs/dev/ARCHITECTURE.md`](docs/dev/ARCHITECTURE.md) instead, and create `docs_ai/` as you go.
 
 Then the one reference that covers what you are about to touch —
-[`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) for how code and documents are written here, and
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the seams.
+[`docs/dev/CONVENTIONS.md`](docs/dev/CONVENTIONS.md) for how code and documents are written here, and
+[`docs/dev/ARCHITECTURE.md`](docs/dev/ARCHITECTURE.md) for the seams.
 
 ## Where this project is
 
 Published as `@leemour/max-cli` and working against the real MAX. The commands are listed in
 [`docs/commands.md`](docs/commands.md) (generated); how they are built is
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); what is left is
-[`docs/BACKLOG.md`](docs/BACKLOG.md).
+[`docs/dev/ARCHITECTURE.md`](docs/dev/ARCHITECTURE.md); what is left is
+[`docs/dev/BACKLOG.md`](docs/dev/BACKLOG.md).
 
 ## The constraints that shape everything
 
@@ -56,7 +57,7 @@ A typo, a broken line, an obvious one-line bug — just fix it.
 
 Everything about the MAX protocol is somebody's reverse engineering, and half of it is out of
 date. **A README is a claim; the current source is evidence; a captured frame is proof.** Say
-which of the three a statement rests on, every time — [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md).
+which of the three a statement rests on, every time — [`docs/dev/CONVENTIONS.md`](docs/dev/CONVENTIONS.md).
 
 The same applies to this repository's own documents. A document claiming something is broken,
 unfinished or not started is a snapshot of someone else's day:
@@ -69,7 +70,7 @@ git log --oneline -1 -- <path>
 A discrepancy you find gets **corrected in the document that is wrong, in place**, marked as a
 correction. A note appended at the bottom does not count — the next reader reads the top.
 **Except on user pages** — `README.md` and the Russian pages in `docs/`: rewrite the sentence with
-no mark, only current facts ([`docs/CONVENTIONS.md`](docs/CONVENTIONS.md), "User pages").
+no mark, only current facts ([`docs/dev/CONVENTIONS.md`](docs/dev/CONVENTIONS.md), "User pages").
 
 ## Comments
 

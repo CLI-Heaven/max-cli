@@ -12,7 +12,7 @@ set -eu
 prefix=$(printf '%s' "$1" | tr '[:lower:]' '[:upper:]')
 case "$prefix" in
   RES|OPS|CORE|SPEC|MAX|CLI|DOC|PROTO|RISK) ;;
-  *) echo "unknown prefix $prefix — see the Rules in docs/BACKLOG.md" >&2; exit 2 ;;
+  *) echo "unknown prefix $prefix — see the Rules in docs/dev/BACKLOG.md" >&2; exit 2 ;;
 esac
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)

@@ -8,8 +8,8 @@ verified against the real service unless it says otherwise. Round trip re-verifi
 `max chats list --limit 3 --verbose --record` made three requests, stdout was one JSON value, stderr
 only the event lines.
 
-"Brief §N" is [`REQUIREMENTS.md`](REQUIREMENTS.md); rulings (`NEED-nn`) are in
-[`DECISIONS.md`](DECISIONS.md). Long detail lives in companions under `architecture/`:
+"Brief §N" is `docs_ai/REQUIREMENTS.md`; rulings (`NEED-nn`) are in
+`docs_ai/DECISIONS.md`. Long detail lives in companions under `architecture/`:
 [`session.md`](architecture/session.md) (§7), [`messages.md`](architecture/messages.md) (§10),
 [`store.md`](architecture/store.md) (§15, §16).
 
@@ -222,7 +222,7 @@ Verified live: stdout one JSON value, stderr empty. Failures too: `run()` return
   `renderer.result`: `account show` and `session start|end` are not listings and answer a bare
   object.
 
-User-facing version: [`usage.md`](usage.md). Messages print as a feed, not a table; a message id
+User-facing version: [`../usage.md`](../usage.md). Messages print as a feed, not a table; a message id
 holds its send time (`id >> 16`, measured 2026-09-22); a photo link opens without a token
 (`NEED-120`); a reply carries the other message whole —
 [`architecture/messages.md`](architecture/messages.md).
@@ -249,7 +249,7 @@ Every opcode and payload shape lives in `src/spec/`; its Valibot schemas **are**
 | `src/generated/opcodes.generated.ts` — the registry | the socket, `seq` correlation, timeouts |
 | `src/generated/operations.generated.ts` — the table | the INIT → LOGIN handshake |
 | `src/generated/client.generated.ts` — wire wrappers | the schemas themselves — they are the spec |
-| [`protocol.md`](protocol.md) — the reference page | the domain mapping, and error classification |
+| [`../protocol.md`](../protocol.md) — the reference page | the domain mapping, and error classification |
 
 ### Adding one
 
@@ -289,7 +289,7 @@ banner has no date or version — anything that moves on its own makes that chec
 Each request is one object: direction, operation, opcode, `seq`, ids named, duration, bytes, how
 many things came back. **Two sinks**: `--trace` renders it on stderr live; `--record` writes it to a
 file. Either, both, or (default) neither. What it looks like and how to use it:
-[`diagnostics.md`](diagnostics.md).
+[`../diagnostics.md`](../diagnostics.md).
 
 ```text
 → session.login     op 19  seq 2  871 B
@@ -318,7 +318,7 @@ file. Either, both, or (default) neither. What it looks like and how to use it:
 ### The run directory
 
 `<state dir>/runs/<UTC day>/<timestamp>-<command>-<suffix>/` with `run.json` and `events.jsonl`.
-[`diagnostics.md`](diagnostics.md) has the layout, modes (`0700`/`0600`), the twice-written
+[`../diagnostics.md`](../diagnostics.md) has the layout, modes (`0700`/`0600`), the twice-written
 `run.json` (`running`, then the outcome) and 30-day retention, pruned only when a recorded run
 starts, whole days by directory name. Rules not stated there:
 
@@ -339,8 +339,8 @@ starts, whole days by directory name. Rules not stated there:
 
 **Flag → environment → config file → built-in default**, decided once in `resolveSettings`
 (`src/config.ts`). Commands take what they are given; one that re-derived the order would disagree.
-Every field, variable and the file format: [`configuration.md`](configuration.md); profiles and
-paging for users: [`usage.md`](usage.md). The profile follows the same order: the first word
+Every field, variable and the file format: [`../configuration.md`](../configuration.md); profiles and
+paging for users: [`../usage.md`](../usage.md). The profile follows the same order: the first word
 (`max personal chats list`), then `MAX_PROFILE=personal`, then `"defaultProfile"` in the file, then
 `default`.
 
@@ -358,7 +358,7 @@ paging for users: [`usage.md`](usage.md). The profile follows the same order: th
 
 ### The file and paging
 
-What a user sets and how: [`configuration.md`](configuration.md), [`usage.md`](usage.md). The rules
+What a user sets and how: [`../configuration.md`](../configuration.md), [`../usage.md`](../usage.md). The rules
 behind it:
 
 - `~/.config/max-cli/config.json`, mode `0644`, read by `cli-core`'s `loadConfigFile`. A missing
@@ -460,5 +460,5 @@ keyring, deadline and run record as a command, built from flags instead of argv.
 - `serveStdio` may build a probe server before settling on the protocol era, so the server is a
   factory over one `MaxSession`, never one instance.
 
-User side: [`mcp.md`](mcp.md). The research behind the choices is local-only
+User side: [`../mcp.md`](../mcp.md). The research behind the choices is local-only
 (`docs_ai/plans/2026-09-23-mcp-research.md`).

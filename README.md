@@ -266,9 +266,8 @@ max chats list --json
 - [docs/troubleshooting.md](docs/troubleshooting.md) — по симптому: что делать, когда не работает
 - [docs/commands.md](docs/commands.md) — каждая команда и опция — **генерируется** из программы
 - [docs/protocol.md](docs/protocol.md) — каждый опкод и откуда известна его форма — **генерируется**
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — как это устроено и какие швы нельзя пересекать
-- [docs/DECISIONS.md](docs/DECISIONS.md) — что и почему решено — читать прежде, чем «чинить» странное
-- [docs/BACKLOG.md](docs/BACKLOG.md) — что осталось
+- [docs/dev/ARCHITECTURE.md](docs/dev/ARCHITECTURE.md) — как это устроено и какие швы нельзя пересекать
+- [docs/dev/BACKLOG.md](docs/dev/BACKLOG.md) — что осталось
 
 Оглавление целиком — [docs/README.md](docs/README.md).
 
@@ -308,4 +307,4 @@ MIT — см. [LICENSE](LICENSE).
 
 Пулл-реквесты, сообщения об ошибках и предложения приветствуются —
 [issues](https://github.com/leemour/max-cli/issues). Как устроен код и как его проверять —
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) и [docs/TESTING.md](docs/TESTING.md).
+[docs/dev/ARCHITECTURE.md](docs/dev/ARCHITECTURE.md) и [docs/dev/TESTING.md](docs/dev/TESTING.md).

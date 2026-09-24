@@ -13,7 +13,7 @@ pnpm generate    # then `git diff --exit-code` — generated output must not be 
 ```
 
 CI runs all of them plus a secret scan over the whole history —
-[`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml).
 
 ---
 
