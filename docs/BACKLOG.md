@@ -24,7 +24,7 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 
 ## Features
 
-- **CLI-34** · 🚧 `cache-keeps-messages` · P2 · `max backup messages <chat> --since <date> | --last
+- **CLI-34** · P2 · `max backup messages <chat> --since <date> | --last
   <n>`: without `--run` only the estimate (what the cache holds, what is missing, requests and
   minutes); with `--run` it fills the gaps within limits and stops on any error. One chat per call
   (`NEED-217`). Waits on `RES-9` (`MAX-44` is done). Plan: `docs_ai/plans/2026-09-24-history-backup.md`.
