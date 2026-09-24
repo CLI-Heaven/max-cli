@@ -13,6 +13,7 @@ import {
 } from "./operations/login.js"
 import { messageDelete, messagesReact, messagesReactions, messagesSend } from "./operations/messages.js"
 import { logout, sessionInit, sessionLogin } from "./operations/session.js"
+import { uploadsFile, uploadsPhoto } from "./operations/uploads.js"
 
 export { checkResponse } from "./check.js"
 export * from "./define.js"
@@ -48,6 +49,8 @@ export const spec: readonly Entry[] = [
   messageDelete,
   attachmentsVideo,
   attachmentsFile,
+  uploadsPhoto,
+  uploadsFile,
 ]
 
 export const operations: readonly Operation[] = spec.filter((entry): entry is Operation => entry.kind === "operation")

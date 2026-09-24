@@ -18,6 +18,8 @@ export interface SendEntry {
   messageId?: Id
   cid?: number
   length?: number
+  /** What was attached, by kind and size — never a file name. */
+  attachments?: { kind: "photo" | "file"; bytes: number }[]
   errorCode?: string
 }
 

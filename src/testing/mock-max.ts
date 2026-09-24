@@ -10,8 +10,8 @@ export interface MockMaxOptions {
    * one answer can differ by chat.
    */
   answers: Record<number, Payload | ((request: Payload) => Payload | undefined)>
-  /** Opcodes to refuse, as MAX does: `cmd=3` with an `error` in the payload. */
-  refuse?: Record<number, string>
+  /** Opcodes to refuse, as MAX does: `cmd=3` with an `error` in the payload. A function may answer `undefined` to let one through. */
+  refuse?: Record<number, string | (() => string | undefined)>
 }
 
 export interface MockMax {
@@ -55,7 +55,8 @@ export const mockMax = ({ answers, refuse = {} }: MockMaxOptions): MockMax => {
       const frame = decodeFrame(raw)
       state.sent.push({ opcode: frame.opcode, payload: frame.payload ?? {} })
 
-      const refusal = refuse[frame.opcode]
+      const rule = refuse[frame.opcode]
+      const refusal = typeof rule === "function" ? rule() : rule
       if (refusal !== undefined) {
         this.answer({ seq: frame.seq ?? 0, opcode: frame.opcode, payload: { error: refusal }, cmd: Command.ERROR })
         return

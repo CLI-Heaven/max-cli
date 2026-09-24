@@ -35,6 +35,7 @@
     "version:sync": "node --experimental-strip-types scripts/version.ts --sync",
     "probe:ids": "pnpm build && node --experimental-strip-types scripts/id-shape.ts",
     "probe:download": "pnpm build && node --experimental-strip-types scripts/probe-download.ts",
+    "probe:upload": "pnpm build && node --experimental-strip-types scripts/probe-upload.ts",
     "probe:reply": "pnpm build && node --experimental-strip-types scripts/probe-reply.ts",
     "probe:edits": "pnpm build && node --experimental-strip-types scripts/probe-edits.ts",
     "probe:attachments": "pnpm build && node --experimental-strip-types scripts/probe-attachments.ts",

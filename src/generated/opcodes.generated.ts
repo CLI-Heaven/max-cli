@@ -43,7 +43,9 @@ export const Opcode = {
    * in order to tidy up after a test, is a poor trade (`NEED-32`).
    */
   MSG_DELETE: 66,
+  PHOTO_UPLOAD: 80,
   VIDEO_PLAY: 83,
+  FILE_UPLOAD: 87,
   FILE_DOWNLOAD: 88,
   AUTH_LOGIN_CHECK_PASSWORD: 115,
   MSG_REACTION: 178,

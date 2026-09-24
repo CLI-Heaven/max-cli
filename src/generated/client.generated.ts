@@ -52,6 +52,10 @@ export const wireClient = (invoke: Invoke) => ({
     file: (request: RequestOf<(typeof OPERATIONS)["attachments.file"]>) =>
       invoke(OPERATIONS["attachments.file"], request),
   },
+  uploads: {
+    photo: (request: RequestOf<(typeof OPERATIONS)["uploads.photo"]>) => invoke(OPERATIONS["uploads.photo"], request),
+    file: (request: RequestOf<(typeof OPERATIONS)["uploads.file"]>) => invoke(OPERATIONS["uploads.file"], request),
+  },
 })
 
 export type WireClient = ReturnType<typeof wireClient>
