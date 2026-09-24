@@ -112,7 +112,7 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   (`src/commands/chats.ts:22` and every command that opens it).
 - **CLI-5** · P3 · `max raw <operation>` — a debug escape hatch, validated against the spec, never
   arbitrary frames (REQUIREMENTS §22).
-- **MAX-8** · P1 · Look like the official client beyond the user agent: the telemetry it sends and
+- **MAX-8** · 🚧 `max-8-telemetry` · P1 · Look like the official client beyond the user agent: the telemetry it sends and
   the device details it reports (`NEED-16`). PyMax does both (`src/pymax/telemetry/`,
   `src/pymax/fingerprint/`). Raised from P3 by the owner 2026-09-24 (`NEED-175`).
   Correction 2026-09-24 (PyMax 2.4.1 code, web.max.ru bundle read the same day): PyMax's
