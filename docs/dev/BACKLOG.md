@@ -93,6 +93,9 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   reactions and typing as they arrive (PyMax's `on_message`, `on_message_edit`,
   `on_reaction_update`…). Conflicts with one-shot commands (`CLAUDE.md` constraint 4), so it needs
   a ruling first. What is new since the last check is already `max inbox` (`CLI-23`).
+  Correction 2026-09-25: the long-running part exists. `max serve` holds the connection and `max
+  watch` prints new messages as they arrive (`src/server/server.ts`, `#pushed`). What is left is
+  edits, reactions and typing. The server receives them but passes on only new messages (opcode 128).
 
 - **MAX-4** · 🟡 P3 · Chat addressing. Done: an id, or a title matched exactly then as a fragment,
   an ambiguous one refused (`src/client.ts:149`). Left: `@username`, a phone number, a chat the
