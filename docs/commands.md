@@ -683,6 +683,8 @@ max serve [options]
 | Опция | Что делает |
 |---|---|
 | `--idle <duration>` | stop after this long with nobody using it — 15m, 1h is 60m |
+| `--detach` | run in the background instead; still stopped only by `max serve --stop` |
+| `--stop` | stop this profile's server, however it was started |
 
 ## `max watch`
 
