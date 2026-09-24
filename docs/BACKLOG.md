@@ -31,17 +31,51 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   `docs_ai/plans/2026-09-24-latest-and-scheduled.md`. Builds on `MSG_SEND` as #56 leaves it.
   Correction 2026-09-24: this line first asked whether MAX can schedule at all, with the OS
   scheduler as the fallback. It can.
-- **MAX-9** · 🟡 P2 · The rest of the messenger surface, in the order of REQUIREMENTS §35.
-  Done: attachments, replies and forwards when reading (`src/domain/models.ts:23-75`); sending a
-  reaction (`max reactions add`, `NEED-141`). Left: uploads, edits; group administration
-  last. Each writing operation needs its request shape measured first.
+**From the PyMax comparison (2026-09-24, `NEED-175`).** Each is what PyMax's source declares
+(`MaxApiTeam/PyMax`, `src/pymax/api/`, commit `53103f0`) — a claim until measured. Every writing
+operation is measured first in Saved messages (chat 0), as replies and reactions were (`NEED-150`),
+and needs the owner's yes before it ships. Deleting messages and marking them read stay ruled out
+(`NEED-32`, REQUIREMENTS §19).
+
+- **MAX-23** · P1 · Send photos, videos and files: `max messages send <chat> [text] --file <path>`.
+  Upload first, then attach in `MSG_SEND` (`upload_photo`, `upload_video`, `upload_file` in
+  `api/uploads/`). The bytes are the owner's content: only name and size reach a log.
+- **MAX-24** · P1 · Send a voice message (`upload_voice`).
+- **MAX-25** · P1 · Edit your own message (`edit_message`, `MSG_EDIT` 67). It changes a message the
+  other person may have read already.
+- **MAX-26** · P1 · Forward a message to another chat (`forward_message`; tsmax sends `MSG_SEND` with
+  `link: {type: "FORWARD", messageId, chatId}`).
+- **MAX-27** · P1 · Pin and unpin a message (`pin_message`).
+- **MAX-28** · P1 · Polls: show them when reading, and vote (`vote_poll`).
+- **MAX-29** · P1 · Remove your reaction (`remove_reaction`, `MSG_CANCEL_REACTION` 179). Pairs with
+  `max reactions add`.
+- **MAX-30** · P1 · Groups and channels you belong to: create a group, join or leave a group or a
+  channel by link, invite and remove members (`create_group`, `join_group`, `join_channel`,
+  `leave_group`, `leave_channel`, `invite_users_to_group`, `invite_users_to_channel`,
+  `remove_users_from_group`, `resolve_group_by_link`).
+- **MAX-31** · P1 · Administer a group: admins, name and settings, join requests, the invite link
+  (`add_admin`, `change_group_profile`, `change_group_settings`, `get_join_requests`,
+  `confirm_join_request(s)`, `decline_join_request(s)`, `rework_invite_link`). Deleting a chat
+  (`delete_chat`) is not included — the same reasoning as `NEED-32`.
+- **MAX-32** · P1 · Contacts: add, remove, import, find a person by phone number (`add_contact`,
+  `remove_contact`, `import_contacts`, `search_by_phone`). A phone number never reaches a log.
+- **MAX-33** · P1 · Your own account: edit the profile, manage chat folders, list your other
+  sessions and end them (`change_profile`, `get_folders`, `create_folder`, `update_folder`,
+  `delete_folder`, `get_sessions`, `close_all_sessions`). Ending sessions must never end this one
+  — `LOGOUT` (20) stays never-sent.
+- **MAX-34** · P3 · Live events: a long-running `max listen` that prints new messages, edits,
+  reactions and typing as they arrive (PyMax's `on_message`, `on_message_edit`,
+  `on_reaction_update`…). Conflicts with one-shot commands (`CLAUDE.md` constraint 4), so it needs
+  a ruling first. What is new since the last check is `CLI-23`.
+
 - **MAX-4** · 🟡 P3 · Chat addressing. Done: an id, or a title matched exactly then as a fragment,
   an ambiguous one refused (`src/client.ts:149`). Left: `@username`, a phone number, a chat the
   account is not in.
 - **CLI-5** · P3 · `max raw <operation>` — a debug escape hatch, validated against the spec, never
   arbitrary frames (REQUIREMENTS §22).
-- **MAX-8** · P3 · Telemetry as the official client sends it — only once our own traffic is
-  understood (`NEED-16`).
+- **MAX-8** · P1 · Look like the official client beyond the user agent: the telemetry it sends and
+  the device details it reports (`NEED-16`). PyMax does both (`src/pymax/telemetry/`,
+  `src/pymax/fingerprint/`). Raised from P3 by the owner 2026-09-24 (`NEED-175`).
 
 - **RES-5** · 🟡 P2 · Does `LOGIN` move presence or read state? Reading history does not (no
   `CHAT_MARK`, tested). The login flag `interactive` is unexplained (`ARCHITECTURE.md` §4). Needs a

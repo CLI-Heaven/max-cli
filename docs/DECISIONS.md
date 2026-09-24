@@ -674,3 +674,8 @@ refines `NEED-162` and `NEED-164`: the saved point and the 24-hour first look no
 **NEED-172 · Workflow hooks inside `max`?** **Into the backlog (`CLI-27`), not built now.** «2 add
 hooks in backlog».
 
+**NEED-175 · Which of PyMax's features that we lack go into the backlog, and how urgent?** **All of
+them, at P1, except live events at P3.** «add all of this in backlog all is high priority except
+for live events». `MAX-23`…`MAX-33`, `MAX-34`, and `MAX-8` raised to P1. What is already in progress
+was left as it is: login by SMS and QR (#66), new messages since the last check (`CLI-23`),
+scheduled send (`CLI-22`), reactions when reading (`MAX-15`).
