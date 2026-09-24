@@ -5,6 +5,7 @@ import { openProfileCache } from "../cache/index.js"
 import { ADMIN_RIGHTS, type AdminRight, type MaxClient } from "../client.js"
 import type { ChatKind, GroupSettings } from "../domain/models.js"
 import { forCommand } from "./context.js"
+import { foldersCommand } from "./folders.js"
 import { renderPage, window, withPaging } from "./paging.js"
 
 export const chatsCommand = (): Command => {
@@ -181,6 +182,7 @@ export const chatsCommand = (): Command => {
     .action(async function (this: Command, chat: string) {
       await withClient(this, "chats link reset", (client) => client.chats.resetLink(chat))
     })
+  command.addCommand(foldersCommand())
 
   return command
 }

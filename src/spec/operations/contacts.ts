@@ -26,8 +26,12 @@ export const contactsByPhone = defineOperation({
   request: v.strictObject({ phone: v.pipe(v.string(), v.minLength(1)) }),
   response: v.looseObject({ contact: v.optional(v.looseObject({})) }),
   provenance: {
-    confidence: "confirmed",
-    sources: [webClient, "PyMax 53103f0 `search_by_phone`"],
+    confidence: "measured",
+    sources: [
+      "measured against MAX 2026-09-24 (`pnpm probe:account`): the owner's own number answered with the owner",
+      webClient,
+      "PyMax 53103f0 `search_by_phone`",
+    ],
     notes: "⚠ The request carries a phone number: nothing may log it, print it in an error or keep it in a fixture.",
   },
 })
@@ -58,8 +62,11 @@ export const contactsImport = defineOperation({
   }),
   response: v.looseObject({ contacts: v.optional(v.array(v.looseObject({}))) }),
   provenance: {
-    confidence: "observed",
-    sources: ["PyMax 53103f0 `import_contacts`"],
+    confidence: "measured",
+    sources: [
+      "measured against MAX 2026-09-24 (`pnpm probe:account`), the owner's own number only: answered `{phones: {<number>: <number>}}` and no contact",
+      "PyMax 53103f0 `import_contacts`",
+    ],
     notes:
       "One witness, under a generic name: not found in the entry chunks of web.max.ru (2026-09-24), whose lazy chunks were not read. It uploads other people's numbers to MAX (`NEED-203`).",
   },

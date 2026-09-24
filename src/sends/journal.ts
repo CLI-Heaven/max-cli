@@ -6,7 +6,7 @@ import type { Id } from "../domain/models.js"
 export type SendOutcome = "sent" | "outcome_unknown" | "refused" | "failed"
 
 /** Absent in the journal means a message: that is every line written before reactions were guarded. */
-export type SendKind = "message" | "reaction" | "edit" | "forward" | "pin" | "chat"
+export type SendKind = "message" | "reaction" | "edit" | "forward" | "pin" | "chat" | "account"
 
 /** What a `chat` entry did. Never a title, a description or a link — only which action. */
 export type ChatAction =
@@ -23,15 +23,26 @@ export type ChatAction =
   | "requests.decline"
   | "link.reset"
 
+/** What an `account` entry changed. Never the value it changed it to — no name, number or title. */
+export type AccountAction =
+  | "contact-add"
+  | "contact-remove"
+  | "contact-import"
+  | "profile"
+  | "folder-create"
+  | "folder-update"
+  | "folder-delete"
+  | "sessions-end"
+
 /** One attempt to send. **Never the text** — only its length. */
 export interface SendEntry {
   at: string
   profile: string
-  /** `null` when a join or a creation was refused before there was a chat. */
+  /** `null` when a join or a creation was refused before there was a chat, and for a change to the account itself. */
   chatId: Id | null
   outcome: SendOutcome
   kind?: SendKind
-  action?: ChatAction
+  action?: ChatAction | AccountAction
   /** How many people a `chat` entry added or removed. */
   people?: number
   messageId?: Id

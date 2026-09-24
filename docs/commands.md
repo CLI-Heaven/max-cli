@@ -71,6 +71,30 @@ who this profile is logged in as
 max account show
 ```
 
+### `max account update`
+
+change the name or the description everyone sees on your profile
+
+**Меняет что-то в MAX.**
+
+```sh
+max account update [options]
+```
+
+| Опция | Что делает |
+|---|---|
+| `--first-name <name>` | your first name |
+| `--last-name <name>` | your last name |
+| `--description <text>` | about you |
+
+### `max account sessions`
+
+where else this account is logged in — not `max session`, which is this tool's own login
+
+```sh
+max account sessions
+```
+
 ## `max chats`
 
 the chats this account is in
@@ -232,6 +256,14 @@ a group's invite link
 max chats link
 ```
 
+### `max chats folders`
+
+your chat folders
+
+```sh
+max chats folders
+```
+
 ## `max contacts`
 
 people you have a one-to-one chat with
@@ -271,6 +303,56 @@ forget where the last sync left off and take the whole list again
 ```sh
 max contacts sync
 ```
+
+### `max contacts lookup`
+
+who MAX has under a phone number — asks for it, or reads it from stdin
+
+```sh
+max contacts lookup
+```
+
+### `max contacts add`
+
+add a person to your contacts — `contacts list` still shows only people you have a dialog with
+
+**Меняет что-то в MAX.**
+
+```sh
+max contacts add <person>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `person` | обязательный | person id — `contacts lookup` finds one — or part of a known name |
+
+### `max contacts remove`
+
+remove a person from your contacts; the chat with them stays
+
+**Меняет что-то в MAX.**
+
+```sh
+max contacts remove <person>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `person` | обязательный | person id — `contacts lookup` finds one — or part of a known name |
+
+### `max contacts import`
+
+upload phone numbers to MAX and add the people it has under them
+
+**Меняет что-то в MAX.**
+
+```sh
+max contacts import <file>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `file` | обязательный | one person per line: number, then a comma or a tab, then the name |
 
 ## `max messages`
 

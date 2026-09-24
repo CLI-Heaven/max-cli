@@ -5,17 +5,22 @@ import {
   SETTING_FLAGS,
   toChat,
   toContact,
+  toFolder,
   toGroupCard,
   toMessage,
   toProfile,
   toReactions,
+  toSession,
 } from "./domain/map.js"
 import type {
+  AccountSession,
   AttachmentLink,
   Chat,
   ChatCard,
   ChatKind,
   Contact,
+  ContactImport,
+  Folder,
   GroupCard,
   GroupSettings,
   Id,
@@ -39,7 +44,7 @@ import { asId, type Payload } from "./protocol/frame.js"
 import { isId, pickChat, pickPerson } from "./resolve.js"
 import { countsIn, type DiagnosticEvent, idsOf } from "./runs/events.js"
 import type { SendGuard } from "./sends/guard.js"
-import type { ChatAction, SendKind } from "./sends/journal.js"
+import type { AccountAction, ChatAction, SendKind } from "./sends/journal.js"
 import { LOGIN_CHATS, startSession } from "./session/handshake.js"
 import { type QrLogin, tokenByQr } from "./session/login.js"
 import type { SessionStore } from "./session/store.js"
@@ -120,6 +125,66 @@ export class MaxClient {
       await this.#connectOnce()
       return toProfile(record(this.#session().profile) ?? {})
     },
+
+    /**
+     * Changes the profile everyone sees. **The name goes out whole**: the web client always sends
+     * the current first name, so a change to the description alone keeps it from the login.
+     */
+    update: (change: ProfileChange): Promise<Profile> =>
+      this.#change("profile", async () => {
+        const current = ownNames(record(this.#session().profile) ?? {})
+        const firstName = change.firstName ?? current.firstName
+        if (!firstName)
+          throw new CliError("validation_error", "MAX needs a first name, and the profile has none — pass --first-name")
+        const lastName = change.lastName ?? current.lastName
+
+        const answer = await this.#wire.account.update({
+          firstName,
+          ...(lastName === undefined ? {} : { lastName }),
+          ...(change.description === undefined ? {} : { description: change.description }),
+        })
+        return toProfile(record(answer.profile) ?? {})
+      }),
+
+    sessions: async (): Promise<AccountSession[]> => {
+      if (this.#offline)
+        throw new CliError("validation_error", "`--offline` reads what was recorded, and sessions are not recorded")
+      await this.#connectOnce()
+      return asArray((await this.#wire.account.sessions({})).sessions).map(toSession)
+    },
+
+    /**
+     * Logs every other device out — the owner's phone included — and keeps this one.
+     *
+     * PyMax reads a replacement token from the answer and the web client reads nothing (`RISK-25`),
+     * so both are handled: a token that came back is stored before anything is reported, and then
+     * the session is asked for once more, so a MAX that ended this one too says so here rather
+     * than on the next command.
+     */
+    endOtherSessions: (): Promise<AccountSession[]> =>
+      this.#change("sessions-end", async () => {
+        const answer = await this.#wire.account.closeSessions({})
+        const token = answer.token
+        if (typeof token === "string" && token !== "") {
+          try {
+            this.#store.writeToken(token)
+          } catch (error) {
+            throw new CliError(
+              "configuration_error",
+              `the other sessions are ended, but the new token for this one could not be saved: ${reasonOf(error)} — run \`max session start\``,
+            )
+          }
+        }
+
+        try {
+          return asArray((await this.#wire.account.sessions({})).sessions).map(toSession)
+        } catch (error) {
+          throw new CliError(
+            "authentication_error",
+            `the other sessions are ended, and MAX no longer answers this one (${asCliError(error).message}) — run \`max session start\``,
+          )
+        }
+      }),
   }
 
   /**
@@ -388,6 +453,42 @@ export class MaxClient {
      * It is also the only thing that could ever prune somebody MAX has stopped returning, which is
      * the second reason it exists.
      */
+    /**
+     * Finds whoever MAX has under a phone number. A lookup, not an add: nothing changes on the
+     * account. ⚠ The number is never repeated in an error — it is the one field here the sixth
+     * constraint is about.
+     */
+    lookup: async (phone: string): Promise<Contact> => {
+      if (this.#offline)
+        throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot look a number up")
+      const number = wirePhone(phone)
+      await this.#connectOnce()
+      const contact = record((await this.#wire.contacts.byPhone({ phone: number })).contact)
+      if (!contact) throw new CliError("not_found", "MAX has nobody under that number")
+      return this.#remember(toContact(contact))
+    },
+
+    add: (reference: string): Promise<Contact> => this.#contactAction("contact-add", "ADD", reference),
+
+    remove: (reference: string): Promise<Contact> => this.#contactAction("contact-remove", "REMOVE", reference),
+
+    /** Uploads phone numbers to MAX — other people's — under the names they were saved with. */
+    import: (entries: PhoneBookEntry[]): Promise<ContactImport> =>
+      this.#change("contact-import", async () => {
+        if (entries.length === 0) throw new CliError("validation_error", "no numbers to import")
+        const contactList: Record<string, { firstName: string }> = {}
+        for (const entry of entries) contactList[wirePhone(entry.phone)] = { firstName: entry.name }
+
+        const answer = await this.#wire.contacts.import({ contactList })
+        return {
+          sent: Object.keys(contactList).length,
+          recognised: Object.keys(record(answer.phones) ?? {}),
+          contacts: asArray(answer.contacts)
+            .map(toContact)
+            .map((contact) => this.#remember(contact)),
+        }
+      }),
+
     /**
      * One person and the chats we share, **whoever they are** — a group member is as findable as
      * a contact. `NEED-105` decides who `list` lists, not who can be looked up.
@@ -791,6 +892,55 @@ export class MaxClient {
         throw error
       }
     },
+  }
+
+  readonly folders = {
+    list: async (): Promise<Folder[]> => (await this.#folders()).map(toFolder),
+
+    create: (title: string, chats: string[] = []): Promise<Folder> =>
+      this.#change("folder-create", async () => {
+        const include = await Promise.all(chats.map((chat) => this.chats.resolve(chat)))
+        const answer = await this.#wire.folders.update({
+          id: crypto.randomUUID(),
+          title: folderTitle(title),
+          include,
+          filters: [],
+          options: [],
+        })
+        return toFolder(record(answer.folder) ?? {})
+      }),
+
+    /**
+     * **The folder goes back whole**, as the web client sends it: an edit that left out the chats
+     * would empty the folder. What MAX keeps for itself — `sourceId`, `updateTime` — is not sent.
+     */
+    update: (reference: string, change: FolderChange): Promise<Folder> =>
+      this.#change("folder-update", async () => {
+        const folder = pickFolder(reference, await this.#folders())
+        const added = await Promise.all((change.add ?? []).map((chat) => this.chats.resolve(chat)))
+        const removed = new Set(await Promise.all((change.remove ?? []).map((chat) => this.chats.resolve(chat))))
+        const touchesChats = added.length > 0 || removed.size > 0
+        const current = toFolder(folder).chatIds
+        const include = [...new Set([...current, ...added])].filter((id) => !removed.has(id))
+
+        const answer = await this.#wire.folders.update({
+          id: String(folder.id),
+          title: change.title === undefined ? String(folder.title ?? "") : folderTitle(change.title),
+          ...(Array.isArray(folder.include) || touchesChats ? { include } : {}),
+          filters: Array.isArray(folder.filters) ? folder.filters : [],
+          options: Array.isArray(folder.options) ? folder.options : [],
+          ...(Array.isArray(folder.favorites) ? { favorites: folder.favorites } : {}),
+        })
+        return toFolder(record(answer.folder) ?? {})
+      }),
+
+    /** The folder only — its chats stay where they are. */
+    delete: (reference: string): Promise<Folder> =>
+      this.#change("folder-delete", async () => {
+        const folder = pickFolder(reference, await this.#folders())
+        await this.#wire.folders.delete({ folderIds: [String(folder.id)] })
+        return toFolder(folder)
+      }),
   }
 
   readonly inbox = {
@@ -1523,6 +1673,83 @@ export class MaxClient {
     return others.length === 1 ? others[0] : undefined
   }
 
+  /**
+   * A change to the account itself, not to a chat: a read-only profile refuses it, no recipient
+   * list applies, it does not count towards the hourly limit, and the journal records which kind
+   * of change it was. **Never retried** — at worst the command is typed again.
+   */
+  async #change<T>(action: AccountAction, body: () => Promise<T>): Promise<T> {
+    if (this.#offline)
+      throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot change the account")
+
+    try {
+      this.#sends?.check(null, "account")
+    } catch (error) {
+      this.#sends?.record({
+        chatId: null,
+        kind: "account",
+        action,
+        outcome: "refused",
+        errorCode: asCliError(error).code,
+      })
+      throw error
+    }
+
+    try {
+      await this.#connectOnce()
+      const result = await body()
+      this.#sends?.record({ chatId: null, kind: "account", action, outcome: "sent" })
+      return result
+    } catch (error) {
+      this.#sends?.record({
+        chatId: null,
+        kind: "account",
+        action,
+        outcome: "failed",
+        errorCode: asCliError(error).code,
+      })
+      throw error
+    }
+  }
+
+  #contactAction(action: AccountAction, wire: "ADD" | "REMOVE", reference: string): Promise<Contact> {
+    return this.#change(action, async () => {
+      const cache = this.#cache
+      const known = isId(reference) ? cache?.people.get(reference.trim()) : undefined
+      if (!isId(reference) && !cache) {
+        throw new CliError(
+          "validation_error",
+          "without a local store a person is named by id — `max contacts lookup` finds one",
+        )
+      }
+      const id = isId(reference) ? reference.trim() : pickPerson(reference, cache as CacheStore).id
+
+      const answer = await this.#wire.contacts.update({ contactId: id, action: wire })
+      const contact = record(answer.contact)
+      if (contact) return this.#remember(toContact(contact))
+      return known ?? { id, name: null, username: null, description: null, lastMessagedAt: null }
+    })
+  }
+
+  #remember(contact: Contact): Contact {
+    if (contact.id !== "") this.#cache?.people.upsert([contact], "info")
+    return contact
+  }
+
+  async #folders(): Promise<Payload[]> {
+    if (this.#offline)
+      throw new CliError("validation_error", "`--offline` reads what was recorded, and folders are not recorded")
+    await this.#connectOnce()
+    const answer = await this.#wire.folders.list({ folderSync: 0 })
+    const folders = asArray(answer.folders)
+    const order = Array.isArray(answer.foldersOrder) ? answer.foldersOrder.map(String) : []
+    const rank = (folder: Payload) => {
+      const at = order.indexOf(String(folder.id))
+      return at === -1 ? order.length : at
+    }
+    return [...folders].sort((a, b) => rank(a) - rank(b))
+  }
+
   #session(): Payload {
     if (!this.#login) throw new CliError("configuration_error", "connect() was never called")
     return this.#login
@@ -1743,4 +1970,62 @@ const asCliError = (error: unknown): CliError => {
   const message = error instanceof Error ? error.message : String(error)
   if (message.includes("did not answer")) return new CliError("timeout", message)
   return new CliError("network_error", message)
+}
+
+export interface ProfileChange {
+  firstName?: string
+  lastName?: string
+  description?: string
+}
+
+export interface FolderChange {
+  title?: string
+  add?: string[]
+  remove?: string[]
+}
+
+export interface PhoneBookEntry {
+  phone: string
+  name: string
+}
+
+const ownNames = (profile: Payload): { firstName?: string; lastName?: string } => {
+  const contact = record(profile.contact) ?? profile
+  const names = asArray(contact.names)
+  const own = names.find((entry) => entry.type === "ONEME") ?? names[0]
+  return {
+    ...(typeof own?.firstName === "string" && own.firstName !== "" ? { firstName: own.firstName } : {}),
+    ...(typeof own?.lastName === "string" ? { lastName: own.lastName } : {}),
+  }
+}
+
+/** `+` and digits, as the lookup was measured. ⚠ The refusal never repeats what was typed. */
+const wirePhone = (typed: string): string => {
+  const digits = typed.replace(/[\s()-]/g, "").replace(/^\+/, "")
+  if (!/^\d{7,15}$/.test(digits)) {
+    throw new CliError("validation_error", "a phone number is 7 to 15 digits, with an optional + and the country code")
+  }
+  return `+${digits}`
+}
+
+/** 21 characters were refused as too long and 15 were taken (measured 2026-09-24); MAX draws the line. */
+const folderTitle = (title: string): string => {
+  const trimmed = title.trim()
+  if (trimmed === "") throw new CliError("validation_error", "a folder needs a title")
+  return trimmed
+}
+
+const pickFolder = (reference: string, folders: Payload[]): Payload => {
+  const wanted = reference.trim()
+  const byId = folders.find((folder) => folder.id === wanted)
+  if (byId) return byId
+  const named = folders.filter((folder) => typeof folder.title === "string" && folder.title === wanted)
+  if (named.length === 1 && named[0]) return named[0]
+  if (named.length > 1) {
+    throw new CliError(
+      "validation_error",
+      `${named.length} folders are called "${wanted}" — name one by id (\`max chats folders list\`)`,
+    )
+  }
+  throw new CliError("not_found", `no folder "${wanted}" — \`max chats folders list\` shows them`)
 }

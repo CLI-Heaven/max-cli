@@ -16,8 +16,13 @@ export const accountUpdate = defineOperation({
   }),
   response: v.looseObject({ profile: v.optional(v.looseObject({})) }),
   provenance: {
-    confidence: "confirmed",
-    sources: [webClient, "PyMax 53103f0 `change_profile`", "measured against MAX 2026-09-19: refused an empty payload"],
+    confidence: "measured",
+    sources: [
+      "measured against MAX 2026-09-24 (`pnpm probe:account`): the profile rewritten with its own values answered `{profile}` shaped like LOGIN's",
+      webClient,
+      "PyMax 53103f0 `change_profile`",
+      "measured against MAX 2026-09-19: refused an empty payload",
+    ],
     notes:
       "Changes the profile everyone sees. It does not read one: your own profile arrives with the login response. `link` (the short name) and `photoToken` exist and are not sent.",
   },
@@ -30,7 +35,14 @@ export const accountSessions = defineOperation({
   auth: true,
   request: v.strictObject({}),
   response: v.looseObject({ sessions: v.optional(v.array(v.looseObject({}))) }),
-  provenance: { confidence: "confirmed", sources: [webClient, "PyMax 53103f0 `get_sessions`"] },
+  provenance: {
+    confidence: "measured",
+    sources: [
+      "measured against MAX 2026-09-24 (`pnpm probe:account`): `{client, current, info, location, time}` per session — no id",
+      webClient,
+      "PyMax 53103f0 `get_sessions`",
+    ],
+  },
 })
 
 export const accountCloseSessions = defineOperation({

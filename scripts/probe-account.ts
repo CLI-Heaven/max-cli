@@ -52,7 +52,9 @@ const shape = (label: string, value: unknown): void => {
     seen.add(printable ? `${typeOf(inner)} ${printable}` : typeOf(inner))
     paths.set(path, seen)
     if (Array.isArray(inner)) for (const item of inner) walk(item, `${path}[]`)
-    else for (const [key, next] of Object.entries(record(inner) ?? {})) walk(next, `${path}.${key}`)
+    else
+      for (const [key, next] of Object.entries(record(inner) ?? {}))
+        walk(next, `${path}.${/\d{5}/.test(key) ? "<phone>" : key}`)
   }
   walk(value, "")
   console.log(`\n${label}`)
@@ -86,6 +88,10 @@ try {
   const contact = record(profile.contact) ?? {}
   const ownId = asId(contact.id)
   shape("LOGIN profile", profile)
+  const settings = record(record(login.config)?.server) ?? record(login.config) ?? {}
+  for (const [key, value] of Object.entries(settings))
+    if (/folder|profile|description|name/i.test(key) && typeof value !== "object")
+      console.log(`  config ${key}: ${String(value)}`)
 
   const folders = await attempt("folders", foldersList, { folderSync: 0 })
   for (const folder of (Array.isArray(folders?.folders) ? folders.folders : []).map(record)) {
@@ -97,6 +103,7 @@ try {
   const sessions = await attempt("sessions", accountSessions, {})
   const list = (Array.isArray(sessions?.sessions) ? sessions.sessions : []).map(record)
   console.log(`  ${list.length} sessions, ${list.filter((one) => one?.current === true).length} marked current`)
+  console.log(`  session time digits: ${list.map((one) => String(one?.time ?? "").length).join(", ")}`)
 
   if (write) {
     const names = (Array.isArray(contact.names) ? contact.names : []).map(record)
@@ -141,7 +148,7 @@ try {
       console.log(`  the folder kept the id we gave it: ${folder.id === id}`)
       await attempt("folder renamed", foldersUpdate, {
         id,
-        title: "max-cli probe renamed",
+        title: "max-cli probe 2",
         include: [],
         filters: Array.isArray(folder.filters) ? folder.filters : [],
         options: Array.isArray(folder.options) ? folder.options : [],

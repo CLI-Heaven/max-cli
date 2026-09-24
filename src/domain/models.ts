@@ -200,6 +200,34 @@ export interface Profile {
   id: Id
   name: string | null
   phone: string | null
+  description: string | null
+}
+
+/** A chat folder. MAX's own filters and options are kept inside the client and sent back untouched. */
+export interface Folder {
+  id: string
+  title: string
+  /** Chats added to it by hand. A folder that selects by filter lists none. */
+  chatIds: Id[]
+}
+
+/** Somewhere this account is logged in. MAX gives a session no id, so none can be ended alone. */
+export interface AccountSession {
+  current: boolean
+  /** `WEB`, `ANDROID`… as MAX names the client. */
+  client: string | null
+  /** MAX's own description of the device and app. */
+  device: string | null
+  location: string | null
+  lastActiveAt: string | null
+}
+
+export interface ContactImport {
+  /** How many numbers went to MAX. */
+  sent: number
+  /** The numbers MAX answered for — measured once, on the owner's own number, which it recognised. */
+  recognised: string[]
+  contacts: Contact[]
 }
 
 /** One message of a window around another, which carries `anchor: true`. */
