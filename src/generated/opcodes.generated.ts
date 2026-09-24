@@ -37,12 +37,14 @@ export const Opcode = {
    */
   CHAT_MARK: 50,
   CHATS_LIST: 53,
+  CHAT_UPDATE: 55,
   MSG_SEND: 64,
   /**
    * **Declared, never sent.** Deliberately never called. Giving this tool the ability to destroy somebody's messages,
    * in order to tidy up after a test, is a poor trade (`NEED-32`).
    */
   MSG_DELETE: 66,
+  MSG_EDIT: 67,
   PHOTO_UPLOAD: 80,
   VIDEO_PLAY: 83,
   FILE_UPLOAD: 87,

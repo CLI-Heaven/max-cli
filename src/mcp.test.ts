@@ -90,13 +90,22 @@ describe("the MCP server", () => {
     expect(tools.every(({ annotations }) => annotations?.readOnlyHint === true)).toBe(true)
   })
 
-  it("marks the send tool as one a person approves every time", async () => {
+  it("marks every writing tool as one a person approves every time", async () => {
     const { client } = await connect({ allowSend: true })
     const { tools } = await client.listTools()
-    const send = tools.find(({ name }) => name === "max_messages_send")
+    const writing = tools.filter(({ annotations }) => annotations?.readOnlyHint === false)
 
-    expect(send?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true })
-    expect(send?._meta).toMatchObject({ "anthropic/requiresUserInteraction": true })
+    expect(writing.map(({ name }) => name).sort()).toEqual([
+      "max_messages_edit",
+      "max_messages_forward",
+      "max_messages_pin",
+      "max_messages_send",
+      "max_messages_unpin",
+    ])
+    for (const { annotations, _meta } of writing) {
+      expect(annotations).toMatchObject({ destructiveHint: true })
+      expect(_meta).toMatchObject({ "anthropic/requiresUserInteraction": true })
+    }
   })
 
   it("answers listings in the CLI's envelope, logs in once for several calls, and marks nothing read", async () => {

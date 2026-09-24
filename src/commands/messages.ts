@@ -226,7 +226,94 @@ export const messagesCommand = (): Command => {
       })
     })
 
+  annotate(command.command("edit"), { mutates: true })
+    .argument("<chat>", "chat id, or part of a chat name")
+    .argument("<message>", "id of your own message")
+    .argument("[text]", "the new text; leave it off to read it from stdin")
+    .description("change the text of your own message; the other person may have read it already")
+    .option("--md, --markdown", "read **bold**, _italic_, ~~struck~~ and `code` in the text; \\ keeps a mark literal")
+    .action(async function (this: Command, chat: string, messageId: string, text: string | undefined) {
+      const options = this.optsWithGlobals()
+      const { renderer, settings, createClient, run } = forCommand(this)
+      const body = text ?? (await readBody())
+      const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
+
+      await run("messages edit", async (events) => {
+        const client = createClient({ events, ...(cache ? { cache } : {}) })
+        try {
+          const chatId = await client.chats.resolve(chat)
+          renderer.result(
+            await client.messages.edit(chatId, messageId.trim(), body, { markdown: options.markdown === true }),
+          )
+        } finally {
+          await client.close()
+          cache?.close()
+        }
+      })
+    })
+
+  annotate(command.command("forward"), { mutates: true })
+    .argument("<chat>", "the chat the message is in: an id, or part of a chat name")
+    .argument("<message>", "message id")
+    .requiredOption("--to <chat>", "the chat to forward it to: an id, or part of a chat name")
+    .description("forward one message to another chat")
+    .option("--cid <n>", "reuse a client id from an earlier ambiguous forward; MAX collapses the duplicate", (value) =>
+      Number.parseInt(value, 10),
+    )
+    .option("--silent", "deliver without a notification")
+    .action(async function (this: Command, chat: string, messageId: string) {
+      const options = this.optsWithGlobals()
+      const { renderer, settings, createClient, run } = forCommand(this)
+      const cache = await openProfileCache(settings.profile, { onProblem: (message) => renderer.note(message) })
+
+      await run("messages forward", async (events) => {
+        const client = createClient({ events, ...(cache ? { cache } : {}) })
+        try {
+          const from = await client.chats.resolve(chat)
+          const to = await client.chats.resolve(String(options.to))
+          const sent = await client.messages.forward(from, messageId.trim(), to, {
+            ...(options.cid === undefined ? {} : { cid: options.cid }),
+            ...(options.silent === true ? { notify: false } : {}),
+          })
+          renderer.result(sent)
+        } finally {
+          await client.close()
+          cache?.close()
+        }
+      })
+    })
+
+  annotate(command.command("pin"), { mutates: true })
+    .argument("<chat>", "chat id, or part of a chat name")
+    .argument("<message>", "message id")
+    .description("pin a message in a chat; it replaces what was pinned")
+    .option("--notify", "tell the chat's members about the pin")
+    .action(async function (this: Command, chat: string, messageId: string) {
+      const options = this.optsWithGlobals()
+      await pinWith(this, chat, messageId.trim(), options.notify === true)
+    })
+
+  annotate(command.command("unpin"), { mutates: true })
+    .argument("<chat>", "chat id, or part of a chat name")
+    .description("unpin whatever message is pinned in a chat")
+    .action(async function (this: Command, chat: string) {
+      await pinWith(this, chat, null, false)
+    })
+
   return command
+}
+
+const pinWith = async (command: Command, chat: string, messageId: string | null, notify: boolean): Promise<void> => {
+  const { renderer, createClient, run } = forCommand(command)
+  await run(messageId ? "messages pin" : "messages unpin", async (events) => {
+    const client = createClient({ events })
+    try {
+      const chatId = await client.chats.resolve(chat)
+      renderer.result(await client.messages.pin(chatId, messageId, { notify }))
+    } finally {
+      await client.close()
+    }
+  })
 }
 
 const feed =

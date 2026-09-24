@@ -7,10 +7,18 @@ import type { Page } from "../domain/models.js"
 import type { MaxSession } from "./session.js"
 
 const chat = v.pipe(v.string(), v.minLength(1), v.description("chat id, or part of a chat name"))
+const message = v.pipe(v.string(), v.regex(/^\d+$/), v.description("message id"))
 const limit = v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100), v.description("how many")))
 const page = v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.description("which page, from 1")))
 
 const READ: ToolAnnotations = { readOnlyHint: true, destructiveHint: false, openWorldHint: true }
+const WRITE: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  idempotentHint: false,
+  openWorldHint: true,
+}
+const APPROVE = { "anthropic/requiresUserInteraction": true }
 
 interface Tool<S extends v.ObjectSchema<v.ObjectEntries, undefined>> {
   title: string
@@ -172,7 +180,7 @@ const READ_TOOLS = {
       "carries anchor: true.",
     input: v.object({
       chat,
-      message: v.pipe(v.string(), v.regex(/^\d+$/), v.description("message id")),
+      message,
       before: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(100))),
       after: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(100))),
     }),
@@ -187,13 +195,13 @@ const READ_TOOLS = {
 }
 
 /**
- * Registered only with `--allow-send`, so a server started without it has no way to send at all —
+ * Registered only with `--allow-send`, so a server started without it has no way to write at all —
  * not a refusal at call time, an absence from the list.
  *
  * `requiresUserInteraction` is Claude Code's: an approval dialog on every call that allow-rules do
  * not skip. Other clients ask by `destructiveHint` or `readOnlyHint`.
  */
-const SEND_TOOL = {
+const SEND_TOOLS = {
   max_messages_send: tool({
     title: "Send a message",
     description:
@@ -206,8 +214,8 @@ const SEND_TOOL = {
       silent: v.optional(v.pipe(v.boolean(), v.description("deliver without a notification"))),
       cid: v.optional(v.pipe(v.number(), v.integer(), v.description("from an earlier outcome_unknown"))),
     }),
-    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
-    _meta: { "anthropic/requiresUserInteraction": true },
+    annotations: WRITE,
+    _meta: APPROVE,
     answer: async (client, args) => {
       const chatId = await client.chats.resolve(args.chat)
       return client.messages.send(chatId, args.text, {
@@ -215,6 +223,54 @@ const SEND_TOOL = {
         ...(args.silent === true ? { notify: false } : {}),
       })
     },
+  }),
+  max_messages_edit: tool({
+    title: "Edit a message",
+    description:
+      "Replace the text of one of the owner's own messages. Only when the owner asked for this exact change. " +
+      "The other person may have read the old text already. Attachments stay.",
+    input: v.object({ chat, message, text: v.pipe(v.string(), v.minLength(1)) }),
+    annotations: WRITE,
+    _meta: APPROVE,
+    answer: async (client, args) =>
+      client.messages.edit(await client.chats.resolve(args.chat), args.message, args.text),
+  }),
+  max_messages_forward: tool({
+    title: "Forward a message",
+    description:
+      "Forward one message to another chat as the owner. Only when the owner asked for this message to this chat. " +
+      "On outcome_unknown, retry with the cid it returns and MAX drops the duplicate.",
+    input: v.object({
+      chat: v.pipe(chat, v.description("the chat the message is in")),
+      message,
+      to: v.pipe(chat, v.description("the chat to forward it to")),
+      cid: v.optional(v.pipe(v.number(), v.integer(), v.description("from an earlier outcome_unknown"))),
+    }),
+    annotations: WRITE,
+    _meta: APPROVE,
+    answer: async (client, args) =>
+      client.messages.forward(
+        await client.chats.resolve(args.chat),
+        args.message,
+        await client.chats.resolve(args.to),
+        args.cid === undefined ? {} : { cid: args.cid },
+      ),
+  }),
+  max_messages_pin: tool({
+    title: "Pin a message",
+    description: "Pin one message in a chat, replacing what was pinned. Members are not notified.",
+    input: v.object({ chat, message }),
+    annotations: WRITE,
+    _meta: APPROVE,
+    answer: async (client, args) => client.messages.pin(await client.chats.resolve(args.chat), args.message),
+  }),
+  max_messages_unpin: tool({
+    title: "Unpin a message",
+    description: "Unpin whatever message is pinned in a chat.",
+    input: v.object({ chat }),
+    annotations: WRITE,
+    _meta: APPROVE,
+    answer: async (client, args) => client.messages.pin(await client.chats.resolve(args.chat), null),
   }),
 }
 
@@ -242,7 +298,7 @@ export const registerTools = (
 ): void => {
   const tools: Record<string, AnyTool> = {
     ...READ_TOOLS,
-    ...(allowSend ? SEND_TOOL : {}),
+    ...(allowSend ? SEND_TOOLS : {}),
   }
 
   for (const [name, definition] of Object.entries(tools)) {

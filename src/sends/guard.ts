@@ -5,6 +5,9 @@ import type { RecipientList } from "./recipients.js"
 
 const HOUR_MS = 60 * 60 * 1000
 
+/** What puts a new message in somebody's chat. A reaction, an edit or a quiet pin wakes nobody up (`NEED-168`). */
+const counted = (kind: SendKind = "message"): boolean => kind === "message" || kind === "forward"
+
 /** What `MaxClient.messages.send` asks before it sends, and tells after — on every outcome. */
 export interface SendGuard {
   check(chatId: Id, kind?: SendKind): void
@@ -56,24 +59,23 @@ export const sendGuard = ({
       )
     }
 
-    // The limit is about messages, by the owner's ruling (`NEED-168`): a reaction wakes nobody up.
-    if (kind === "reaction") return
+    if (!counted(kind)) return
 
     const since = now().getTime() - HOUR_MS
-    const counted = journal
+    const recent = journal
       .entries()
-      .filter((entry) => entry.kind !== "reaction")
+      .filter((entry) => counted(entry.kind))
       .filter((entry) => entry.outcome === "sent" || entry.outcome === "outcome_unknown")
       .map((entry) => Date.parse(entry.at))
       .filter((time) => time > since)
       .sort((a, b) => a - b)
-    if (counted.length >= sendsPerHour) {
+    if (recent.length >= sendsPerHour) {
       // The limit may have been lowered below what the last hour already holds.
-      const nextMs = (counted[counted.length - sendsPerHour] ?? 0) + HOUR_MS
+      const nextMs = (recent[recent.length - sendsPerHour] ?? 0) + HOUR_MS
       const next = new Date(nextMs).toISOString()
       throw new CliError(
         "rate_limited",
-        `profile ${profile} has sent ${counted.length} messages in the last hour, and its limit is ` +
+        `profile ${profile} has sent ${recent.length} messages in the last hour, and its limit is ` +
           `${sendsPerHour} (sendsPerHour) — the next send is possible at ${next}`,
         { retryAfterMs: nextMs - now().getTime(), retryAt: next },
       )

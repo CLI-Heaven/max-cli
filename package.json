@@ -47,7 +47,8 @@
     "probe:reactions": "pnpm build && node --experimental-strip-types scripts/probe-reactions.ts",
     "probe:message-shapes": "pnpm build && node --experimental-strip-types scripts/probe-message-shapes.ts",
     "probe:token": "pnpm build && node --experimental-strip-types scripts/probe-token.ts",
-    "probe:inbox": "pnpm build && node --experimental-strip-types scripts/probe-inbox.ts"
+    "probe:inbox": "pnpm build && node --experimental-strip-types scripts/probe-inbox.ts",
+    "probe:edit-pin-forward": "pnpm build && node --experimental-strip-types scripts/probe-edit-pin-forward.ts"
   },
   "dependencies": {
     "@bomb.sh/tab": "0.0.22",

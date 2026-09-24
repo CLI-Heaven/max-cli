@@ -45,11 +45,10 @@ and needs the owner's yes before it ships. Deleting messages and marking them re
   .ogg); the message does not: the web client sends `{_type: "AUDIO", audioId, duration, wave, token}`
   with `wave` as 80 raw bytes in a binary MessagePack frame, and none of six JSON forms was accepted
   (`FIND-104`). Waits on `MAX-40`.
-- **MAX-25** · 🚧 `edit-pin-forward` · P1 · Edit your own message (`edit_message`, `MSG_EDIT` 67). It changes a message the
-  other person may have read already.
-- **MAX-26** · 🚧 `edit-pin-forward` · P1 · Forward a message to another chat (`forward_message`; tsmax sends `MSG_SEND` with
-  `link: {type: "FORWARD", messageId, chatId}`).
-- **MAX-27** · 🚧 `edit-pin-forward` · P1 · Pin and unpin a message (`pin_message`).
+- **MAX-27** · 🟡 🚧 `edit-pin-forward` · P1 · Pin and unpin a message. Done: `max messages pin|unpin`
+  and the MCP tools, `CHAT_UPDATE` (55) as the web client sends it. Left: a measurement — MAX refuses
+  both in Saved messages, by chat 0 and by the dialog's own id (`FIND-107`), and probes may write
+  nowhere else (`NEED-28`).
 - **MAX-28** · P1 · Polls: show them when reading, and vote (`vote_poll`).
 - **MAX-30** · P1 · Groups and channels you belong to: create a group, join or leave a group or a
   channel by link, invite and remove members (`create_group`, `join_group`, `join_channel`,

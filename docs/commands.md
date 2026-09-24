@@ -254,6 +254,80 @@ max messages send <chat> [text] [options]
 | `--file <path>` | attach a file; .jpg .png .webp .gif go as a photo. Repeat it for more than one |
 | `--md, --markdown` | read **bold**, _italic_, ~~struck~~ and `code` in the text; \ keeps a mark literal |
 
+### `max messages edit`
+
+change the text of your own message; the other person may have read it already
+
+**Меняет что-то в MAX.**
+
+```sh
+max messages edit <chat> <message> [text] [options]
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+| `message` | обязательный | id of your own message |
+| `text` | необязательный | the new text; leave it off to read it from stdin |
+
+| Опция | Что делает |
+|---|---|
+| `--md, --markdown` | read **bold**, _italic_, ~~struck~~ and `code` in the text; \ keeps a mark literal |
+
+### `max messages forward`
+
+forward one message to another chat
+
+**Меняет что-то в MAX.**
+
+```sh
+max messages forward <chat> <message> [options]
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | the chat the message is in: an id, or part of a chat name |
+| `message` | обязательный | message id |
+
+| Опция | Что делает |
+|---|---|
+| `--to <chat>` | the chat to forward it to: an id, or part of a chat name |
+| `--cid <n>` | reuse a client id from an earlier ambiguous forward; MAX collapses the duplicate |
+| `--silent` | deliver without a notification |
+
+### `max messages pin`
+
+pin a message in a chat; it replaces what was pinned
+
+**Меняет что-то в MAX.**
+
+```sh
+max messages pin <chat> <message> [options]
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+| `message` | обязательный | message id |
+
+| Опция | Что делает |
+|---|---|
+| `--notify` | tell the chat's members about the pin |
+
+### `max messages unpin`
+
+unpin whatever message is pinned in a chat
+
+**Меняет что-то в MAX.**
+
+```sh
+max messages unpin <chat>
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+
 ## `max reactions`
 
 react to messages
