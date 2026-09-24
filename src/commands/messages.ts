@@ -1,4 +1,5 @@
 import { CliError } from "@leemour/cli-core"
+import { annotate } from "@leemour/cli-core/commands"
 import { Command } from "commander"
 import { openProfileCache } from "../cache/index.js"
 import type { Id, Message, WindowedMessage } from "../domain/models.js"
@@ -176,8 +177,7 @@ export const messagesCommand = (): Command => {
    * **The body may come from a pipe instead**, by leaving the argument off — `readBody` says why
    * argv is the wrong place for it and why omission is the signal rather than a flag.
    */
-  command
-    .command("send")
+  annotate(command.command("send"), { mutates: true })
     .argument("<chat>", "chat id, or part of a chat name")
     .argument("[text]", "what to say; leave it off to read the message from stdin")
     .description("send one text message")

@@ -1,11 +1,11 @@
+import { annotate } from "@leemour/cli-core/commands"
 import { Command } from "commander"
 import { forCommand } from "./context.js"
 
 export const reactionsCommand = (): Command => {
   const command = new Command("reactions").description("react to messages")
 
-  command
-    .command("add")
+  annotate(command.command("add"), { mutates: true })
     .argument("<chat>", "chat id, or part of a chat name")
     .argument("<message>", "message id")
     .argument("<emoji>", "one emoji, for example 👍")

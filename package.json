@@ -48,7 +48,7 @@
     "probe:token": "pnpm build && node --experimental-strip-types scripts/probe-token.ts"
   },
   "dependencies": {
-    "@leemour/cli-core": "^0.1.1",
+    "@leemour/cli-core": "^0.2.0",
     "commander": "^15.0.0",
     "lossless-json": "^4.3.1",
     "string-width": "^8.2.2",
