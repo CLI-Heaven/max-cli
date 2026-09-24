@@ -24,6 +24,12 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
 
 ## Features
 
+- **CLI-34** · 🚧 `cache-keeps-messages` · P2 · `max backup messages <chat> --since <date> | --last
+  <n>`: without `--run` only the estimate (what the cache holds, what is missing, requests and
+  minutes); with `--run` it fills the gaps within limits and stops on any error. One chat per call
+  (`NEED-217`). Waits on `MAX-44` and `RES-9`. Plan: `docs_ai/plans/2026-09-24-history-backup.md`.
+- **CLI-35** · P2 · `max export messages <chat> --format jsonl|md`: writes what the cache holds,
+  never connects, file mode `0600` (photo links open without a login). Plan: same, Р6.
 - **CLI-22** · P2 · Scheduled send: `max messages send <chat> <text> --at <time>`. MAX schedules
   messages itself, and the official web client does it with `MSG_SEND` (64) carrying
   `message.delayedAttributes.timeToFire` in milliseconds (web.max.ru source, read 2026-09-24,
@@ -96,6 +102,13 @@ and needs the owner's yes before it ships. Deleting messages and marking them re
 
 ## Foundation and risks
 
+- **MAX-44** · 🚧 `cache-keeps-messages` · P1 · The cache keeps messages through a schema upgrade.
+  `rebuild` (`src/cache/schema.ts:222`) drops every table, so each new `max` throws away the
+  history read so far — and would throw away a backup (`CLI-34`). `messages` and `ranges` are
+  carried over; the search index is rebuilt over them. Plan: `docs_ai/plans/2026-09-24-history-backup.md` Р5.
+- **RES-9** · P2 · How web.max.ru pages history while scrolling: `backward`/`forward` of opcode 49
+  and the pauses between requests, captured by the owner in DevTools on a chat already read (opening
+  an unread one marks it read). Sets the defaults of `CLI-34` (`NEED-216`).
 - **MAX-38** · P2 · When MAX answers a login with its rate limit, stop and remember it: its own exit
   code and message, and a cool-down in the profile state so the next run refuses locally instead of
   logging in again. Nothing retries a login today, but a scheduled `max inbox --new` logs in on
@@ -120,9 +133,11 @@ and needs the owner's yes before it ships. Deleting messages and marking them re
 Added by the owner on 2026-09-24. Each one goes against REQUIREMENTS §3 or §18, and the line says
 which; the plan for it starts by saying so.
 
-- **CLI-24** · P3 · Voice messages to text with a local speech model (Whisper, Parakeet or
-  similar), downloaded on first use and never bundled. Builds on `max messages download`.
-  The model runs on this machine; audio never leaves it.
+- **CLI-24** · ⏸️ P3 · Voice messages to text with a local speech model, downloaded on first use
+  and never bundled. Builds on `max messages download`. The model runs on this machine; audio never
+  leaves it. Model: **GigaAM v3** (int8, ~230 MB) through the WebAssembly build of `sherpa-onnx`,
+  Silero VAD for audio over 25 s, `ogg-opus-decoder` — no native module (owner, 2026-09-24,
+  `NEED-213`; research G5 §3.13). Deferred by the owner the same day.
 - **CLI-25** · P3 · `max bot …` — work with a MAX bot through the official bot API and a bot token,
   beside the personal account. Reopens REQUIREMENTS §3 ("not a bot-account client"). Bots are
   issued only to verified organisations, sole traders and the self-employed
