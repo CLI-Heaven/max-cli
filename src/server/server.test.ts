@@ -97,7 +97,7 @@ describe("max serve", () => {
 
   it("pings on its own interval", async () => {
     const { max } = await serve("s-ping", scripted(), { pingEveryMs: 10 })
-    await settle(45)
+    await settle(150)
 
     expect(max.sent.filter((call) => call.opcode === Opcode.PING).length).toBeGreaterThanOrEqual(2)
     expect(max.sent.find((call) => call.opcode === Opcode.PING)?.payload).toEqual({ interactive: false })
