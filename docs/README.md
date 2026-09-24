@@ -1,12 +1,8 @@
 # Documentation
 
-`max` is a command line interface for a personal MAX Messenger account. Seven commands work
-against the real service — `session start|end`, `account show`, `chats list`, `contacts list`,
-`messages list|send` — and two more answer from this machine: `max cache` and `max runs`. The
-protocol underneath is unofficial and reverse-engineered.
-
-⚠ **Correction 2026-09-20: this page said "six commands" and named none of them.** It was written
-before the rename (`NEED-48`), the cache (`MAX-7`) and the run log (`CLI-4`).
+`max` is a command line interface for a personal MAX Messenger account. Every command and option
+is listed in [commands.md](commands.md). The protocol underneath is unofficial and
+reverse-engineered.
 
 ## Building it
 
@@ -31,7 +27,7 @@ before the rename (`NEED-48`), the cache (`MAX-7`) and the run log (`CLI-4`).
 Neither is edited by hand. `pnpm generate` rewrites both and CI asserts the tree did not change,
 so a reference that quotes a command the program no longer has cannot reach `main`.
 
-## Using it — Russian, per `NEED-108`
+## Using it — in Russian
 
 Каждая страница отвечает на один вопрос и открывается под задачу, а не читается подряд.
 
