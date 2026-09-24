@@ -87,12 +87,18 @@ id, во что разрешилось имя, которое написал а�
 | `max_messages_list` | `max messages list` | сообщения чата; ничего не отмечает прочитанным |
 | `max_messages_search` | `max messages search` | поиск по уже прочитанному на этой машине |
 | `max_messages_context` | `max messages show`, `context` | одно сообщение и соседние |
-| `max_messages_send` | `max messages send` | отправка, только с `--allow-send` |
+| `max_messages_scheduled` | `max messages scheduled` | что ждёт отправки в чате, с `scheduledFor` |
+| `max_messages_send` | `max messages send` | отправка, только с `--allow-send`; с `at` — позже, как `--at` |
 | `max_chats_read` | `max chats read` | отметить чат прочитанным, только с `--allow-mark-read` |
 
 Ответы — те же, что `--json` у команды: список — `{ items, page, limit, hasMore }`, id — строки.
 Ошибка — `{ error: { code, message, … } }` с теми же кодами, что у CLI; неоднозначное имя чата
 отвечает списком `candidates` и ничего не отправляет.
+
+`at` у `max_messages_send` — те же правила, что у `--at`: `2026-09-25T09:00` (местное время) или
+`30m`, `2h`, `1d`, от минуты до года, с округлением вниз до минуты. С `silent` и с `cid` — отказ.
+Защиты отправки считают сообщение сразу. С `--confirm-send` форма показывает время отправки.
+Если ответа нет, повтора не будет: проверьте очередь через `max_messages_scheduled`.
 
 ## Как он держит соединение
 

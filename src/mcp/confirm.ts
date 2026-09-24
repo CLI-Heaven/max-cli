@@ -7,6 +7,7 @@ import {
   type ServerContext,
 } from "@modelcontextprotocol/server"
 import type { MaxClient } from "../client.js"
+import { sendTime } from "../config.js"
 import type { Message } from "../domain/models.js"
 
 export interface SendArgs {
@@ -14,7 +15,15 @@ export interface SendArgs {
   text: string
   silent?: boolean
   cid?: number
+  at?: string
 }
+
+/** The one mapping from tool arguments to a send, for both the plain tool and the confirmed one. */
+export const sendOptions = (args: SendArgs, at: number | undefined) => ({
+  ...(args.cid === undefined ? {} : { cid: args.cid }),
+  ...(args.silent === true ? { notify: false } : {}),
+  ...(at === undefined ? {} : { at }),
+})
 
 /**
  * **`--confirm-send`: the server asks the owner itself, and shows where the name resolved to** (`CLI-28`).
@@ -31,7 +40,11 @@ export interface SendArgs {
  */
 export const confirmer = () => {
   const key = randomBytes(32)
-  const seal = (chatId: string, text: string) => createHmac("sha256", key).update(`${chatId}\n${text}`).digest()
+  // The time is sealed too: a yes to "now" must not carry over to the same text scheduled for later.
+  const seal = (chatId: string, text: string, at: number | undefined) =>
+    createHmac("sha256", key)
+      .update(`${chatId}\n${at ?? ""}\n${text}`)
+      .digest()
 
   const matches = (state: string | undefined, expected: Buffer): boolean => {
     if (state === undefined) return false
@@ -40,15 +53,17 @@ export const confirmer = () => {
   }
 
   return async (client: MaxClient, args: SendArgs, ctx: ServerContext): Promise<Message | InputRequiredResult> => {
+    const at = args.at === undefined ? undefined : sendTime(args.at)
     const chat = await client.chats.show(args.chat)
-    const expected = seal(chat.id, args.text)
+    const expected = seal(chat.id, args.text, at)
+    const when = at === undefined ? "" : ` at ${new Date(at).toISOString()}`
     const answer = inputResponse(ctx.mcpReq.inputResponses, "confirm")
 
     if (answer.kind === "missing") {
       return inputRequired({
         inputRequests: {
           confirm: inputRequired.elicit({
-            message: `Send to "${chat.title ?? chat.id}" (${chat.id})?\n\n${args.text}`,
+            message: `Send to "${chat.title ?? chat.id}" (${chat.id})${when}?\n\n${args.text}`,
             requestedSchema: { type: "object", properties: {} },
           }),
         },
@@ -69,9 +84,6 @@ export const confirmer = () => {
       )
     }
 
-    return client.messages.send(chat.id, args.text, {
-      ...(args.cid === undefined ? {} : { cid: args.cid }),
-      ...(args.silent === true ? { notify: false } : {}),
-    })
+    return client.messages.send(chat.id, args.text, sendOptions(args, at))
   }
 }

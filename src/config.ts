@@ -407,6 +407,36 @@ export const parseDuration = (value: string, source: string): number => {
   return ms
 }
 
+const MINUTE = 60_000
+const YEAR = 365 * 24 * 60 * MINUTE
+const DELAY = /^(\d+)(m|h|d)$/
+const DELAY_UNIT_MS: Record<string, number> = { m: MINUTE, h: 60 * MINUTE, d: 24 * 60 * MINUTE }
+
+/**
+ * Rounded down to the minute: MAX drops the seconds and sends at the start of the minute (measured
+ * 2026-09-24, `FIND-141`), so the time we print is the time it goes. A time without an offset is
+ * local, which is how `Date.parse` reads one with a clock and no zone. The delay has hours and days,
+ * unlike `--timeout`: nobody schedules a message 90 seconds ahead.
+ */
+export const sendTime = (value: string, now = Date.now()): number => {
+  const trimmed = value.trim()
+  const delay = DELAY.exec(trimmed)
+  const at = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(trimmed)
+    ? Date.parse(trimmed.replace(" ", "T"))
+    : delay?.[1] && delay[2]
+      ? now + Number(delay[1]) * (DELAY_UNIT_MS[delay[2]] ?? 0)
+      : Number.NaN
+  if (Number.isNaN(at)) {
+    throw new CliError(
+      "validation_error",
+      `--at takes a time like 2026-09-25T09:00 or a delay like 30m, 2h, 1d — not "${value}"`,
+    )
+  }
+  if (at < now + MINUTE) throw new CliError("validation_error", "--at has to be at least a minute from now")
+  if (at > now + YEAR) throw new CliError("validation_error", "--at can be at most a year from now, as in MAX itself")
+  return at - (at % MINUTE)
+}
+
 /**
  * Sets or removes one setting of one profile, or of `defaults`, and writes the file back.
  *

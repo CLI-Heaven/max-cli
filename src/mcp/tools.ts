@@ -10,12 +10,13 @@ import { toStandardJsonSchema } from "@valibot/to-json-schema"
 import * as v from "valibot"
 import { openProfileCache } from "../cache/index.js"
 import type { MaxClient } from "../client.js"
+import { sendTime } from "../config.js"
 import { maskedProfile } from "../domain/map.js"
 import type { Page } from "../domain/models.js"
 import { transcribe } from "../transcribe/index.js"
 import { modelsDirectory } from "../transcribe/install.js"
 import { DEFAULT_MODEL, speechModel } from "../transcribe/models.js"
-import { confirmer, type SendArgs } from "./confirm.js"
+import { confirmer, type SendArgs, sendOptions } from "./confirm.js"
 import type { MaxSession } from "./session.js"
 
 const chat = v.pipe(v.string(), v.minLength(1), v.description("chat id, or part of a chat name"))
@@ -149,6 +150,15 @@ const READ_TOOLS = {
     answer: (client, args) => client.contacts.show(args.person),
   }),
 
+  max_messages_scheduled: tool({
+    title: "Messages scheduled in a chat",
+    description:
+      "Messages waiting to be sent later in a chat, soonest first, each with `scheduledFor`. " +
+      "Check here after a scheduled send ended in outcome_unknown. Cancelling is done in the MAX app.",
+    input: v.object({ chat }),
+    annotations: READ,
+    answer: async (client, args) => client.messages.scheduled(await client.chats.resolve(args.chat)),
+  }),
   max_messages_list: tool({
     title: "Read a chat",
     description:
@@ -253,21 +263,27 @@ const SEND_TOOLS = {
     description:
       "Send one text message as the owner. Only when the owner asked for this exact text to this exact chat. " +
       "A name that matches several chats is refused with the candidates — pick an id, never guess. " +
-      "On outcome_unknown, retry with the cid it returns and MAX drops the duplicate.",
+      "On outcome_unknown, retry with the cid it returns and MAX drops the duplicate. " +
+      "With `at`, MAX sends it later and the answer carries `scheduledFor`; never retry a scheduled send — " +
+      "read max_messages_scheduled instead.",
     input: v.object({
       chat,
       text: v.pipe(v.string(), v.minLength(1)),
       silent: v.optional(v.pipe(v.boolean(), v.description("deliver without a notification"))),
       cid: v.optional(v.pipe(v.number(), v.integer(), v.description("from an earlier outcome_unknown"))),
+      at: v.optional(
+        v.pipe(
+          v.string(),
+          v.description("send later: 2026-09-25T09:00 (owner's local time) or 30m, 2h, 1d; 1 minute to 1 year ahead"),
+        ),
+      ),
     }),
     annotations: WRITE,
     _meta: APPROVE,
     answer: async (client, args) => {
+      const at = args.at === undefined ? undefined : sendTime(args.at)
       const chatId = await client.chats.resolve(args.chat)
-      return client.messages.send(chatId, args.text, {
-        ...(args.cid === undefined ? {} : { cid: args.cid }),
-        ...(args.silent === true ? { notify: false } : {}),
-      })
+      return client.messages.send(chatId, args.text, sendOptions(args, at))
     },
   }),
   max_messages_edit: tool({

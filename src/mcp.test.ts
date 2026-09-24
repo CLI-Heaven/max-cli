@@ -231,6 +231,58 @@ describe("the MCP server", () => {
     expect(body.error).toMatchObject({ code: "outcome_unknown", cid: expect.any(Number) })
   })
 
+  it("schedules with `at` the way `--at` does, and answers scheduledFor", async () => {
+    const { client, max } = await connect(
+      { allowSend: true },
+      {
+        answers: {
+          [Opcode.MSG_SEND]: (request) => ({
+            message: {
+              id: 117328171499542309n,
+              time: 1789776000000,
+              sender: 10000001,
+              text: "later",
+              ...(request.message as object),
+            },
+          }),
+        },
+      },
+    )
+
+    const { isError, body } = await call(client, "max_messages_send", { chat: "111", text: "later", at: "2h" })
+
+    expect(isError).toBe(false)
+    const sent = max.sent.find(({ opcode }) => opcode === Opcode.MSG_SEND)?.payload as {
+      message: { delayedAttributes: { timeToFire: number } }
+      notify: boolean
+    }
+    expect(sent.notify).toBe(true)
+    expect(sent.message.delayedAttributes.timeToFire % 60_000).toBe(0)
+    expect(body.scheduledFor).toBe(new Date(sent.message.delayedAttributes.timeToFire).toISOString())
+  })
+
+  it("refuses an `at` that `--at` refuses, before sending anything", async () => {
+    const { client, max } = await connect({ allowSend: true })
+
+    for (const args of [{ at: "30s" }, { at: "1h", silent: true }, { at: "1h", cid: 5 }]) {
+      const { isError, body } = await call(client, "max_messages_send", { chat: "111", text: "x", ...args })
+      expect(isError).toBe(true)
+      expect(body.error).toMatchObject({ code: "validation_error" })
+    }
+    expect(max.sent.map(({ opcode }) => opcode)).not.toContain(Opcode.MSG_SEND)
+  })
+
+  it("reads the queue of scheduled messages without --allow-send", async () => {
+    const { client, max } = await connect()
+
+    const { isError } = await call(client, "max_messages_scheduled", { chat: "111" })
+
+    expect(isError).toBe(false)
+    expect(max.sent.find(({ opcode }) => opcode === Opcode.CHAT_HISTORY)?.payload).toMatchObject({
+      itemType: "DELAYED",
+    })
+  })
+
   it("goes through the send guards: a read-only profile refuses, and nothing is sent", async () => {
     const profile = "mcp-read-only"
     await run([profile, "config", "set", "readOnly", "true"], { streams: captureStreams(), tty: false })
@@ -330,6 +382,22 @@ describe("the MCP server", () => {
 
       expect(result.isError).toBe(true)
       expect(sends(max)).toBe(0)
+    })
+
+    it("shows when a scheduled message will go, and schedules it once confirmed", async () => {
+      const { client, max, forms } = await connect(
+        { allowSend: true, confirmSend: true },
+        { answers: sendAnswer, form: () => ({ action: "accept", content: {} }) },
+      )
+
+      const { isError } = await call(client, "max_messages_send", { chat: "111", text: "hello", at: "2h" })
+
+      expect(isError).toBe(false)
+      const payload = max.sent.find(({ opcode }) => opcode === Opcode.MSG_SEND)?.payload as
+        | { message: { delayedAttributes: { timeToFire: number } } }
+        | undefined
+      const fire = payload?.message.delayedAttributes.timeToFire ?? 0
+      expect(forms).toEqual([`Send to "Team Alpha" (111) at ${new Date(fire).toISOString()}?\n\nhello`])
     })
 
     it("sends without a form when the flag is off", async () => {
