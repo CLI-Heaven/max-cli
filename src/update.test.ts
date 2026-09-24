@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
-import { runUpdate, spawnPlan, type UpdateEnvironment, updateNotice } from "./update.js"
+import { runUpdate, type UpdateEnvironment, updateNotice } from "./update.js"
 
 const PNPM =
   "/home/a/.local/share/pnpm/store/v11/links/@leemour/max-cli/0.6.0/x/node_modules/@leemour/max-cli/dist/update.js"
@@ -81,21 +81,12 @@ describe("the daily line about a newer version", () => {
     const { notice, asked } = setup()
     expect(await notice(["complete", "--", "ch"])).toBeUndefined()
     expect(await notice(["update"])).toBeUndefined()
+    expect(await notice(["--timeout", "30s", "update"])).toBeUndefined()
     expect(asked()).toBe(0)
   })
 })
 
 describe("starting the package manager", () => {
-  const argv = ["npm", "install", "-g", "@leemour/max-cli@latest"]
-
-  it("goes through the shell on Windows, where npm and pnpm are .cmd files", () => {
-    expect(spawnPlan(argv, "win32")).toEqual({ file: "npm install -g @leemour/max-cli@latest", args: [], shell: true })
-  })
-
-  it("starts it directly everywhere else", () => {
-    expect(spawnPlan(argv, "linux")).toEqual({ file: "npm", args: argv.slice(1), shell: false })
-  })
-
   it("really starts npm on this platform", () => {
     expect(runUpdate(["npm", "--version"])).toBe(0)
   })
