@@ -101,6 +101,15 @@ and needs the owner's yes before it ships. Deleting messages and marking them re
 
 ## Foundation and risks
 
+- **MAX-38** · P2 · When MAX answers a login with its rate limit, stop and remember it: its own exit
+  code and message, and a cool-down in the profile state so the next run refuses locally instead of
+  logging in again. Nothing retries a login today, but a scheduled `max inbox --new` logs in on
+  every run, and in PyMax a login retried after the limit error kept the account locked out
+  ([#106](https://github.com/MaxApiTeam/PyMax/issues/106), open since 2026-09-14). Research: G1 §3.11.
+- **MAX-39** · P2 · Notice when the client version we present goes stale. `appVersion` is fixed at
+  `26.5.5` (`src/spec/identity.ts:20`); PyMax broke when MAX began refusing an old one
+  ([#86](https://github.com/MaxApiTeam/PyMax/issues/86)). A probe reads the version web.max.ru
+  currently sends, and `max doctor` says when ours is behind. Research: G1 §3.15.
 - **CORE-10** · P3 · Plugins from npm, **only from an allow-list** kept in the CLI itself — package
   names with pinned versions and integrity hashes — never an arbitrary package: a plugin runs inside
   a program holding the token of a personal account. oclif's `plugin-plugins` is the model.
