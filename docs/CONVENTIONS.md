@@ -103,7 +103,7 @@ that lies at the top. Rewrite the wrong sentence. If the wrong version circulate
 do not hide it.
 
 **User pages state current facts only.** `README.md` and the Russian pages under `docs/` — the
-ones [`README.md`](README.md) lists under "Using it" — carry no «Поправка», no struck-out text, no
+ones [`README.md`](README.md) lists under "Using it", except `CHANGELOG.md` — carry no «Поправка», no struck-out text, no
 dated "measured on", no decision or backlog ids. Rewrite the sentence and say nothing about the
 old one; the trail lives in git, `CHANGELOG.md` and the journal. A *why* is allowed when a reader
 would otherwise undo the behaviour. The marked-correction rule above is for the developer
