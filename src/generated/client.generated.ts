@@ -21,6 +21,18 @@ export const wireClient = (invoke: Invoke) => ({
     init: (request: RequestOf<(typeof OPERATIONS)["session.init"]>) => invoke(OPERATIONS["session.init"], request),
     login: (request: RequestOf<(typeof OPERATIONS)["session.login"]>) => invoke(OPERATIONS["session.login"], request),
   },
+  login: {
+    qrRequest: (request: RequestOf<(typeof OPERATIONS)["login.qrRequest"]>) =>
+      invoke(OPERATIONS["login.qrRequest"], request),
+    qrStatus: (request: RequestOf<(typeof OPERATIONS)["login.qrStatus"]>) =>
+      invoke(OPERATIONS["login.qrStatus"], request),
+    byQr: (request: RequestOf<(typeof OPERATIONS)["login.byQr"]>) => invoke(OPERATIONS["login.byQr"], request),
+    smsRequest: (request: RequestOf<(typeof OPERATIONS)["login.smsRequest"]>) =>
+      invoke(OPERATIONS["login.smsRequest"], request),
+    smsCode: (request: RequestOf<(typeof OPERATIONS)["login.smsCode"]>) => invoke(OPERATIONS["login.smsCode"], request),
+    password: (request: RequestOf<(typeof OPERATIONS)["login.password"]>) =>
+      invoke(OPERATIONS["login.password"], request),
+  },
   contacts: {
     info: (request: RequestOf<(typeof OPERATIONS)["contacts.info"]>) => invoke(OPERATIONS["contacts.info"], request),
   },

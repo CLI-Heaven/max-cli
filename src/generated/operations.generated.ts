@@ -3,6 +3,14 @@
 import { attachmentsFile, attachmentsVideo } from "../spec/operations/attachments.js"
 import { chatsHistory, chatsList } from "../spec/operations/chats.js"
 import { contactsInfo } from "../spec/operations/contacts.js"
+import {
+  loginByQr,
+  loginPassword,
+  loginQrRequest,
+  loginQrStatus,
+  loginSmsCode,
+  loginSmsRequest,
+} from "../spec/operations/login.js"
 import { messagesReact, messagesReactions, messagesSend } from "../spec/operations/messages.js"
 import { sessionInit, sessionLogin } from "../spec/operations/session.js"
 
@@ -10,6 +18,12 @@ import { sessionInit, sessionLogin } from "../spec/operations/session.js"
 export const OPERATIONS = {
   "session.init": sessionInit,
   "session.login": sessionLogin,
+  "login.qrRequest": loginQrRequest,
+  "login.qrStatus": loginQrStatus,
+  "login.byQr": loginByQr,
+  "login.smsRequest": loginSmsRequest,
+  "login.smsCode": loginSmsCode,
+  "login.password": loginPassword,
   "contacts.info": contactsInfo,
   "chats.history": chatsHistory,
   "chats.list": chatsList,

@@ -13,6 +13,8 @@ export const Opcode = {
    * home.
    */
   PROFILE: 16,
+  AUTH_REQUEST: 17,
+  AUTH: 18,
   LOGIN: 19,
   /**
    * **Declared, never sent.** `max session end` forgets the token locally and tells MAX nothing. Ending the session
@@ -43,8 +45,17 @@ export const Opcode = {
   MSG_DELETE: 66,
   VIDEO_PLAY: 83,
   FILE_DOWNLOAD: 88,
+  AUTH_LOGIN_CHECK_PASSWORD: 115,
   MSG_REACTION: 178,
   MSG_GET_REACTIONS: 180,
+  GET_QR: 288,
+  GET_QR_STATUS: 289,
+  /**
+   * **Declared, never sent.** The phone's side of a QR login: it lets whoever showed the code into the owner's
+   * account. A CLI logging itself in never approves anybody.
+   */
+  AUTH_QR_APPROVE: 290,
+  LOGIN_BY_QR: 291,
 } as const
 
 export type Opcode = (typeof Opcode)[keyof typeof Opcode]

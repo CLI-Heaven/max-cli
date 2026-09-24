@@ -20,12 +20,13 @@ import type { SessionStore } from "./store.js"
  * cannot be driven by a test — and this ordering is too expensive to hold on trust.
  */
 export const adoptToken = async (client: MaxClient, store: SessionStore, token: string): Promise<void> => {
+  const before = store.readToken()
   await client.connect({ token })
 
-  // ⚠ **Only if the login did not already leave a better one.** MAX answers every login with a
-  // fresh token and `connect` now keeps it (`MAX-11`); writing the pasted one here unconditionally
-  // would replace that with the credential the person copied out of a browser, which is the older
-  // of the two. The check also covers the case where the keyring write failed inside `connect`:
-  // then there is nothing stored, and what was pasted is better than nothing.
-  if (store.readToken() === undefined) store.writeToken(token)
+  // ⚠ **Only if the login did not already leave a better one.** MAX answers a login with a fresh
+  // token when the one presented has aged, and `connect` keeps it (`MAX-11`); overwriting that here
+  // would put back the older credential. Comparing with what was stored before, rather than asking
+  // whether anything is stored, is what lets a new login replace an old session at all — until
+  // 2026-09-24 a profile that already held a token kept it, and the command still said "stored".
+  if (store.readToken() === before) store.writeToken(token)
 }

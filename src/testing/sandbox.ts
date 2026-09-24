@@ -31,5 +31,6 @@ process.env.MAX_CACHE_DIR = join(sandbox, "cache")
 process.env.TMPDIR = sandbox
 // Read before the keyring, so a token exported in the shell would log the suite in to the real account.
 delete process.env.MAX_TOKEN
+process.env.MAX_TEST_SANDBOX = "1"
 
 afterAll(() => rmSync(sandbox, { recursive: true, force: true }))

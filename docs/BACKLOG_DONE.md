@@ -44,6 +44,11 @@ what exists now, and where it is described. The numbers stay reserved — commit
 
 ## MAX
 
+- **MAX-23** — `max session start qr | qr-chrome | sms | token`. `qr` draws the code in the terminal
+  over our own socket (opcodes 288 → 289 → 291, measured 2026-09-24); `qr-chrome` and `sms` let
+  web.max.ru log in inside a throwaway Chromium profile and read its token. SMS over our socket meets
+  a captcha, so it has no socket path. `docs/sessions.md`. Correction: claimed on the branch as
+  `MAX-16`, a number `main` gave to the watching server meanwhile.
 - **MAX-1…MAX-3** — our own `MaxClient`, the stored session, domain models mapped from the wire.
   [`ARCHITECTURE.md`](ARCHITECTURE.md) §3–§7.
 - **MAX-5** — a person type in the domain model (`src/domain/models.ts`).

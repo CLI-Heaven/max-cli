@@ -40,11 +40,15 @@ max [профиль] [опции] <команда> <действие> [аргу�
 the stored MAX session for this profile
 ### `max session start`
 
-store a MAX session for this profile
+log this profile in to MAX
 
 ```sh
-max session start [options]
+max session start [options] [method]
 ```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `method` | необязательный | token (pasted or piped), qr, qr-chrome or sms |
 
 ### `max session end`
 

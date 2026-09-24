@@ -15,6 +15,13 @@ sources disagree.
 | `session.init` | 6 | `SESSION_INIT` | before login | measured | measured against MAX 2026-09-19; max-api-docs/protocol/auth.md; tsmax createWebAgent |
 | `session.login` | 19 | `LOGIN` | before login | measured | measured against MAX 2026-09-19; measured against MAX 2026-09-20 (`messages` is an object); measured against MAX 2026-09-22 (`token` replaces a stale credential once, then repeats) |
 | `session.logout` | 20 | `LOGOUT` | **never sent** | observed | max-api-docs/protocol/auth.md |
+| `login.qrRequest` | 288 | `GET_QR` | before login | measured | measured against MAX 2026-09-24: `session start qr` logged in; PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0; max-api-docs/protocol/auth.md (dac4b19) |
+| `login.qrStatus` | 289 | `GET_QR_STATUS` | before login | measured | measured against MAX 2026-09-24: `session start qr` logged in; PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0; max-api-docs/protocol/auth.md (dac4b19) |
+| `login.byQr` | 291 | `LOGIN_BY_QR` | before login | measured | measured against MAX 2026-09-24: `session start qr` logged in; PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0 |
+| `login.qrApprove` | 290 | `AUTH_QR_APPROVE` | **never sent** | observed | PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0 |
+| `login.smsRequest` | 17 | `AUTH_REQUEST` | before login | confirmed | PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0; max-api-docs/protocol/auth.md (dac4b19) |
+| `login.smsCode` | 18 | `AUTH` | before login | confirmed | PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0; max-api-docs/protocol/auth.md (dac4b19) |
+| `login.password` | 115 | `AUTH_LOGIN_CHECK_PASSWORD` | before login | measured | measured against MAX 2026-09-24: `session start qr` on an account with a cloud password; PyMax 2.4.1 src/pymax/api/auth/service.py, GitHub 53103f0 |
 | `contacts.info` | 32 | `CONTACT_INFO` | after login | measured | measured against MAX 2026-09-19: asked for ten, got ten |
 | `account.update` | 16 | `PROFILE` | **never sent** | measured | measured against MAX 2026-09-19: refused an empty payload |
 | `protocol.unidentified36` | 36 | `UNIDENTIFIED_36` | **never sent** | unknown | tsmax and PyMax call it CONTACT_LIST; max-api-docs calls it GET_BLOCKED; measured against MAX 2026-09-20: `{}` and `{marker}` are refused with `proto.payload`, `{marker, count}` closes the connection |
@@ -33,6 +40,7 @@ sources disagree.
 A number in the registry is not permission to use it.
 
 - **LOGOUT** (20) — `max session end` forgets the token locally and tells MAX nothing. Ending the session server-side would also end it for the browser tab the token came from, which is not what the command promises.
+- **AUTH_QR_APPROVE** (290) — The phone's side of a QR login: it lets whoever showed the code into the owner's account. A CLI logging itself in never approves anybody.
 - **PROFILE** (16) — It does not read a profile, it updates one, and it refuses an empty payload. Your own profile arrives with the login response, so nothing needs to send this. It is declared here so that fact keeps a home.
 - **UNIDENTIFIED_36** (36) — Nobody agrees what it is: tsmax and PyMax call it `CONTACT_LIST`; the protocol documentation calls it `GET_BLOCKED`. Sent once with the owner's permission on 2026-09-20 and it exists — but it refuses every payload we can guess, and one guess closed the connection. It stays unsent until somebody watches a real client send it (`PROTO-1`).
 - **CHAT_MARK** (50) — Reading is observational by construction. Marking a conversation read is a change to somebody's account that no read command asked for, so 50 is declared here and never sent — and `src/client.test.ts` asserts its absence from everything the client sent.
