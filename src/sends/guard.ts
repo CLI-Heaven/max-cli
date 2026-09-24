@@ -1,13 +1,13 @@
 import { CliError } from "@leemour/cli-core"
 import type { Id } from "../domain/models.js"
-import type { SendEntry, SendJournal } from "./journal.js"
+import type { SendEntry, SendJournal, SendKind } from "./journal.js"
 import type { RecipientList } from "./recipients.js"
 
 const HOUR_MS = 60 * 60 * 1000
 
 /** What `MaxClient.messages.send` asks before it sends, and tells after — on every outcome. */
 export interface SendGuard {
-  check(chatId: Id): void
+  check(chatId: Id, kind?: SendKind): void
   record(entry: Omit<SendEntry, "at" | "profile">): void
 }
 
@@ -38,11 +38,11 @@ export const sendGuard = ({
   warn,
   now = () => new Date(),
 }: SendGuardOptions): SendGuard => ({
-  check: (chatId) => {
+  check: (chatId, kind = "message") => {
     if (readOnly) {
       throw new CliError(
         "permission_error",
-        `profile ${profile} is read-only (readOnly, from the ${readOnlyFrom}) — it cannot send`,
+        `profile ${profile} is read-only (readOnly, from the ${readOnlyFrom}) — it cannot send or react`,
       )
     }
 
@@ -56,9 +56,13 @@ export const sendGuard = ({
       )
     }
 
+    // The limit is about messages, by the owner's ruling (`NEED-168`): a reaction wakes nobody up.
+    if (kind === "reaction") return
+
     const since = now().getTime() - HOUR_MS
     const counted = journal
       .entries()
+      .filter((entry) => entry.kind !== "reaction")
       .filter((entry) => entry.outcome === "sent" || entry.outcome === "outcome_unknown")
       .map((entry) => Date.parse(entry.at))
       .filter((time) => time > since)

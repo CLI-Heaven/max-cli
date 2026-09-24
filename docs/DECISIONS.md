@@ -647,3 +647,8 @@ The limit is on by default at 30 an hour — «1 A» — because a limit that is
 a loop. The recipient commands are their own word, `max recipients` — «2 A». The research behind
 it: MAX's one direct competitor sends with no check at all, and the published attack on a
 messenger agent is an incoming message that tells the agent where to send the conversation.
+
+**NEED-168 · Do the send guards also cover `max reactions add`?** **Yes.** «1 А». A read-only
+profile and the recipient list refuse a reaction, and it goes in the send journal as
+`kind: "reaction"`; the hourly limit counts messages only. A read-only profile that can still react
+is not read-only, and the other person sees the reaction.

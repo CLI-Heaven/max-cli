@@ -159,3 +159,40 @@ describe("the send guard", () => {
     expect(() => guardAt("g-window", "2026-09-24T09:40:00Z", 2).check("111")).toThrow("at 2026-09-24T10:20:00.000Z")
   })
 })
+
+describe("a reaction", () => {
+  const guardFor = (profile: string, options: { readOnly?: boolean; sendsPerHour?: number } = {}) =>
+    sendGuard({
+      profile,
+      readOnly: options.readOnly ?? false,
+      readOnlyFrom: "config file",
+      sendsPerHour: options.sendsPerHour ?? 1,
+      journal: new SendJournal(sendsPathFor(profile)),
+      recipients: new RecipientList(recipientsPathFor(profile)),
+      warn: () => {},
+    })
+
+  it("is refused by a read-only profile and by the recipient list, but not counted by the limit", () => {
+    expect(() => guardFor("g-react-ro", { readOnly: true }).check("111", "reaction")).toThrow("cannot send or react")
+
+    new RecipientList(recipientsPathFor("g-react-list")).add({
+      id: "111",
+      title: null,
+      addedAt: "2026-09-24T00:00:00Z",
+    })
+    expect(() => guardFor("g-react-list").check("222", "reaction")).toThrow("not on the recipient list")
+
+    const journal = new SendJournal(sendsPathFor("g-react-limit"))
+    journal.append({
+      at: new Date().toISOString(),
+      profile: "g-react-limit",
+      chatId: "111",
+      outcome: "sent",
+      kind: "reaction",
+    })
+    expect(() => guardFor("g-react-limit").check("111", "message")).not.toThrow()
+    journal.append({ at: new Date().toISOString(), profile: "g-react-limit", chatId: "111", outcome: "sent" })
+    expect(() => guardFor("g-react-limit").check("111", "reaction")).not.toThrow()
+    expect(() => guardFor("g-react-limit").check("111", "message")).toThrow("the next send is possible")
+  })
+})

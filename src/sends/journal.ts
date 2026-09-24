@@ -5,12 +5,16 @@ import type { Id } from "../domain/models.js"
 
 export type SendOutcome = "sent" | "outcome_unknown" | "refused" | "failed"
 
+/** Absent in the journal means a message: that is every line written before reactions were guarded. */
+export type SendKind = "message" | "reaction"
+
 /** One attempt to send. **Never the text** — only its length. */
 export interface SendEntry {
   at: string
   profile: string
   chatId: Id
   outcome: SendOutcome
+  kind?: SendKind
   messageId?: Id
   cid?: number
   length?: number
