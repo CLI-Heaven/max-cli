@@ -35,8 +35,7 @@ max chats list --json --trace > chats.json    # данные в файл, диа
 max chats list --json --trace 2>&1 >/dev/null | jq -c 'select(.event == "response")'
 ```
 
-`--trace` сильнее `--quiet`: флаг, который человек дописал руками, обязан сработать
-([`DECISIONS.md`](DECISIONS.md), `NEED-53`).
+`--trace` сильнее `--quiet`: флаг, который дописан руками, срабатывает всегда.
 
 ## Сохранить
 

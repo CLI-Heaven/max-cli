@@ -102,6 +102,13 @@ anything historical. A claim without an anchor is an opinion.
 that lies at the top. Rewrite the wrong sentence. If the wrong version circulated, mark the fix —
 do not hide it.
 
+**User pages state current facts only.** `README.md` and the Russian pages under `docs/` — the
+ones [`README.md`](README.md) lists under "Using it" — carry no «Поправка», no struck-out text, no
+dated "measured on", no decision or backlog ids. Rewrite the sentence and say nothing about the
+old one; the trail lives in git, `CHANGELOG.md` and the journal. A *why* is allowed when a reader
+would otherwise undo the behaviour. The marked-correction rule above is for the developer
+documents.
+
 **One fact, one home.** A decision lives in [`DECISIONS.md`](DECISIONS.md); a task lives in
 [`BACKLOG.md`](BACKLOG.md); something to delete lives in `docs_ai/CLEANUP.md`; a plan lives in
 `docs_ai/plans/`. Everywhere else links to it. Two copies of a fact drift, and the reader cannot
