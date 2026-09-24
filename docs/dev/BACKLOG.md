@@ -36,14 +36,6 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
   send guard (`src/client.ts`, `chats.markRead`). Left: measure `CHAT_MARK` (50) — the request is
   PyMax's shape (`READ_MESSAGE`, `mark` in ms), never sent to the real MAX; the owner was logged
   out on 2026-09-24 (`NEED-226`). Plan: `docs_ai/plans/2026-09-24-cli-33-mark-read.md`.
-- **CLI-22** · 🚧 `feat/cli-22-scheduled-send` · P2 · Scheduled send: `max messages send <chat> <text> --at <time>`. MAX schedules
-  messages itself, and the official web client does it with `MSG_SEND` (64) carrying
-  `message.delayedAttributes.timeToFire` in milliseconds (web.max.ru source, read 2026-09-24,
-  `FIND-78`), so the message leaves even with this machine off. Plan:
-  `docs_ai/plans/2026-09-24-latest-and-scheduled.md`. Builds on `MSG_SEND` as #56 leaves it.
-  Correction 2026-09-24: this line first asked whether MAX can schedule at all, with the OS
-  scheduler as the fallback. It can.
-
 **From the PyMax comparison (2026-09-24, `NEED-175`).** Each is what PyMax's source declares
 (`MaxApiTeam/PyMax`, `src/pymax/api/`, commit `53103f0`) — a claim until measured. Every writing
 operation is measured first in Saved messages (chat 0), as replies and reactions were (`NEED-150`),
