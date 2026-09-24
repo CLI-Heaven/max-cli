@@ -31,6 +31,7 @@ What the tool does today: [`commands.md`](commands.md) (generated). How it is bu
   `docs_ai/plans/2026-09-24-latest-and-scheduled.md`. Builds on `MSG_SEND` as #56 leaves it.
   Correction 2026-09-24: this line first asked whether MAX can schedule at all, with the OS
   scheduler as the fallback. It can.
+
 **From the PyMax comparison (2026-09-24, `NEED-175`).** Each is what PyMax's source declares
 (`MaxApiTeam/PyMax`, `src/pymax/api/`, commit `53103f0`) — a claim until measured. Every writing
 operation is measured first in Saved messages (chat 0), as replies and reactions were (`NEED-150`),
@@ -66,7 +67,7 @@ and needs the owner's yes before it ships. Deleting messages and marking them re
 - **MAX-34** · P3 · Live events: a long-running `max listen` that prints new messages, edits,
   reactions and typing as they arrive (PyMax's `on_message`, `on_message_edit`,
   `on_reaction_update`…). Conflicts with one-shot commands (`CLAUDE.md` constraint 4), so it needs
-  a ruling first. What is new since the last check is `CLI-23`.
+  a ruling first. What is new since the last check is already `max inbox` (`CLI-23`).
 
 - **MAX-4** · 🟡 P3 · Chat addressing. Done: an id, or a title matched exactly then as a fragment,
   an ambiguous one refused (`src/client.ts:149`). Left: `@username`, a phone number, a chat the
