@@ -44,7 +44,7 @@ and needs the owner's yes before it ships. Deleting messages and marking them re
 - **MAX-24** · 🚩 P1 · Send a voice message. The upload works (opcode 82, `uploaderType: 1` for
   .ogg); the message does not: the web client sends `{_type: "AUDIO", audioId, duration, wave, token}`
   with `wave` as 80 raw bytes in a binary MessagePack frame, and none of six JSON forms was accepted
-  (`FIND-104`). Waits on the owner: the binary protocol (`RISK-20`) or no voice.
+  (`FIND-104`). Waits on `MAX-40`.
 - **MAX-25** · P1 · Edit your own message (`edit_message`, `MSG_EDIT` 67). It changes a message the
   other person may have read already.
 - **MAX-26** · P1 · Forward a message to another chat (`forward_message`; tsmax sends `MSG_SEND` with
@@ -67,6 +67,12 @@ and needs the owner's yes before it ships. Deleting messages and marking them re
   sessions and end them (`change_profile`, `get_folders`, `create_folder`, `update_folder`,
   `delete_folder`, `get_sessions`, `close_all_sessions`). Ending sessions must never end this one
   — `LOGOUT` (20) stays never-sent.
+- **MAX-40** · P3 · Speak the official web client's binary protocol: frames with version 10, a
+  binary header and a MessagePack payload, instead of our JSON text frames (version 11,
+  `src/protocol/frame.ts`). Read in the web.max.ru bundle 2026-09-24 (`nre()` in its socket code).
+  MAX can tell our frames from the web client's today (`REQUIREMENTS.md` §34), and voice messages
+  (`MAX-24`) need a byte field JSON cannot carry. Start with a read-only probe: log in and list chats
+  over binary frames. Ranked P3 by the owner 2026-09-24.
 - **MAX-34** · P3 · Live events: a long-running `max listen` that prints new messages, edits,
   reactions and typing as they arrive (PyMax's `on_message`, `on_message_edit`,
   `on_reaction_update`…). Conflicts with one-shot commands (`CLAUDE.md` constraint 4), so it needs
