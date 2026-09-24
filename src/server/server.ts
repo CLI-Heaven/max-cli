@@ -3,10 +3,12 @@ import { connect, createServer, type Server, type Socket } from "node:net"
 import { dirname } from "node:path"
 import { CliError } from "@leemour/cli-core"
 import type { CacheStore } from "../cache/store.js"
-import { MaxClient } from "../client.js"
+import { MaxClient, type MaxClientOptions } from "../client.js"
 import type { MessageHit } from "../domain/models.js"
-import { Connection, type ConnectionOptions } from "../protocol/connection.js"
+import { Connection, type ConnectionOptions, ProtocolError } from "../protocol/connection.js"
 import type { SessionStore } from "../session/store.js"
+import { fromLine, lineReader, toLine } from "./lines.js"
+import { READS } from "./server-connection.js"
 
 export type ServerEvent =
   | { event: "message"; message: MessageHit }
@@ -22,6 +24,8 @@ export interface MaxServerOptions {
   connection?: (hooks: Pick<ConnectionOptions, "onEvent" | "onClose">) => Connection
   pingEveryMs?: number
   retryAfterMs?: (attempt: number) => number
+  /** One event per request, for `--trace` and the run log — pings included. */
+  events?: MaxClientOptions["events"]
 }
 
 /** The web client's keep-alive interval (web.max.ru bundle, 2026-09-24). A different one is a fingerprint. */
@@ -35,9 +39,11 @@ const PING_EVERY_MS = 30_000
  * What it does on the wire copies web.max.ru — a ping every 30 s, MAX's pings answered, each new
  * message acknowledged (`Connection` with `live`). It never marks anything read and never sends.
  *
- * The socket answers `{"subscribe": true}` with a stream of `ServerEvent` lines, and
- * `{"status": true}` with one. It forwards nothing to MAX: a request through it would pass the
- * send guards by, so reusing the connection for commands waits until it can go through them.
+ * The socket answers `{"subscribe": true}` with a stream of `ServerEvent` lines and
+ * `{"status": true}` with one. For a command reusing the connection (`ServerConnection`) it answers
+ * `{"id", "login": true}` with the login it holds, and `{"id", "opcode", "payload"}` by passing the
+ * request to MAX — **reads only** (`NEED-185`). Anything that writes goes on the command's own
+ * connection, through the send guards, which live in the client and nowhere else.
  */
 export class MaxServer {
   readonly #options: MaxServerOptions
@@ -48,6 +54,8 @@ export class MaxServer {
   #retry: ReturnType<typeof setTimeout> | undefined
   #attempt = 0
   #stopped = false
+  /** A push touched the chats in a way the login snapshot cannot follow; it is not handed out. */
+  #stale = false
   #finish: ((error?: Error) => void) | undefined
   /** Settles when the server stops — cleanly, or with the error that stopped it. */
   readonly done: Promise<void>
@@ -92,7 +100,15 @@ export class MaxServer {
       onEvent: (frame) => this.#pushed(frame.opcode, frame.payload ?? {}),
       onClose: (error) => this.#lost(error),
     })
-    const client = new MaxClient({ store, connection, warn: this.#options.note, ...(cache ? { cache } : {}) })
+    const { events } = this.#options
+    const client = new MaxClient({
+      store,
+      connection,
+      fullLogin: true,
+      warn: this.#options.note,
+      ...(cache ? { cache } : {}),
+      ...(events ? { events } : {}),
+    })
     try {
       await client.connect()
     } catch (error) {
@@ -103,6 +119,7 @@ export class MaxServer {
 
     this.#client = client
     this.#attempt = 0
+    this.#stale = false
     this.#broadcast({ event: "status", connected: true, at: new Date().toISOString() })
     this.#ping = setInterval(() => {
       client.live.ping().catch(() => {})
@@ -112,6 +129,7 @@ export class MaxServer {
   #pushed(opcode: number, payload: Record<string, unknown>): void {
     const client = this.#client
     if (!client) return
+    if (!client.live.patch(opcode, payload)) this.#stale = true
     client.live
       .message(opcode, payload)
       .then((message) => message && this.#broadcast({ event: "message", message }))
@@ -143,7 +161,7 @@ export class MaxServer {
   }
 
   #broadcast(event: ServerEvent): void {
-    const line = `${JSON.stringify(event)}\n`
+    const line = toLine(event)
     for (const socket of this.#subscribers) socket.write(line)
   }
 
@@ -168,34 +186,61 @@ export class MaxServer {
   #serve(socket: Socket): void {
     socket.on("error", () => this.#subscribers.delete(socket))
     socket.on("close", () => this.#subscribers.delete(socket))
-    let buffered = ""
-    socket.on("data", (data) => {
-      buffered += String(data)
-      let end = buffered.indexOf("\n")
-      while (end >= 0) {
-        this.#request(socket, buffered.slice(0, end))
-        buffered = buffered.slice(end + 1)
-        end = buffered.indexOf("\n")
-      }
-    })
+    socket.on(
+      "data",
+      lineReader((line) => {
+        this.#request(socket, line).catch(() => socket.destroy())
+      }),
+    )
   }
 
-  #request(socket: Socket, line: string): void {
+  async #request(socket: Socket, line: string): Promise<void> {
     let request: Record<string, unknown>
     try {
-      request = JSON.parse(line) as Record<string, unknown>
+      request = fromLine(line)
     } catch {
-      socket.write(`${JSON.stringify({ error: "one JSON object per line" })}\n`)
+      socket.write(toLine({ error: { code: "bad_request", message: "one JSON object per line" } }))
       return
     }
     const status = { event: "status", connected: this.connected, at: new Date().toISOString() }
+    const { id } = request
+
     if (request.subscribe === true) {
       this.#subscribers.add(socket)
-      socket.write(`${JSON.stringify(status)}\n`)
+      socket.write(toLine(status))
     } else if (request.status === true) {
-      socket.write(`${JSON.stringify(status)}\n`)
+      socket.write(toLine(status))
+    } else if (request.login === true) {
+      const client = this.#client
+      socket.write(
+        toLine(
+          client && !this.#stale
+            ? { id, payload: client.live.snapshot() }
+            : { id, error: { code: "unavailable", message: this.#stale ? "the login went stale" : "not connected" } },
+        ),
+      )
+    } else if (typeof request.opcode === "number") {
+      socket.write(toLine({ id, ...(await this.#forward(request.opcode, request.payload)) }))
     } else {
-      socket.write(`${JSON.stringify({ error: "this server answers `subscribe` and `status` only" })}\n`)
+      socket.write(toLine({ id, error: { code: "bad_request", message: "subscribe, status, login or an opcode" } }))
+    }
+  }
+
+  async #forward(opcode: number, payload: unknown): Promise<Record<string, unknown>> {
+    const client = this.#client
+    if (!READS.has(opcode)) {
+      return {
+        error: { code: "not_allowed", message: `opcode ${opcode} is not a read; send it on your own connection` },
+      }
+    }
+    if (!client) return { error: { code: "unavailable", message: "not connected" } }
+    try {
+      return { payload: await client.live.forward(opcode, (payload ?? {}) as Record<string, unknown>) }
+    } catch (error) {
+      if (error instanceof ProtocolError) {
+        return { error: { code: "refused", message: error.message, payload: error.payload } }
+      }
+      return { error: { code: "unavailable", message: error instanceof Error ? error.message : String(error) } }
     }
   }
 }

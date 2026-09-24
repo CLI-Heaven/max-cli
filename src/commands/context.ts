@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs"
 import type { Renderer, RenderFormat, Streams } from "@leemour/cli-core"
 import type { Command } from "commander"
 import { MaxClient, type MaxClientOptions } from "../client.js"
@@ -9,6 +10,7 @@ import { recorded } from "../runs/recording.js"
 import { sendGuard } from "../sends/guard.js"
 import { SendJournal, sendsPathFor } from "../sends/journal.js"
 import { RecipientList, recipientsPathFor } from "../sends/recipients.js"
+import { ServerConnection } from "../server/server-connection.js"
 import { type BrowserDoors, realBrowser } from "../session/browser.js"
 import { readSecret } from "../session/prompt.js"
 import { SessionStore } from "../session/store.js"
@@ -121,6 +123,7 @@ export const contextFor = (
     streams,
     store,
     createClient: (extra = {}) => {
+      const timeout = settings.timeoutMs ? { timeoutMs: settings.timeoutMs } : {}
       const client = new MaxClient({
         store,
         timeoutMs: settings.timeoutMs,
@@ -135,7 +138,11 @@ export const contextFor = (
           recipients: new RecipientList(recipientsPathFor(settings.profile)),
           warn: renderer.warn,
         }),
-        ...(environment.connection ? { connection: environment.connection() } : {}),
+        ...(environment.connection
+          ? { connection: environment.connection() }
+          : existsSync(store.socketPath())
+            ? { connection: new ServerConnection({ path: store.socketPath(), store, ...timeout }) }
+            : {}),
         ...extra,
       })
       clients.push(client)

@@ -39,7 +39,7 @@ import type {
 import { type Invoke, wireClient } from "./generated/client.generated.js"
 import { parseMarkdown } from "./markdown.js"
 import { asFirstWord } from "./profile.js"
-import { Connection, ProtocolError } from "./protocol/connection.js"
+import { Connection, ProtocolError, type Wire } from "./protocol/connection.js"
 import { asId, type Payload } from "./protocol/frame.js"
 import { isId, pickChat, pickPerson } from "./resolve.js"
 import { countsIn, type DiagnosticEvent, idsOf } from "./runs/events.js"
@@ -56,8 +56,13 @@ import { isImage, readUpload, uploadFile, uploadPhoto } from "./upload.js"
 export interface MaxClientOptions {
   store: SessionStore
   timeoutMs?: number
-  /** Injected by tests; defaults to a real WebSocket connection. */
-  connection?: Connection
+  /** Injected by tests, or one through `max serve`; defaults to a real WebSocket connection. */
+  connection?: Wire
+  /**
+   * Log in without the cache's sync marker, so the answer names every chat rather than what
+   * changed. `max serve` needs that: it hands its login to other commands as theirs.
+   */
+  fullLogin?: boolean
   /**
    * Where a protocol note goes. Never stdout: in machine mode that stream carries one JSON value
    * and nothing else.
@@ -97,7 +102,8 @@ export interface MaxClientOptions {
  */
 export class MaxClient {
   readonly #store: SessionStore
-  readonly #connection: Connection
+  readonly #connection: Wire
+  readonly #fullLogin: boolean
   readonly #warn: (message: string) => void
   readonly #cache: CacheStore | undefined
   readonly #offline: boolean
@@ -110,8 +116,19 @@ export class MaxClient {
   #people: Map<Id, Contact> | undefined
   #merged: SyncSummary | undefined
 
-  constructor({ store, timeoutMs, connection, warn, cache, offline = false, events, sends }: MaxClientOptions) {
+  constructor({
+    store,
+    timeoutMs,
+    connection,
+    warn,
+    cache,
+    offline = false,
+    events,
+    sends,
+    fullLogin = false,
+  }: MaxClientOptions) {
     this.#store = store
+    this.#fullLogin = fullLogin
     this.#connection = connection ?? new Connection(timeoutMs === undefined ? {} : { timeoutMs })
     this.#warn = warn ?? ((message) => process.stderr.write(`${message}\n`))
     this.#cache = cache
@@ -1150,6 +1167,41 @@ export class MaxClient {
     },
 
     /**
+     * The login this connection holds, kept current from what MAX pushes — `max serve` hands it to
+     * a command as that command's own login.
+     */
+    snapshot: (): Payload => this.#session(),
+
+    /**
+     * Keeps the snapshot current from one push. **`false` means it can no longer be trusted** — a
+     * push we do not understand touched the chats — and the server stops handing it out until it
+     * logs in again. Only a new message is understood: the chat's last message and time move, and
+     * its unread count goes up for somebody else's message and to zero for our own, as the official
+     * app does once you have written in a chat.
+     */
+    patch: (opcode: number, payload: Payload): boolean => {
+      if (opcode !== NEW_MESSAGE) return !CHANGES_CHATS.has(opcode)
+      const raw = record(payload.message)
+      const chatId = asId(payload.chatId)
+      const chats = asArray(this.#session().chats)
+      const chat = chats.find((candidate) => asId(candidate.id) === chatId)
+      if (!raw || !chat) return false
+
+      const viewerId = this.#store.readState().viewerId
+      const ours = viewerId !== undefined && asId(raw.sender) === viewerId
+      chat.lastMessage = raw
+      chat.lastEventTime = raw.time
+      chat.newMessages = ours ? 0 : (typeof chat.newMessages === "number" ? chat.newMessages : 0) + 1
+      return true
+    },
+
+    /** One request from a command, on this connection. The server decides which ones may pass. */
+    forward: async (opcode: number, payload: Payload): Promise<Payload> => {
+      await this.#connectOnce()
+      return this.#connection.invoke(opcode, payload)
+    },
+
+    /**
      * A message MAX pushed (opcode 128) as the same shape `messages list` prints, with its chat's
      * name — so whoever reads `max watch` gets one schema, and no MAX type crosses this file.
      * Anything else pushed answers `undefined`.
@@ -1190,7 +1242,7 @@ export class MaxClient {
 
     const state = this.#store.readState()
 
-    const sync = this.#cache?.syncMarker()
+    const sync = this.#fullLogin ? undefined : this.#cache?.syncMarker()
 
     try {
       await this.#connection.open()
@@ -1904,6 +1956,12 @@ const INBOX_CHATS = 20
 
 /** MAX pushes this when a message arrives in any chat. PyMax calls it `NOTIF_MESSAGE`. */
 const NEW_MESSAGE = 128
+
+/**
+ * Pushes that change a chat in a way the snapshot cannot follow: read elsewhere (130), a chat
+ * changed (135), messages deleted (140, 142). PyMax's numbers — code, not measured.
+ */
+const CHANGES_CHATS = new Set([130, 135, 140, 142])
 
 /** Newest first — the chats a reader most likely came for are read before the cap. */
 const byRecency = (chats: Chat[]): Chat[] =>

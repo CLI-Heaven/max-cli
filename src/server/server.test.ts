@@ -1,11 +1,13 @@
 import { existsSync, statSync, writeFileSync } from "node:fs"
 import { memoryKeyring } from "@leemour/cli-core"
 import { afterEach, describe, expect, it } from "vitest"
+import { MaxClient } from "../client.js"
 import { Opcode } from "../generated/opcodes.generated.js"
 import { Connection } from "../protocol/connection.js"
 import { SessionStore } from "../session/store.js"
 import { mockMax } from "../testing/mock-max.js"
 import { MaxServer, type ServerEvent } from "./server.js"
+import { ServerConnection } from "./server-connection.js"
 import { subscribe } from "./subscribe.js"
 
 const ME = 10000001
@@ -20,6 +22,10 @@ const scripted = () =>
         contacts: [{ id: 10000002, names: [{ name: "Someone Else", type: "FULL_NAME" }] }],
       },
       [Opcode.PING]: {},
+      [Opcode.CHAT_HISTORY]: {
+        messages: [{ id: 116762160362694583n, time: 1789776000000, sender: 10000002, text: "hi", attaches: [] }],
+      },
+      [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
     },
   })
 
@@ -140,5 +146,129 @@ describe("max serve", () => {
   it("`max watch` without a server names the command that starts one", async () => {
     const store = new SessionStore({ profile: "work", keyring: memoryKeyring() })
     await expect(subscribe(store.socketPath(), "work", () => {})).rejects.toThrow("max work serve")
+  })
+})
+
+describe("a command through max serve", () => {
+  /** MAX as a command's own connection would meet it — only used when it falls back or writes. */
+  const own = () =>
+    mockMax({
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: {
+          profile: { contact: { id: ME, names: [{ name: "Test Person", type: "FULL_NAME" }] } },
+          chats: [{ id: 111, title: "First", type: "CHAT", lastEventTime: 1789776000000 }],
+        },
+        [Opcode.MSG_SEND]: { message: { id: 116762160362694599n, time: 1789776001000, sender: ME, text: "sent" } },
+      },
+    })
+
+  const commandClient = (store: SessionStore, direct = own()) => {
+    let opened = 0
+    const client = new MaxClient({
+      store,
+      connection: new ServerConnection({
+        path: store.socketPath(),
+        store,
+        timeoutMs: 200,
+        direct: () => {
+          opened += 1
+          return new Connection({ createSocket: direct.createSocket, timeoutMs: 200 })
+        },
+      }),
+    })
+    return { client, direct, opened: () => opened }
+  }
+
+  it("reads without logging in: the server's login answers, and the history goes over its connection", async () => {
+    const { store, max } = await serve("c-read")
+    const { client, opened } = commandClient(store)
+
+    const chats = await client.chats.list()
+    const page = await client.messages.list("111", { limit: 1 })
+    await client.close()
+
+    expect(chats.items.map((chat) => chat.id)).toEqual(["111"])
+    expect(page.items[0]?.text).toBe("hi")
+    expect(max.sent.filter((call) => call.opcode === Opcode.LOGIN)).toHaveLength(1)
+    expect(max.sent.map((call) => call.opcode)).toContain(Opcode.CHAT_HISTORY)
+    expect(opened()).toBe(0)
+  })
+
+  it("sends on a connection of its own, logged in there, never through the server", async () => {
+    const { store, max } = await serve("c-send")
+    const { client, direct, opened } = commandClient(store)
+
+    const sent = await client.messages.send("111", "sent")
+    await client.close()
+
+    expect(sent.id).toBe("116762160362694599")
+    expect(opened()).toBe(1)
+    expect(direct.sent.map((call) => call.opcode)).toEqual([Opcode.SESSION_INIT, Opcode.LOGIN, Opcode.MSG_SEND])
+    expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.MSG_SEND)
+  })
+
+  it("with no server running, the whole command uses its own connection", async () => {
+    const store = new SessionStore({ profile: "c-none", keyring: memoryKeyring() })
+    store.writeToken("a-token")
+    const { client, direct } = commandClient(store)
+
+    await client.chats.list()
+    await client.close()
+
+    expect(direct.sent.map((call) => call.opcode)).toEqual([Opcode.SESSION_INIT, Opcode.LOGIN])
+  })
+
+  it("does not hand out a login a push has made stale; the command logs in itself", async () => {
+    const { store, max } = await serve("c-stale")
+    max.push(130, { chatId: 111 }, 9)
+    await settle()
+    const { client, direct } = commandClient(store)
+
+    await client.chats.list()
+    await client.close()
+
+    expect(direct.sent.map((call) => call.opcode)).toEqual([Opcode.SESSION_INIT, Opcode.LOGIN])
+  })
+
+  it("keeps its login current from a new message: the chat's unread count goes up", async () => {
+    const { store, max } = await serve("c-patch")
+    max.push(
+      128,
+      { chatId: 111, message: { id: 116762160362694590n, time: 1789776500000, sender: 10000002, text: "new" } },
+      3,
+    )
+    await settle()
+    const { client } = commandClient(store)
+
+    const [chat] = (await client.chats.list()).items
+    await client.close()
+
+    expect(chat).toMatchObject({ id: "111", unreadCount: 1 })
+    expect(Date.parse(chat?.lastMessageAt ?? "")).toBe(1789776500000)
+  })
+
+  it("refuses anything that is not a read, whoever asks the socket directly", async () => {
+    const { store, max } = await serve("c-raw")
+    const socket = await import("node:net").then(({ connect }) => connect(store.socketPath()))
+    const answer = await new Promise<string>((resolve) => {
+      socket.once("data", (data) => resolve(String(data)))
+      socket.write(`${JSON.stringify({ id: 1, opcode: Opcode.MSG_SEND, payload: { chatId: 111 } })}\n`)
+    })
+    socket.destroy()
+
+    expect(answer).toContain("not_allowed")
+    expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.MSG_SEND)
+  })
+
+  it("a token being tried out goes to MAX itself, not to the server's login", async () => {
+    const { store } = await serve("c-token")
+    const { client, direct } = commandClient(store)
+
+    await client.connect({ token: "a-new-token" })
+    await client.close()
+
+    expect(direct.sent.map((call) => call.opcode)).toEqual([Opcode.SESSION_INIT, Opcode.LOGIN])
+    expect(direct.sent[1]?.payload).toMatchObject({ token: "a-new-token" })
   })
 })

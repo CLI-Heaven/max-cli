@@ -63,13 +63,13 @@ export const inboxCommand = (): Command =>
           } else {
             messages.sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp))
             streams.data(
-              `${renderMessages(messages, {
+              renderMessages(messages, {
                 color: context.color,
                 senderColors: settings.senderColors,
                 verbosity: settings.detail,
                 width: process.stdout.columns ?? 80,
                 profile: settings.profile,
-              })}\n`,
+              }),
             )
           }
 

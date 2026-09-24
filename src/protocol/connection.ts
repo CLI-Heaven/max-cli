@@ -63,6 +63,9 @@ const PING = 1
 /** A message arrived. The web client acknowledges each one. */
 const NEW_MESSAGE = 128
 
+/** What a client needs of a connection — so one that goes through `max serve` can stand in. */
+export type Wire = Pick<Connection, "open" | "invoke" | "close">
+
 export class Connection {
   readonly #url: string
   readonly #origin: string
