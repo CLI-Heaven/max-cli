@@ -114,6 +114,7 @@ export class MaxClient {
   readonly #invoke = ((operation, request) => this.#send(operation, request)) as Invoke
   readonly #wire = wireClient(this.#invoke)
   #login: Payload | undefined
+  #chatsCut = false
   #previousCid = 0
   #people: Map<Id, Contact> | undefined
   #merged: SyncSummary | undefined
@@ -1097,7 +1098,7 @@ export class MaxClient {
         if (theirs.length > 0) found.push({ id, title, kind, unreadCount, messages: theirs, more: count > limit })
       }
 
-      return { mode: "unread", chats: found, skipped, partial: !this.#cache && chats.length >= LOGIN_CHATS }
+      return { mode: "unread", chats: found, skipped, partial: !this.#cache && this.#chatsCut }
     },
 
     /**
@@ -1142,7 +1143,7 @@ export class MaxClient {
         until: new Date(until).toISOString(),
         chats: found,
         skipped,
-        partial: !this.#cache && chats.length >= LOGIN_CHATS && changed.length === chats.length,
+        partial: !this.#cache && this.#chatsCut && changed.length === chats.length,
       }
     },
   }
@@ -1453,7 +1454,35 @@ export class MaxClient {
     })
 
     this.#keepRotatedToken(token)
+    await this.#readRestOfChats()
     this.#mergeLogin(viewerId)
+  }
+
+  /**
+   * **The chats LOGIN left out, as the web tab reads them:** one `CHATS_LIST` from the last-activity
+   * time of the oldest chat it sent, 2.3 s after the login answer (capture 2026-09-25). Measured the
+   * same day: that answers exactly the chats after it, and one answer held 26. Only one request,
+   * because the tab sends only one — `#chatsCut` says when that may not have been all.
+   *
+   * A refusal leaves the login's chats as they were: a shorter list beats a failed command.
+   */
+  async #readRestOfChats(): Promise<void> {
+    this.#chatsCut = false
+    const session = this.#session()
+    const chats = asArray(session.chats)
+    const marker = record(chats.at(-1))?.lastEventTime
+    if (chats.length < LOGIN_CHATS || (typeof marker !== "number" && typeof marker !== "bigint")) return
+
+    try {
+      const answer = await this.#wire.chats.list({ marker: Number(marker) })
+      const known = new Set(chats.map((chat) => asId(record(chat)?.id)))
+      const rest = asArray(answer.chats).filter((chat) => !known.has(asId(record(chat)?.id)))
+      session.chats = [...chats, ...rest]
+      this.#chatsCut = rest.length >= CHATS_PAGE_SEEN
+    } catch (error) {
+      this.#chatsCut = true
+      this.#warn(`only the newest ${chats.length} chats were read: ${reasonOf(error)}`)
+    }
   }
 
   /**
@@ -2109,6 +2138,9 @@ const checkedQuery = (query: string | undefined): string | undefined => {
  * names itself rather than as a wrong answer.
  */
 const CONTACT_INFO_BATCH = 100
+
+/** The most chats one `CHATS_LIST` answer was seen to hold (26, 2026-09-25). A page that full may have been cut. */
+const CHATS_PAGE_SEEN = 26
 
 /**
  * When a message was sent, read from its id: **`id >> 16` is the send time in milliseconds**, the

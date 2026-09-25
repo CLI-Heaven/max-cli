@@ -25,12 +25,9 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
 
 ## Features
 
-- **MAX-57** · 🚧 `max-57-folder-title` · P2 · The longest folder title MAX accepts, checked before
-  sending. MAX refused 22 characters (`folder.validation.title.too-long`) and took 13; find the
-  limit with one live login and refuse longer titles locally (`src/client.ts`, `folderTitle`).
-- **MAX-58** · 🚧 `max-58-pin-group` · P2 · Pin and unpin over the binary protocol, in a group. In
-  Saved messages our client refuses by itself, so `pnpm smoke:live` never sent it; give
-  `scripts/smoke-live.ts` a group chat as an argument and run it once with the owner's yes.
+- **MAX-57** · 🚧 `max-57-folder-title` · P2 · Refuse a folder title longer than MAX takes, before
+  sending: **20 characters accepted, 21 refused** (`folder.validation.title.too-long`, opcode 274),
+  measured 2026-09-25 with `pnpm probe:pre-release`. Check in `folderTitle` (`src/client.ts`).
 
 - **CLI-34** · P2 · `max backup messages <chat> --since <date> | --last
   <n>`: without `--run` only the estimate (what the cache holds, what is missing, requests and
@@ -119,14 +116,6 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   Names by PyMax (53103f0): 22 `CONFIG`, 27 `ASSETS_UPDATE`, 28 `ASSETS_GET_BY_IDS`, 32
   `CONTACT_INFO`, 35 `CONTACT_PRESENCE`, 48 `CHAT_INFO`, 53 `CHATS_LIST`, 208/209 stories, 272
   `FOLDERS_GET`, 302 `BANNERS_GET`; 163 is not in its list. Only `max serve` will send them.
-- **MAX-53** · 🚧 `max-53-login-15` · P2 · LOGIN as the tab sends it: `chatsCount: 15` (we send 40) and `presenceSync: -1`
-  (we send 0). **Tied to opcode 208:** the tab asks LOGIN for 15 chats and pages the rest with
-  `208 {cursor, count: 15}`. Changing only the number would lose chats in `max chats list`.
-  Same capture.
-  Correction 2026-09-25: the tab pages the rest with `53 {marker}`, once, 2.3 s after LOGIN (capture,
-  t=3478) — an opcode we already have. 208 is `STORIES_LIST` in PyMax (`protocol/enums.py:156`,
-  53103f0) and repeats every ~5 minutes in the capture; the answers were not recorded, so that name
-  is PyMax's reading, not a frame. Plan: `docs_ai/plans/2026-09-25-pre-release-work.md`.
 
 - **RES-5** · 🟡 P2 · Does `LOGIN` move presence or read state? Reading history does not (no
   `CHAT_MARK`, tested). Partly answered by the capture of 2026-09-25: the tab's own LOGIN sends
