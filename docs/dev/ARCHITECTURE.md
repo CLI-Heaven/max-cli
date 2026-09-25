@@ -68,19 +68,35 @@ only the event lines.
 Why: if MAX's transport changes, only `protocol/` and `client.ts` change. That is why we own the
 adapter instead of depending on `@bruch/max-client` (`NEED-17`).
 
-## 3. The WebSocket is JSON, and ids are the reason to be careful
+## 3. The WebSocket is binary, as web.max.ru's is, and ids are the reason to be careful
 
-Frames are text `{ver: 11, cmd, seq, opcode, payload}`; `cmd` 0 request, 1 response, 3 error.
-MessagePack, LZ4 and zstd are the **TCP** transport, which we do not use.
+**Correction 2026-09-25 (`MAX-40`):** this section described text frames `{ver: 11, …}` on
+`wss://ws-api.oneme.ru`, and said MessagePack and LZ4 were a TCP-only transport. The web client's
+live socket showed otherwise, and we now send what it sends. The capture is
+`src/testing/fixtures/web-capture-2026-09-25.json` — proof, not somebody's README.
 
-⚠ **Never `JSON.parse` a MAX frame.** Measured on a real account: message ids have **18 digits**,
-past `Number.MAX_SAFE_INTEGER`; the built-in parser rounds them and two messages can get one id.
-Measured 2026-09-19 over 25 chats and 6 contacts (`pnpm probe:ids`): chat ids reach **14 digits**,
-contact ids **9** — safe. So ids we *send* are not at risk; ids we *read* need the lossless codec. A
-"19-digit chat id" in the code was an illustration, not a measurement, and is corrected.
+`wss://api.oneme.ru/websocket`, `Origin: https://web.max.ru`. Every frame is a 10-byte big-endian
+header — `ver` (10), `cmd` (0 request, 1 response, 2 event, 3 error), `seq` u16, `opcode` u16,
+then `flags << 24 | length` — and a MessagePack body:
 
-`src/protocol/frame.ts` parses with `lossless-json`, returns a `bigint` for anything unsafe, and
-**every id leaves it as a string** — an id is never arithmetic.
+- **LZ4 block compression both ways from 32 bytes of body**, `flags = ⌈raw / compressed⌉`, kept
+  even when it comes out larger; zero-length body for "no payload". The web client does exactly
+  this on every one of 73 recorded frames. zstd (`flags = 0xFF`) was never seen and is refused.
+- **Extension type 1 wraps a 64-bit number** — ids and times from MAX, ids from the web client. We
+  wrap every `bigint` we send (`toWireId` makes one of every id) and unwrap what arrives.
+- **`seq` is two bytes** and starts at 0. It wraps; the `max serve` push filter compares modulo
+  65536, because a plain `<=` drops every push after the wrap without a word.
+
+⚠ **Integers.** Message ids have **18 digits** (measured), past `Number.MAX_SAFE_INTEGER`, and times
+are 13 — both arrive as 64-bit. The decoder returns a `number` whenever it is exact and a `bigint`
+only when it is not; a `bigint` timestamp would break every `Date` above this layer. **Every id
+leaves the domain mapper as a string** — an id is never arithmetic. Chat ids reach 14 digits and
+contact ids 9 (`pnpm probe:ids`, 2026-09-19).
+
+⚠ **The mock speaks our own codec**, so the suite alone only proves the codec agrees with itself.
+What ties it to MAX: LZ4 checked against the reference C library both ways, the compression rule
+checked against every recorded frame, and `src/protocol/parity.test.ts` — our INIT, LOGIN and
+history requests field by field, in order, beside the web client's.
 
 `seq` is the only link from answer to question: MAX interleaves pushed events with responses on one
 socket, so "the next frame is my answer" eventually reads somebody's incoming message.

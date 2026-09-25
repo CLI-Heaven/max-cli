@@ -40,7 +40,7 @@ const record = (value: unknown): Record<string, unknown> | undefined =>
 
 /**
  * `decodeFrame` returns a bigint exactly when the integer would not survive as a number
- * (`src/protocol/frame.ts:48`), so "arrived as a bigint" is not a heuristic about digit counts —
+ * (`narrow` in `src/protocol/frame.ts`), so "arrived as a bigint" is not a heuristic about digit counts —
  * it is the precise condition under which `Number(id)` loses digits.
  */
 const shapeOf = (values: unknown[]) => {
