@@ -141,7 +141,7 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
 
 ## Foundation and risks
 
-- **MAX-38** · P2 · When MAX answers a login with its rate limit, stop and remember it: its own exit
+- **MAX-38** · 🚧 `max-38-login-limit` · P2 · When MAX answers a login with its rate limit, stop and remember it: its own exit
   code and message, and a cool-down in the profile state so the next run refuses locally instead of
   logging in again. Nothing retries a login today, but a scheduled `max inbox --new` logs in on
   every run, and in PyMax a login retried after the limit error kept the account locked out
