@@ -151,6 +151,7 @@ describe("max backup messages", () => {
       { from: START + 40 * MINUTE, backward: 30, forward: 0 },
       { from: START + 11 * MINUTE, backward: 30, forward: 0 },
     ])
+    expect(JSON.parse(stdout).export).toBe("max b-run export messages 111 --format md --output chat-111.md")
     expect(max.sent.map(({ opcode }) => opcode)).not.toContain(Opcode.CHAT_MARK)
     expect(max.sent.map(({ opcode }) => opcode)).not.toContain(Opcode.MSG_GET_REACTIONS)
 
