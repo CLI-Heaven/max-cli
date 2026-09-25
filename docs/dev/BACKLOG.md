@@ -72,14 +72,6 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   The plan weighs it against the smaller option: numbered `.sql` files and a ~30-line runner on
   the `user_version` we already keep. Either way: the FTS5 tables and triggers are hand-written
   SQL, and the migration files have to ship inside the npm package. Starts at `src/cache/schema.ts`.
-- **MAX-51** · 🚧 `max-51-chats-sync` · P2 · The `chatsSync` marker, as the tab uses it. Captured 2026-09-25
-  (`docs/dev/capture/2026-09-25-web-tab.md`): a fresh tab sends `chatsSync: 0`; only a re-login on the
-  same page sends a marker, and that marker is **not** the previous login's time — that goes in a new
-  field, `lastLogin`, beside `configHash`. So: `0` on a fresh connection (every one-shot command,
-  and `max serve`'s first login), a marker only when `max serve` logs in again. What the marker is
-  remains open: have the recorder keep the LOGIN answer's `time` and `chatMarker` (as `t0+N`) and
-  match them in the next capture. Over JSON the stored marker went in all four fields and MAX
-  answered only changed chats; the refusal after `MAX-40` was a float64, not the field (`FIND-163`).
 - **MAX-34** · 🚧 `max-34-watch-events` · P3 · Live events: a long-running `max listen` that prints new messages, edits,
   reactions and typing as they arrive (PyMax's `on_message`, `on_message_edit`,
   `on_reaction_update`…). Conflicts with one-shot commands (`CLAUDE.md` constraint 4), so it needs

@@ -47,7 +47,7 @@ PyMax шлёт события `PERF` (`login`, `open_chat_to_render`) и моб�
 | INIT: `screen` | `1500x2400 1.3x` (у каждого свой) | `1080x1920 1.0x` | допустимо |
 | LOGIN: `chatsCount` | 15, остальное — один `53 {marker}` | 15 и один 53 ([`handshake.ts`](../../../src/session/handshake.ts), `#readRestOfChats` в [`client.ts`](../../../src/client.ts)); поправка 2026-09-25, `MAX-53` | ✅ |
 | LOGIN: `presenceSync` | −1 | −1 ([`handshake.ts`](../../../src/session/handshake.ts)); поправка 2026-09-25, `MAX-53` | ✅ |
-| Повторный LOGIN: `lastLogin`, `configHash` | есть | нет | ❌ (для `max serve`) |
+| Повторный LOGIN: `lastLogin`, `configHash`, `chatsSync` | есть | есть у `max serve` ([`handshake.ts`](../../../src/session/handshake.ts), `resume`); поправка 2026-09-25, `MAX-51` | ✅ |
 | Запросы после входа | 21 / 9 | `max serve`: 272, 302, 163, 27×4 — с sync из прошлых ответов; поправка 2026-09-25, `MAX-52`. Нет: 48, 32, 35, 28, 208, 209, 22 | 🟡 |
 | Пинг раз в 30 с, `interactive: false` | да | да, в `max serve` ([`server.ts:46`](../../../src/server/server.ts)) | ✅ |
 | Телеметрия скрытой вкладки: одно `NAV/GO` через 20 с | да | да, в `max serve` | ✅ |
