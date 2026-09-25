@@ -1,13 +1,13 @@
 import { homedir } from "node:os"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 import { CliError } from "@leemour/cli-core"
 import type { Diagnosis } from "./diagnose.js"
 import { findRun, listRuns, type RunMetadata, readEvents, runtime } from "./runs/run.js"
 import type { SendEntry } from "./sends/journal.js"
 import { VERSION } from "./version.js"
 
-/** Where problem reports go (`NEED-267`). There is no server of ours: the person's mail program sends it. */
-export const REPORT_ADDRESS = "reports@neirox.ai"
+/** Where problem reports go (`NEED-267`, changed by the owner to issues). Anybody can read them there. */
+export const REPORT_URL = "https://github.com/leemour/max-cli/issues/new"
 
 const RECENT_SENDS = 20
 
@@ -64,8 +64,12 @@ export const buildReport = ({
   return JSON.parse(JSON.stringify(report).replaceAll(home, "~")) as Report
 }
 
-/** A letter the person's own mail program opens: address, subject and a short body. The file is attached by hand. */
-export const mailtoFor = (report: Report, file: string): string => {
+/**
+ * A new issue with its title and body filled in, through GitHub's `title` and `body` query
+ * parameters. The file cannot travel in a link; the person drags it in. **Only the file's name**
+ * goes into the body — the issue is public, and a full path names the account on this machine.
+ */
+export const issueUrlFor = (report: Report, file: string): string => {
   const run = report.run?.metadata
   const subject = `max ${report.version}: ${run ? `${run.command} — ${run.errorCode ?? "failed"}` : "problem report"}`
   const body = [
@@ -78,9 +82,9 @@ export const mailtoFor = (report: Report, file: string): string => {
     "---",
     `max ${report.version}, ${report.runtime}, ${report.platform} ${report.arch}`,
     ...(run ? [`run ${run.runId}: ${run.errorCode ?? "failed"}${run.maxError ? ` (${run.maxError})` : ""}`] : []),
-    `Файл отчёта приложен: ${file}`,
+    `Файл отчёта: ${basename(file)}`,
   ].join("\n")
-  return `mailto:${REPORT_ADDRESS}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  return `${REPORT_URL}?title=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }
 
 export const reportFileName = (now: Date): string =>
