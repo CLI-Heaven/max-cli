@@ -190,6 +190,44 @@ describe("max backup messages", () => {
     cache?.close()
   })
 
+  it("stops at --since in the middle of a chat, without claiming its start", async () => {
+    const { environment, requests } = messenger(100)
+
+    const { stdout } = await runWith(
+      [
+        "b-since",
+        "backup",
+        "messages",
+        "Friends",
+        "--since",
+        new Date(START + 50 * MINUTE).toISOString(),
+        "--run",
+        "--pause",
+        "0",
+      ],
+      environment,
+    )
+
+    expect(JSON.parse(stdout)).toMatchObject({ pages: 2, complete: true, reachedStart: false })
+    expect(requests().at(-1)?.from).toBe(START + 70 * MINUTE)
+    const cache = await openProfileCache("b-since")
+    expect(cache?.messages.ranges("111").some(({ from }) => from === 0)).toBe(false)
+    cache?.close()
+  })
+
+  it("refuses an id that is none of the account's chats, and records nothing", async () => {
+    const { environment, requests } = messenger(10)
+
+    const { code, stderr } = await runWith(["b-gone", "backup", "messages", "999", "--last", "5", "--run"], environment)
+
+    expect(code).toBe(6)
+    expect(stderr).toContain("no chat 999")
+    expect(requests()).toEqual([])
+    const cache = await openProfileCache("b-gone")
+    expect(cache?.messages.ranges("999")).toEqual([])
+    cache?.close()
+  })
+
   it("wants to know how far back", async () => {
     const { environment } = messenger(1)
     const { code, stderr } = await runWith(["b-none", "backup", "messages", "111"], environment)

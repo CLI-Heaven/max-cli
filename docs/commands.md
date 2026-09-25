@@ -635,7 +635,7 @@ max backup messages <chat> [options]
 | `--last <n>` | the newest n messages |
 | `--run` | fetch what is missing; without it nothing is sent |
 | `--max-pages <n>` | pages of 30 per run По умолчанию: `40`. |
-| `--pause <seconds>` | the least wait between pages; each is up to twice that По умолчанию: `1.5`. |
+| `--pause <seconds>` | the least wait between pages; each is up to twice that По умолчанию: `5`. |
 
 ## `max export`
 

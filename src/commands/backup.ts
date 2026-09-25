@@ -6,7 +6,8 @@ import { BACKUP_PAGE } from "../client.js"
 import { forCommand } from "./context.js"
 
 const MAX_PAGES = 40
-const PAUSE_SECONDS = 1.5
+/** web.max.ru sets no pause; a person scrolling the owner's chat paged every 5.3–5.4 s (`RES-9`, `NEED-216` A). */
+const PAUSE_SECONDS = 5
 
 export const backupCommand = (): Command => {
   const command = new Command("backup").description("bring a chat's history into this machine's copy, within limits")
@@ -63,6 +64,11 @@ export const backupCommand = (): Command => {
             renderer.note("an estimate from this machine's copy; nothing was sent — add --run to fetch")
             renderer.result({ chatId, run: false, maxPages: options.maxPages, ...estimate })
             return
+          }
+
+          // Any number resolves; an id that is no chat must not come back as a history read to its start.
+          if (!(await client.chats.list()).items.some((one) => one.id === chatId)) {
+            throw new CliError("not_found", `no chat ${chatId} among this account's chats`)
           }
 
           const before = cache.messages.count(chatId, since ?? 0)

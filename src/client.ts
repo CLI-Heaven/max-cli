@@ -754,7 +754,7 @@ export class MaxClient {
         onPage?.({ number: pages, count: page.length, oldest: page[0]?.timestamp ?? null })
 
         if (page.length < BACKUP_PAGE) {
-          cache.messages.reachedStart(chatId, oldest)
+          if (page.length > 0 || pages > 1) cache.messages.reachedStart(chatId, oldest)
           return { pages, complete: true, reachedStart: true }
         }
         if (oldest >= cursor) {
