@@ -1,20 +1,18 @@
-import { CliError } from "@leemour/cli-core"
+import { CliError, singleLine } from "@leemour/cli-core"
 import type { CacheStore } from "./cache/store.js"
 import type { Chat, Contact, Id } from "./domain/models.js"
 
 export const isId = (reference: string): boolean => /^-?\d+$/.test(reference.trim())
 
 /**
- * A name matched exactly first, then as a fragment — and **an ambiguous one is an error, not a
- * guess**: sending to the wrong conversation is not undoable, so the caller is shown the
- * candidates and asked to be specific.
+ * A name matched as a fragment — and **an ambiguous one is an error, not a guess**: sending to the
+ * wrong conversation is not undoable, so the caller is shown the candidates and asked to be
+ * specific. An exact title does not settle it while another title contains it too: a group named
+ * "Мама" must not quietly take a send meant for "Мама Иванова".
  */
 export const pickChat = (reference: string, chats: Chat[]): Chat => {
   const wanted = reference.trim().toLowerCase()
-  const titled = chats.filter((chat) => chat.title !== null)
-
-  const exact = titled.filter((chat) => chat.title?.toLowerCase() === wanted)
-  const matches = exact.length > 0 ? exact : titled.filter((chat) => chat.title?.toLowerCase().includes(wanted))
+  const matches = chats.filter((chat) => chat.title?.toLowerCase().includes(wanted))
 
   if (matches.length === 1 && matches[0]) return matches[0]
   if (matches.length === 0) throw new CliError("not_found", `no chat matches "${reference}"`)
@@ -22,7 +20,7 @@ export const pickChat = (reference: string, chats: Chat[]): Chat => {
     reference,
     "chats",
     matches.map((chat) => ({ id: chat.id, title: chat.title })),
-    ({ title }) => String(title),
+    ({ title }) => singleLine(String(title)),
   )
 }
 
@@ -52,7 +50,7 @@ export const pickPerson = (reference: string, cache: CacheStore): Contact => {
     reference,
     "people",
     matches.map(({ id, name, username }) => ({ id, name, username })),
-    ({ name, username }) => [name, username && `@${username}`].filter(isPresent).join("  "),
+    ({ name, username }) => singleLine([name, username && `@${username}`].filter(isPresent).join("  ")),
   )
 }
 
@@ -66,7 +64,7 @@ const ambiguous = <T extends { id: Id }>(
   const lines = candidates.map((candidate) => `  ${candidate.id.padEnd(width)}  ${label(candidate)}`).join("\n")
   return new CliError(
     "validation_error",
-    `"${reference}" matches ${candidates.length} ${what} — name one by its id:\n${lines}`,
+    `"${singleLine(reference)}" matches ${candidates.length} ${what} — name one by its id:\n${lines}`,
     { candidates },
   )
 }
