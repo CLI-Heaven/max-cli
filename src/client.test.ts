@@ -1,4 +1,4 @@
-import { mkdtempSync } from "node:fs"
+import { existsSync, mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { memoryKeyring } from "@leemour/cli-core"
@@ -54,6 +54,26 @@ describe("MaxClient", () => {
 
     await expect(client.connect()).rejects.toMatchObject({ code: "authentication_error" })
     expect(String(await client.connect().catch((error: Error) => error.message))).toContain("max session start")
+  })
+
+  it("blames the keyring, not the session, when a profile that has logged in finds no token", async () => {
+    const max = mockMax({ answers: {} })
+    const { client, store } = clientWith(max, "")
+    store.writeState({ deviceId: "a-device", logins: 3 })
+
+    const message = String(await client.connect().catch((error: Error) => error.message))
+    expect(message).toContain("keyring")
+    expect(message).not.toContain("session start")
+    await expect(client.connect()).rejects.toMatchObject({ code: "authentication_error" })
+  })
+
+  it("leaves no state file behind when a profile nobody logged in under is refused", async () => {
+    const max = mockMax({ answers: {} })
+    const { client, store } = clientWith(max, "")
+
+    await client.connect().catch(() => undefined)
+    expect(store.hasLoggedIn()).toBe(false)
+    expect(existsSync(join(store.socketPath(), "..", "default.json"))).toBe(false)
   })
 
   it("does INIT then LOGIN, in that order, before anything else", async () => {

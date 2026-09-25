@@ -31,12 +31,6 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
 - **MAX-58** · 🚧 `max-58-pin-group` · P2 · Pin and unpin over the binary protocol, in a group. In
   Saved messages our client refuses by itself, so `pnpm smoke:live` never sent it; give
   `scripts/smoke-live.ts` a group chat as an argument and run it once with the owner's yes.
-- **MAX-50** · 🚧 `max-50-keyring-hint` · P2 · When the keyring does not answer, say so instead of "no session — run `max session
-  start`". Measured 2026-09-25 from cron on Linux: no `XDG_RUNTIME_DIR`, the keyring is unreachable,
-  and `max` tells the owner to log in again although the profile's state file holds a `viewerId`
-  and hundreds of logins — following that advice is one more login and a new device. Starts at
-  `src/client.ts:1375`: a missing token with a state file that has logged in is the keyring, not the
-  session; `max doctor` says `token present: false` the same way. Workaround in `docs/recipes.md`.
 
 - **CLI-34** · P2 · `max backup messages <chat> --since <date> | --last
   <n>`: without `--run` only the estimate (what the cache holds, what is missing, requests and

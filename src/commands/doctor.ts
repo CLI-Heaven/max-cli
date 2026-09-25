@@ -55,7 +55,12 @@ export const doctorCommand = (): Command => {
         )
       }
 
-      if (!report.token.present) {
+      if (!report.token.present && ((report.session.logins ?? 0) > 0 || report.session.viewerId)) {
+        renderer.note(
+          "no token, although this profile has logged in here — the keyring is probably out of reach " +
+            "(cron, ssh: set XDG_RUNTIME_DIR). Log in again only if the token was removed",
+        )
+      } else if (!report.token.present) {
         renderer.note(`no token for this profile — \`max ${settings.profile} session start\` stores one`)
       }
     })

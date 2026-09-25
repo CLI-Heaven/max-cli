@@ -85,6 +85,16 @@ export class SessionStore {
     return fresh
   }
 
+  /** Whether this profile has logged in on this machine. Reads only: unlike `readState`, never creates the file. */
+  hasLoggedIn(): boolean {
+    try {
+      const parsed = JSON.parse(readFileSync(this.#statePath(), "utf8")) as Partial<SessionState>
+      return (parsed.logins ?? 0) > 0 || typeof parsed.viewerId === "string"
+    } catch {
+      return false
+    }
+  }
+
   writeState(state: SessionState): void {
     writeSecurely(this.#statePath(), `${JSON.stringify(state, null, 2)}\n`, 0o600)
   }
