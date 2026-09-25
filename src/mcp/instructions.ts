@@ -21,12 +21,12 @@ export const instructions = ({
 }): string =>
   [
     `The owner's personal MAX Messenger account (profile "${profile}"). A mistake here reaches a real person.`,
-    "Use these tools when asked to find a chat, read a conversation, find a message or a person, turn a voice message into text, or send, edit, forward or pin a message in MAX.",
+    "Use these tools when asked what is new, to find a chat, read a conversation, find a message or a person, look at a photo, turn a voice message into text, or send, edit, forward, pin or react to a message in MAX.",
     "",
-    "- Reading never marks anything read. Read freely.",
+    '- Reading never marks anything read. Read freely. "What\'s new" is max_inbox — one call, not a read per chat.',
     "- A voice message is an attachment of kind audio; max_messages_transcribe gives its text, on this machine. If the model is not downloaded, tell the owner the command it names — never download one yourself.",
     allowSend
-      ? '- Send, edit, forward or pin only when the owner asked for this exact action in this exact chat. A draft or "we should reply" is not a request. A refusal (read-only profile, recipient not allowed, hourly limit) is final — do not work around it.'
+      ? '- Send, edit, forward, pin or react only when the owner asked for this exact action in this exact chat. A draft or "we should reply" is not a request. A refusal (read-only profile, recipient not allowed, hourly limit) is final — do not work around it.'
       : "- Sending is off: this server was started without --allow-send. Say so if asked to send.",
     ...(allowSend && confirmSend
       ? [

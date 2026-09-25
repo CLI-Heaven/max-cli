@@ -15,6 +15,8 @@ export interface SendArgs {
   silent?: boolean
   cid?: number
   at?: string
+  reply_to?: string
+  markdown?: boolean
 }
 
 /** The one mapping from tool arguments to a send, for both the plain tool and the confirmed one. */
@@ -22,6 +24,8 @@ export const sendOptions = (args: SendArgs, at: number | undefined) => ({
   ...(args.cid === undefined ? {} : { cid: args.cid }),
   ...(args.silent === true ? { notify: false } : {}),
   ...(at === undefined ? {} : { at }),
+  ...(args.reply_to === undefined ? {} : { replyTo: args.reply_to }),
+  ...(args.markdown === true ? { markdown: true } : {}),
 })
 
 /** The arguments that name a chat: each is shown as the chat it resolved to, and sealed as its id. */

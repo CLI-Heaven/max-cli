@@ -176,12 +176,16 @@ const open = async (
 const tooLarge = (attachment: AttachmentLink, limit: number) =>
   new CliError(
     "validation_error",
-    `the ${attachment.kind} is larger than ${Math.round(limit / 1024 ** 2)} MiB — not downloaded`,
+    `the ${attachment.kind} is larger than ${limit >= 1024 ** 2 ? `${Math.round(limit / 1024 ** 2)} MiB` : `${Math.round(limit / 1024)} KiB`} — not downloaded`,
   )
 
 /** Into memory rather than a file: a voice message is a few hundred kilobytes, and transcription reads it once. */
-export const fetchBytes = async (attachment: AttachmentLink, reach: Reach = publicOnly): Promise<Uint8Array> => {
-  const { pump } = await open(attachment, reach, LARGEST_VOICE)
+export const fetchBytes = async (
+  attachment: AttachmentLink,
+  reach: Reach = publicOnly,
+  limit = LARGEST_VOICE,
+): Promise<Uint8Array> => {
+  const { pump } = await open(attachment, reach, limit)
   const chunks: Buffer[] = []
   await pump(
     new Writable({
