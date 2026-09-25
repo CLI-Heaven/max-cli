@@ -649,7 +649,6 @@ export class MaxClient {
         itemType: "DELAYED",
         getChat: false,
         getMessages: true,
-        interactive: false,
       })
       const lookup = { names: namesFrom(session.contacts), ...viewer(this.#store) }
       return asArray(answer.messages)
@@ -1200,7 +1199,6 @@ export class MaxClient {
       forward: 0,
       backward: 1,
       getMessages: true,
-      interactive: false,
     })
     const found = asArray(answer.messages)
       .map((raw) => record(raw) ?? {})
@@ -1607,7 +1605,10 @@ export class MaxClient {
    * no login, and is over before a socket would have finished its handshake. `connect()` stays
    * public for the one command that must reach MAX to mean anything — starting a session.
    */
-  /** `interactive: false` and never `CHAT_MARK`: reading history must not mark anything read (§19). */
+  /**
+   * Never `CHAT_MARK`: reading history must not mark anything read (§19). Without `interactive`, as
+   * the web client asks — measured 2026-09-25 on a channel with 8 unread: reading moved nothing.
+   */
   async #history(
     chatId: Id,
     window: { from: number; backward: number; forward: number },
@@ -1619,9 +1620,6 @@ export class MaxClient {
       chatId,
       ...window,
       getMessages: true,
-      // The web client leaves this out. What MAX assumes when it is missing was not measured on a
-      // chat with unread messages, and a guess wrong here marks the owner's chats read.
-      interactive: false,
     })
 
     const lookup = { names: namesFrom(session.contacts), ...viewer(this.#store) }

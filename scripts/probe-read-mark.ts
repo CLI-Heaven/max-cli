@@ -3,7 +3,7 @@
  * CI, and only with the owner's yes.
  *
  *   pnpm probe:read-mark            # the first channel with 2+ unread posts
- *   pnpm probe:read-mark <chat id>  # or this one
+ *   pnpm probe:read-mark <chat>     # or this one: an id or the exact title
  *
  * One login. In a chat with at least two unread messages it
  * 1. reads the last two **without** `interactive`, as the web client's history request is sent;
@@ -36,7 +36,7 @@ try {
   const chats = (await client.chats.list({ limit: 100 })).items
   const wanted = process.argv[2]
   const target = wanted
-    ? chats.find((chat) => chat.id === wanted)
+    ? chats.find((chat) => chat.id === wanted || chat.title === wanted)
     : chats.find((chat) => chat.kind === "channel" && (chat.unreadCount ?? 0) >= 2)
   if (!target || (target.unreadCount ?? 0) < 2) {
     console.error("no chat with 2 or more unread messages — wait for new posts, or pass a chat id")

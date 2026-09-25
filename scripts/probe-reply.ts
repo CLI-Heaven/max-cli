@@ -79,7 +79,6 @@ try {
       itemType: "REGULAR",
       getChat: false,
       getMessages: true,
-      interactive: false,
     }),
   )
   for (const message of (Array.isArray(history.messages) ? history.messages : []).map(record)) {

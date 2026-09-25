@@ -121,8 +121,7 @@ describe("our requests beside web.max.ru's", async () => {
     expect(JSON.stringify(sent(Opcode.LOGIN))).toBe(JSON.stringify(web))
   })
 
-  it("history: the web client's five fields, the chat id wrapped, and our `interactive: false` last", () => {
-    const web = recorded(49) as Record<string, Shape>
-    expect(JSON.stringify(sent(Opcode.CHAT_HISTORY))).toBe(JSON.stringify({ ...web, interactive: "bool" }))
+  it("history: the web client's five fields, the chat id wrapped, and nothing more", () => {
+    expect(JSON.stringify(sent(Opcode.CHAT_HISTORY))).toBe(JSON.stringify(recorded(49)))
   })
 })
