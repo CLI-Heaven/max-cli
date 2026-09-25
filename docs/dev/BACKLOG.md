@@ -25,7 +25,7 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
 
 ## Features
 
-- **CLI-34** · P2 · `max backup messages <chat> --since <date> | --last
+- **CLI-34** · 🚧 `feat/cli-34-backup` · P2 · `max backup messages <chat> --since <date> | --last
   <n>`: without `--run` only the estimate (what the cache holds, what is missing, requests and
   minutes); with `--run` it fills the gaps within limits and stops on any error. One chat per call
   (`NEED-217`). Defaults measured on web.max.ru 2026-09-25 (`RES-9`): 30 messages back per page,
