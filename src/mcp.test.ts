@@ -530,13 +530,16 @@ describe("what the MCP server offers beyond the basics", () => {
       },
     )
 
+    const store = new SessionStore({ profile, keyring: memoryKeyring() })
+    store.writeState({ ...store.readState(), lastCheckAt: "2026-09-20T10:00:00.000Z" })
+
     const unread = await call(client, "max_inbox")
     const since = await call(client, "max_inbox", { since: "2026-09-01T00:00:00Z" })
 
     expect(unread.isError).toBe(false)
     expect((unread.body.chats as { id: string }[]).map(({ id }) => id)).toEqual(["111", "222"])
     expect(since.body).toMatchObject({ mode: "new" })
-    expect(new SessionStore({ profile, keyring: memoryKeyring() }).readState()).not.toHaveProperty("lastCheckAt")
+    expect(store.readState().lastCheckAt).toBe("2026-09-20T10:00:00.000Z")
   })
 
   it("a reply carries the REPLY link and Markdown goes out as markup", async () => {
@@ -638,9 +641,22 @@ describe("what the MCP server offers beyond the basics", () => {
     ["a photo over the cap", () => serving(webp(600 * 1024)), {}],
     ["a download that fails", () => serving(new TypeError("fetch failed")), {}],
     ["a file", () => serving(webp(16)), { index: 0 }],
-  ])("refuses %s, naming the command that saves it", async (_, serve, extra) => {
+    ["a message with a file and no photo", () => serving(webp(16)), {}, "no photo"],
+  ])("refuses %s, naming the command that saves it", async (_, serve, extra, variant?: string) => {
     serve()
-    const { client } = await connect({}, { answers: withPhoto })
+    const history = withPhoto[Opcode.CHAT_HISTORY].messages[0]
+    const { client } = await connect(
+      {},
+      {
+        answers:
+          variant === "no photo"
+            ? {
+                ...withPhoto,
+                [Opcode.CHAT_HISTORY]: { messages: [{ ...history, attaches: history?.attaches.slice(0, 1) }] },
+              }
+            : withPhoto,
+      },
+    )
 
     const result = await client.callTool({
       name: "max_messages_attachment",
@@ -650,6 +666,23 @@ describe("what the MCP server offers beyond the basics", () => {
     expect(result.isError).toBe(true)
     expect(JSON.stringify(result)).toContain("max messages download 111 116762160362694583")
     expect(JSON.stringify(result)).not.toContain("secret-token")
+  })
+
+  it("asks the owner before a reaction, and reacts with nothing on a no", async () => {
+    const { client, max, forms } = await connect(
+      { allowSend: true, confirmSend: true },
+      { form: () => ({ action: "decline" }) },
+    )
+
+    const { isError } = await call(client, "max_reactions_add", {
+      chat: "111",
+      message: "116762160362694583",
+      emoji: "👍",
+    })
+
+    expect(isError).toBe(true)
+    expect(forms[0]).toContain('emoji: "👍"')
+    expect(max.sent.map(({ opcode }) => opcode)).not.toContain(Opcode.MSG_REACTION)
   })
 
   it("keeps its instructions within the 2048 characters a client shows, with every flag on", () => {

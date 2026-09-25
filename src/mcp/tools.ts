@@ -116,7 +116,7 @@ const READ_TOOLS = {
     description:
       "Other people's messages waiting for the owner, grouped by chat, in one call: the unread ones, or with " +
       "`since` everything after that point. Marks nothing read and moves no saved point — the owner's " +
-      "`max inbox --new` is unaffected. Returns { mode, chats: [{ id, title, messages, more }], skipped, partial }.",
+      "`max inbox --new` is unaffected, whatever `mode` says. Returns { mode, chats: [{ id, title, messages, more }], skipped, partial }.",
     input: v.object({
       since: v.optional(v.pipe(v.string(), v.description("a message id or an ISO 8601 time"))),
       limit: v.optional(
@@ -302,9 +302,16 @@ const READ_TOOLS = {
       if (!found) throw new CliError("not_found", `no message ${args.message} in chat ${chatId}`)
       const saveIt = `the owner can save it with \`max messages download ${chatId} ${args.message}\``
 
-      const index = args.index ?? found.attachments.findIndex(({ kind }) => kind === "photo")
+      if (found.attachments.length === 0) throw new CliError("not_found", `message ${args.message} has no attachments`)
+      const photo = found.attachments.findIndex(({ kind }) => kind === "photo")
+      const index = args.index ?? (photo === -1 ? 0 : photo)
       const attachment = found.attachments[index]
-      if (!attachment) throw new CliError("not_found", `message ${args.message} has no photo at that index`)
+      if (!attachment) {
+        throw new CliError(
+          "not_found",
+          `message ${args.message} has ${found.attachments.length} attachments, no ${index}`,
+        )
+      }
       if (attachment.kind !== "photo" || !attachment.url) {
         throw new CliError("validation_error", `attachment ${index} is a ${attachment.kind}, not a photo — ${saveIt}`)
       }
