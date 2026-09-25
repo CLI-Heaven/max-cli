@@ -270,6 +270,23 @@ describe("max session start token", () => {
   })
 })
 
+describe("max session start token from MAX_TOKEN", () => {
+  it("stores the token it was given, even when the login answers with a fresh one", async () => {
+    const adopt = mockMax({
+      answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: { ...LOGIN, token: "the-rotated-one" } },
+    })
+    const { start, stored } = setUp(undefined, adopt)
+    process.env.MAX_TOKEN = "a-token"
+    try {
+      expect(await start("token")).toBe(0)
+    } finally {
+      delete process.env.MAX_TOKEN
+    }
+
+    expect(stored()).toBe("a-token")
+  })
+})
+
 describe("max session start without a person at the terminal", () => {
   it.each(["qr", "qr-chrome", "sms"])("refuses %s before opening anything", async (method) => {
     const { start, connections } = setUp(undefined, adopting(), { interactive: false })
