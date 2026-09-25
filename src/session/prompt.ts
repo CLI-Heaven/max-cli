@@ -1,5 +1,6 @@
 import { createInterface } from "node:readline"
 import { Writable } from "node:stream"
+import { CliError } from "@leemour/cli-core"
 
 export interface SecretInput {
   input?: NodeJS.ReadableStream & { isTTY?: boolean }
@@ -38,7 +39,12 @@ export const readSecret = async (
 
   const reader = createInterface({ input, output: shim, terminal: true })
   try {
-    const answer = await new Promise<string>((resolve) => {
+    // Ctrl-C and a closed terminal would otherwise leave this waiting for ever, and Node exits
+    // on the unsettled promise with a warning and a code nobody documents.
+    const answer = await new Promise<string>((resolve, reject) => {
+      const cancel = () => reject(new CliError("cancelled", "cancelled — nothing was stored"))
+      reader.once("SIGINT", cancel)
+      reader.once("close", cancel)
       reader.question(prompt, resolve)
       muted = !echo
     })

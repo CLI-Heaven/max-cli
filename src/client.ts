@@ -194,7 +194,13 @@ export class MaxClient {
         // The other devices are out from here on, whatever follows fails: the journal says so.
         done()
         const token = answer.token
-        if (typeof token === "string" && token !== "") {
+        if (typeof token === "string" && token !== "" && this.#fromEnvironment()) {
+          this.#warnAbout(
+            "token_not_saved",
+            "MAX gave this session a new token, and it was not saved: the one in use came from MAX_TOKEN — " +
+              "if MAX_TOKEN stops working, log in again and set it anew",
+          )
+        } else if (typeof token === "string" && token !== "") {
           try {
             this.#store.writeToken(token)
           } catch (error) {
@@ -1590,6 +1596,13 @@ export class MaxClient {
   #keepRotatedToken(sent: string): void {
     const rotated = this.#session().token
     if (typeof rotated !== "string" || rotated === "" || rotated === sent) return
+    if (this.#fromEnvironment()) {
+      this.#warnAbout(
+        "token_not_saved",
+        "MAX refreshed the session; the fresh token was not saved, because the one in use came from MAX_TOKEN",
+      )
+      return
+    }
 
     try {
       this.#store.writeToken(rotated)
@@ -1855,6 +1868,15 @@ export class MaxClient {
   }
 
   /** The sentence to the person, and only the code to the log (`WarningEvent`). */
+  /** A token from `MAX_TOKEN` belongs to whoever set it: nothing MAX hands back replaces what is stored. */
+  #fromEnvironment(): boolean {
+    try {
+      return this.#store.tokenSource() === "environment"
+    } catch {
+      return false
+    }
+  }
+
   #warnAbout(code: WarningCode, message: string, extra: { operation?: string; detail?: string } = {}): void {
     this.#warn(message)
     this.#emit({ event: "warning", code, ...extra })

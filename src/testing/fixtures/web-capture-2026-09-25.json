@@ -32,8 +32,8 @@
           "headerUserAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
           "isPwa": false,
           "appVersion": "26.9.8",
-          "screen": "1440x2560 1.0x",
-          "timezone": "Europe/Madrid"
+          "screen": "1080x1920 1.0x",
+          "timezone": "Europe/Moscow"
         },
         "deviceId": "<str 36>"
       }

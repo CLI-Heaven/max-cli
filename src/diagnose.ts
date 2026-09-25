@@ -13,11 +13,12 @@ export interface DiagnoseOptions {
   cacheDir?: string
   /** Injected so a test needs no SQLite file and no keyring. */
   readSchemaVersion?: (file: string) => Promise<number | undefined>
-  hasKeyringToken?: (profile: string) => boolean
+  /** Where a stored token is — the keyring, or the file that stands in for one; `undefined` for none. */
+  storedToken?: (profile: string) => "keyring" | "file" | undefined
   now?: () => Date
 }
 
-export type TokenSource = "environment" | "keyring" | "none"
+export type TokenSource = "environment" | "keyring" | "file" | "none"
 
 export interface Diagnosis {
   /** ⚠ Never the token, and never a prefix or a length of it — only whether one is reachable. */
@@ -79,7 +80,7 @@ export const diagnose = async ({
   stateDir,
   cacheDir,
   readSchemaVersion = schemaVersionOf,
-  hasKeyringToken = () => false,
+  storedToken = () => undefined,
   now = () => new Date(),
 }: DiagnoseOptions): Promise<Diagnosis> => {
   const paths = resolvePaths({ appName: "max-cli", prefix: "MAX", env })
@@ -88,7 +89,7 @@ export const diagnose = async ({
 
   const moved = pathsAreOverridden({ appName: "max-cli", prefix: "MAX", env })
   const fromEnvironment = (env.MAX_TOKEN ?? "").trim() !== ""
-  const inKeyring = fromEnvironment ? false : hasKeyringToken(profile)
+  const tokenAt = fromEnvironment ? undefined : storedToken(profile)
 
   const stateFile = join(state, "profiles", `${profile}.json`)
   const stored = readState(stateFile)
@@ -101,8 +102,8 @@ export const diagnose = async ({
 
   return {
     token: {
-      present: fromEnvironment || inKeyring,
-      from: fromEnvironment ? "environment" : inKeyring ? "keyring" : "none",
+      present: fromEnvironment || tokenAt !== undefined,
+      from: fromEnvironment ? "environment" : (tokenAt ?? "none"),
     },
     keyring: { service: moved ? `max-cli:${paths.config}` : "max-cli", movedByEnvironment: moved },
     session: {

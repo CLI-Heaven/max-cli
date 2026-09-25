@@ -33,4 +33,17 @@ describe("readSecret", () => {
     expect(output.text()).toContain("MAX token: ")
     expect(output.text()).not.toContain("typed-secret")
   })
+
+  it.each([
+    ["Ctrl-C", (input: PassThrough) => input.write("\u0003")],
+    ["a closed terminal", (input: PassThrough) => input.end()],
+  ])("gives up with `cancelled` on %s, rather than wait for ever", async (_, stop) => {
+    const input = new PassThrough() as PassThrough & { isTTY: boolean }
+    input.isTTY = true
+
+    const answer = readSecret("MAX token: ", { input, output: capture().stream })
+    setImmediate(() => stop(input))
+
+    await expect(answer).rejects.toMatchObject({ code: "cancelled" })
+  })
 })
