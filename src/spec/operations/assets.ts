@@ -11,6 +11,7 @@ export const assetsUpdate = defineOperation({
   constant: "ASSETS_UPDATE",
   opcode: 27,
   auth: true,
+  guard: null,
   request: v.strictObject({ type: v.picklist(ASSET_TYPES), sync: v.number() }),
   response: v.looseObject({ sync: v.optional(v.number()), sections: v.optional(v.array(v.unknown())) }),
   provenance: {

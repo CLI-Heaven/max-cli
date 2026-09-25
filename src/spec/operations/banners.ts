@@ -9,6 +9,7 @@ export const bannersList = defineOperation({
   constant: "BANNERS_GET",
   opcode: 302,
   auth: true,
+  guard: null,
   /** Always 0 — the tab sent 0 on its first login and again on the next. */
   request: v.strictObject({ bannersSync: v.number() }),
   response: v.looseObject({ banners: v.optional(v.array(v.unknown())) }),
