@@ -141,6 +141,13 @@ export interface CacheStore {
     all(chatId: Id, since?: number): Message[]
     /** The windows read completely, in epoch ms, oldest first. Neighbouring windows are not merged. */
     ranges(chatId: Id): { from: number; to: number }[]
+    /** How many messages of a chat are held from `since` on. */
+    count(chatId: Id, since: number): number
+    /**
+     * MAX answered a short page, so nothing is older than `time`: held as a window from 0, which
+     * tells the next backup and export that the chat's start was reached.
+     */
+    reachedStart(chatId: Id, time: number): void
     /**
      * Messages whose text contains `query`, newest first, across every chat we hold or one.
      *
@@ -655,6 +662,21 @@ export const openStore = ({ database, now = () => Date.now() }: CacheOptions): C
           .prepare("SELECT from_time, to_time FROM ranges WHERE chat_id = ? ORDER BY from_time ASC")
           .all(chatId)
           .map((row) => ({ from: Number(row.from_time), to: Number(row.to_time) })),
+
+      count: (chatId, since) =>
+        Number(
+          database.prepare("SELECT count(*) AS held FROM messages WHERE chat_id = ? AND time >= ?").get(chatId, since)
+            ?.held ?? 0,
+        ),
+
+      reachedStart: (chatId, time) => {
+        database
+          .prepare(
+            `INSERT INTO ranges (chat_id, from_time, to_time) VALUES (?, 0, ?)
+             ON CONFLICT(chat_id, from_time) DO UPDATE SET to_time = max(ranges.to_time, excluded.to_time)`,
+          )
+          .run(chatId, time)
+      },
     },
 
     claim: (chatId, anchor, holder, forMs) => {

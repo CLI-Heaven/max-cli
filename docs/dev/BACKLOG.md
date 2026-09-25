@@ -25,13 +25,6 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
 
 ## Features
 
-- **CLI-34** · P2 · `max backup messages <chat> --since <date> | --last
-  <n>`: without `--run` only the estimate (what the cache holds, what is missing, requests and
-  minutes); with `--run` it fills the gaps within limits and stops on any error. One chat per call
-  (`NEED-217`). Defaults measured on web.max.ru 2026-09-25 (`RES-9`): 30 messages back per page,
-  `forward: 0`, the next page starts at the time of the oldest message loaded (it comes back again),
-  a page shorter than 30 is the start of the chat; the web client sets no pause of its own.
-  Plan: `docs_ai/plans/2026-09-24-history-backup.md`.
 **From the PyMax comparison (2026-09-24, `NEED-175`).** Each is what PyMax's source declares
 (`MaxApiTeam/PyMax`, `src/pymax/api/`, commit `53103f0`) — a claim until measured. Every writing
 operation is measured first in Saved messages (chat 0), as replies and reactions were (`NEED-150`),

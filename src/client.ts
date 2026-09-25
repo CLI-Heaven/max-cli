@@ -38,6 +38,7 @@ import type {
   ReadMark,
   WindowedMessage,
 } from "./domain/models.js"
+import { heldWindows } from "./export.js"
 import { type Invoke, wireClient } from "./generated/client.generated.js"
 import { parseMarkdown } from "./markdown.js"
 import { asFirstWord } from "./profile.js"
@@ -697,6 +698,70 @@ export class MaxClient {
 
       const messages = await this.#history(chatId, { from: before ?? Date.now(), backward: limit, forward: 0 })
       return { items: messages, hasMore: messages.length >= limit }
+    },
+
+    /**
+     * **Fills a chat's history backwards into the cache, page by page**, the way web.max.ru pages
+     * it when scrolled up (`RES-9`, captured 2026-09-25): 30 back from the time of the oldest
+     * message loaded, so each page repeats one message, and a shorter page is the chat's start.
+     *
+     * Stretches the cache already read completely are stepped over, so a second run continues
+     * where the first stopped. It ends at `since`, at `last` messages held, at the chat's start, or
+     * after `maxPages` — and on the first error, with no retry: what the limit error of MAX looks
+     * like is unknown, so every error is treated as one. Reactions are not read.
+     */
+    backup: async (
+      chatId: Id,
+      {
+        since,
+        last,
+        maxPages,
+        pause,
+        onPage,
+      }: {
+        since?: number
+        last?: number
+        maxPages: number
+        pause: () => Promise<void>
+        onPage?: (page: { number: number; count: number; oldest: string | null }) => void
+      },
+    ): Promise<{ pages: number; complete: boolean; reachedStart: boolean }> => {
+      const cache = this.#cache
+      if (!cache) throw new CliError("not_found", "the local copy could not be opened, and a backup is kept there")
+
+      let cursor = Date.now()
+      let pages = 0
+      for (;;) {
+        const held = heldWindows(cache.messages.ranges(chatId)).find(
+          (window) => window.from <= cursor && cursor <= window.to,
+        )
+        if (held) cursor = held.from
+        if (held?.from === 0) return { pages, complete: true, reachedStart: true }
+        if (since !== undefined && cursor <= since) return { pages, complete: true, reachedStart: false }
+        if (last !== undefined && cache.messages.count(chatId, cursor) >= last) {
+          return { pages, complete: true, reachedStart: false }
+        }
+        if (pages >= maxPages) return { pages, complete: false, reachedStart: false }
+
+        if (pages > 0) await pause()
+        const page = await this.#history(
+          chatId,
+          { from: cursor, backward: BACKUP_PAGE, forward: 0 },
+          { reactions: false },
+        )
+        pages += 1
+        const oldest = page[0] ? Date.parse(page[0].timestamp) : cursor
+        onPage?.({ number: pages, count: page.length, oldest: page[0]?.timestamp ?? null })
+
+        if (page.length < BACKUP_PAGE) {
+          if (page.length > 0 || pages > 1) cache.messages.reachedStart(chatId, oldest)
+          return { pages, complete: true, reachedStart: true }
+        }
+        if (oldest >= cursor) {
+          throw new CliError("invalid_response", `MAX answered page ${pages} with nothing older than it was asked for`)
+        }
+        cursor = oldest
+      }
     },
 
     /**
@@ -2164,6 +2229,8 @@ const INBOX_CHATS = 20
 const NEW_MESSAGE = 128
 /** Bounded so that deleting a long history is many spread-out calls, never one sweep (`MAX-47`). */
 export const DELETE_AT_ONCE = 10
+/** What web.max.ru asks for per page when history is scrolled up (`RES-9`). */
+export const BACKUP_PAGE = 30
 
 /** Read up to a point — by us on another device, or by somebody else. */
 const READ_MARK = 130
