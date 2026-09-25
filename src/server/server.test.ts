@@ -1,4 +1,5 @@
 import { existsSync, statSync, writeFileSync } from "node:fs"
+import { createServer, type Server } from "node:net"
 import { memoryKeyring } from "@leemour/cli-core"
 import { afterEach, describe, expect, it } from "vitest"
 import { MaxClient } from "../client.js"
@@ -6,6 +7,8 @@ import { Opcode } from "../generated/opcodes.generated.js"
 import { Connection } from "../protocol/connection.js"
 import { SessionStore } from "../session/store.js"
 import { mockMax } from "../testing/mock-max.js"
+import { VERSION } from "../version.js"
+import { fromLine, lineReader, toLine } from "./lines.js"
 import { MaxServer, type ServerEvent } from "./server.js"
 import { ServerConnection, serverStatus, stopServer } from "./server-connection.js"
 import { subscribe } from "./subscribe.js"
@@ -183,7 +186,12 @@ describe("max serve", () => {
   it("says whether it was started by hand, and its process", async () => {
     const { store } = await serve("s-status")
 
-    expect(await serverStatus(store.socketPath())).toMatchObject({ connected: true, byHand: true, pid: process.pid })
+    expect(await serverStatus(store.socketPath())).toMatchObject({
+      connected: true,
+      byHand: true,
+      pid: process.pid,
+      version: VERSION,
+    })
   })
 
   it("started by hand, takes over from one a command started", async () => {
@@ -421,6 +429,37 @@ describe("a command through max serve", () => {
 })
 
 describe("starting a server in the background", () => {
+  it("stops one a command started under another version, and leaves one started by hand", async () => {
+    const { replacedIfStale } = await import("./start.js")
+    const oldOne = new SessionStore({ profile: "v-old", keyring: memoryKeyring() })
+    const byHand = new SessionStore({ profile: "v-hand", keyring: memoryKeyring() })
+    const stops: string[] = []
+    const fake = (store: SessionStore, status: Record<string, unknown>) => {
+      const server = createServer((socket) =>
+        socket.on(
+          "data",
+          lineReader((line) => {
+            const request = fromLine(line)
+            if (request.stop === true) {
+              stops.push(store.profile)
+              socket.end(toLine({ id: request.id, stopped: true }))
+            } else socket.write(toLine({ event: "status", ...status }))
+          }),
+        ),
+      )
+      return new Promise<Server>((resolve) => server.listen(store.socketPath(), () => resolve(server)))
+    }
+    const servers = [
+      await fake(oldOne, { version: "0.0.1", byHand: false }),
+      await fake(byHand, { version: "0.0.1", byHand: true }),
+    ]
+
+    expect(await replacedIfStale(oldOne)).toBe(true)
+    expect(await replacedIfStale(byHand)).toBe(false)
+    expect(stops).toEqual(["v-old"])
+    for (const server of servers) server.close()
+  })
+
   it("does not try again for a while after MAX refused the login", async () => {
     const { refusedPath, startInBackground } = await import("./start.js")
     const store = new SessionStore({ profile: "b-refused", keyring: memoryKeyring() })

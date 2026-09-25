@@ -1403,8 +1403,8 @@ describe("one event per request", () => {
     const asked = events.find((event) => event.event === "request" && event.operation === "chats.history")
     const answered = events.find((event) => event.event === "response" && event.operation === "chats.history")
 
-    expect(asked).toMatchObject({ opcode: Opcode.CHAT_HISTORY, seq: 3, ids: { chat: "111" } })
-    expect(answered).toMatchObject({ opcode: Opcode.CHAT_HISTORY, seq: 3, outcome: "ok", counts: { messages: 1 } })
+    expect(asked).toMatchObject({ opcode: Opcode.CHAT_HISTORY, seq: 2, ids: { chat: "111" } })
+    expect(answered).toMatchObject({ opcode: Opcode.CHAT_HISTORY, seq: 2, outcome: "ok", counts: { messages: 1 } })
     expect(answered && "bytes" in answered && answered.bytes).toBeGreaterThan(0)
   })
 

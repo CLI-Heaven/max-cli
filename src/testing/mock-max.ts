@@ -18,15 +18,19 @@ export interface MockMax {
   createSocket: () => WebSocket
   /** Every request sent, in order — what the code under test actually asked MAX for. */
   sent: { opcode: number; payload: Payload }[]
+  /** The same requests as bytes, for a test about what went on the wire rather than what it meant. */
+  wire: Uint8Array[]
   /** Calls with no scripted answer. Any left at the end of a test fail it (`unscripted.ts`). */
   unexpected: number[]
   /** What the client answered to MAX's own frames — a ping, a new message. */
-  answered: { opcode: number; seq: number | null; payload: Payload | null }[]
+  answered: { opcode: number; seq: number; payload: Payload | null }[]
   closed: boolean
   /** MAX sends a frame of its own, as it does when a message arrives. */
   push: (opcode: number, payload: Payload, seq: number) => void
   /** MAX drops the socket from its side. */
   drop: () => void
+  /** Bytes exactly as given — for a frame no encoder of ours would write. */
+  pushBytes: (bytes: Uint8Array) => void
 }
 
 const built: MockMax[] = []
@@ -51,11 +55,13 @@ export const mockMax = ({ answers, refuse = {} }: MockMaxOptions): MockMax => {
   const state: MockMax = {
     createSocket,
     sent: [],
+    wire: [],
     unexpected: [],
     answered: [],
     closed: false,
     push: (opcode, payload, seq) => socket.answer({ seq, opcode, payload, cmd: Command.REQUEST }),
     drop: () => queueMicrotask(() => socket.emit("close")),
+    pushBytes: (bytes) => queueMicrotask(() => socket.emit("message", Buffer.from(bytes))),
   }
   built.push(state)
 
@@ -65,18 +71,19 @@ export const mockMax = ({ answers, refuse = {} }: MockMaxOptions): MockMax => {
     readonly CONNECTING = 0
     readonly CLOSING = 2
 
-    send(raw: string): void {
+    send(raw: Uint8Array): void {
       const frame = decodeFrame(raw)
       if (frame.cmd === Command.RESPONSE) {
         state.answered.push({ opcode: frame.opcode, seq: frame.seq, payload: frame.payload })
         return
       }
       state.sent.push({ opcode: frame.opcode, payload: frame.payload ?? {} })
+      state.wire.push(Uint8Array.from(raw))
 
       const rule = refuse[frame.opcode]
       const refusal = typeof rule === "function" ? rule() : rule
       if (refusal !== undefined) {
-        this.answer({ seq: frame.seq ?? 0, opcode: frame.opcode, payload: { error: refusal }, cmd: Command.ERROR })
+        this.answer({ seq: frame.seq, opcode: frame.opcode, payload: { error: refusal }, cmd: Command.ERROR })
         return
       }
 
@@ -89,11 +96,11 @@ export const mockMax = ({ answers, refuse = {} }: MockMaxOptions): MockMax => {
       const payload = typeof answer === "function" ? answer(frame.payload ?? {}) : answer
       if (payload === undefined) return // Silence: the caller will time out, as MAX sometimes does.
 
-      this.answer({ seq: frame.seq ?? 0, opcode: frame.opcode, payload, cmd: Command.RESPONSE })
+      this.answer({ seq: frame.seq, opcode: frame.opcode, payload, cmd: Command.RESPONSE })
     }
 
     answer(frame: { seq: number; opcode: number; payload: Payload; cmd: Command }): void {
-      queueMicrotask(() => this.emit("message", encodeFrame(frame)))
+      queueMicrotask(() => this.emit("message", Buffer.from(encodeFrame(frame))))
     }
 
     /**

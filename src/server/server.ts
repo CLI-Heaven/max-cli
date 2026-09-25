@@ -8,6 +8,7 @@ import type { MessageHit } from "../domain/models.js"
 import { Opcode } from "../generated/opcodes.generated.js"
 import { Connection, type ConnectionOptions, ProtocolError } from "../protocol/connection.js"
 import type { SessionStore } from "../session/store.js"
+import { VERSION } from "../version.js"
 import { fromLine, lineReader, toLine } from "./lines.js"
 import { forwarded, stopServer } from "./server-connection.js"
 
@@ -315,6 +316,7 @@ export class MaxServer {
       at: new Date().toISOString(),
       byHand: !this.#options.startedByCommand,
       pid: process.pid,
+      version: VERSION,
     }
     const { id } = request
     this.#lastUse = Date.now()

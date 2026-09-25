@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { mockMax } from "../testing/mock-max.js"
 import { Connection } from "./connection.js"
+import { encodeFrame } from "./frame.js"
 
 /** Scripted silence: MAX accepts the frame and never answers it. */
 const silent = () => undefined
@@ -55,12 +56,26 @@ describe("the connection", () => {
     await connection.open()
 
     const request = connection.invoke(49, {}).catch((error: Error) => error.message)
-    max.push(128, { chatId: 1, message: { id: 5 } }, 1)
+    max.push(128, { chatId: 1, message: { id: 5 } }, 0)
     await new Promise((resolve) => setTimeout(resolve, 10))
     await connection.close()
 
     expect(events).toEqual([128])
     expect(await request).toContain("closed before MAX answered")
+  })
+
+  it("fails a request with the reason when its answer cannot be read, instead of timing out", async () => {
+    const max = mockMax({ answers: { 19: silent } })
+    const connection = new Connection({ createSocket: max.createSocket, timeoutMs: 60_000 })
+    await connection.open()
+
+    const request = connection.invoke(19, { token: "t" })
+    const zstd = encodeFrame({ seq: 0, opcode: 19, cmd: 1 })
+    zstd[6] = 0xff
+    max.pushBytes(zstd)
+
+    await expect(request).rejects.toThrow(/zstd/)
+    await connection.close()
   })
 
   describe("live", () => {
@@ -89,7 +104,7 @@ describe("the connection", () => {
       expect(events).toEqual([])
     })
 
-    it("acknowledges a new message with its ids as numbers on the wire, as they came, and passes it on", async () => {
+    it("acknowledges a new message with the ids it came with, and passes it on", async () => {
       const { max, events, connection } = live()
       await connection.open()
 
@@ -111,6 +126,28 @@ describe("the connection", () => {
       max.push(130, {}, 4)
       max.push(130, {}, 4)
       max.push(130, {}, 2)
+      await settle()
+      await connection.close()
+
+      expect(events).toEqual([130])
+    })
+
+    it("keeps delivering pushes after the two-byte seq wraps, and still drops a repeat", async () => {
+      const { max, events, connection } = live()
+      await connection.open()
+
+      for (const seq of [65_534, 65_535, 0, 1, 65_535]) max.push(130, { seq }, seq)
+      await settle()
+      await connection.close()
+
+      expect(events).toEqual([130, 130, 130, 130])
+    })
+
+    it("delivers a first push whose seq is 0", async () => {
+      const { max, events, connection } = live()
+      await connection.open()
+
+      max.push(130, {}, 0)
       await settle()
       await connection.close()
 
