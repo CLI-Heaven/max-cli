@@ -1,8 +1,9 @@
 import { CliError } from "@leemour/cli-core"
 import { Command } from "commander"
 import { estimateBackup } from "../backup.js"
-import { openProfileCache } from "../cache/index.js"
+import { openProfileCache, profileCacheFile } from "../cache/index.js"
 import { BACKUP_PAGE } from "../client.js"
+import { asFirstWord } from "../profile.js"
 import { forCommand } from "./context.js"
 
 const MAX_PAGES = 40
@@ -90,7 +91,12 @@ export const backupCommand = (): Command => {
           if (!outcome.complete) {
             renderer.note(`stopped after ${outcome.pages} pages, the limit of one run — the same command continues`)
           }
-          renderer.result({ chatId, run: true, ...outcome, fetched: held - before, held })
+          // A backup fills the local copy, not a file — and nothing said so (`UX-12`).
+          const exportCommand = `max ${asFirstWord(settings.profile)}export messages ${chatId} --format md --output chat-${chatId}.md`
+          renderer.note(
+            `kept in this machine's copy, ${profileCacheFile(settings.profile)} — \`${exportCommand}\` writes it to a file`,
+          )
+          renderer.result({ chatId, run: true, ...outcome, fetched: held - before, held, export: exportCommand })
         } finally {
           await client.close()
           cache.close()
