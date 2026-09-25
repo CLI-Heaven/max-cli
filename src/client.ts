@@ -325,7 +325,11 @@ export class MaxClient {
         const upTo =
           messageId ?? (await this.#history(chatId, { from: Date.now(), backward: 1, forward: 0 })).at(-1)?.id
         if (!upTo) throw new CliError("not_found", `chat ${chatId} has no messages to mark read`)
-        const answer = await this.#wire.chats.mark({ type: "READ_MESSAGE", chatId, messageId: upTo, mark: Date.now() })
+        // The web client's mark is the read message's own time, not the moment of reading: a later
+        // one would mark newer messages read too (captured 2026-09-25, `RES-10`).
+        const mark = timeOfMessageId(upTo)
+        if (mark === undefined) throw new CliError("validation_error", `"${upTo}" is not a message id`)
+        const answer = await this.#wire.chats.mark({ type: "READ_MESSAGE", chatId, messageId: upTo, mark })
         this.#sends?.record({ chatId, kind: "read", outcome: "sent", messageId: upTo })
         return { chatId, messageId: upTo, unread: typeof answer.unread === "number" ? answer.unread : null }
       } catch (error) {
