@@ -1,9 +1,10 @@
-import { appendFileSync, mkdirSync, readFileSync } from "node:fs"
+import { appendFileSync, closeSync, mkdirSync, openSync, readFileSync, statSync, unlinkSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { resolvePaths } from "@leemour/cli-core"
 import type { Id } from "../domain/models.js"
 
-export type SendOutcome = "sent" | "outcome_unknown" | "refused" | "failed"
+/** `reserved` holds a place under the hourly limit while the write is on its way; its outcome follows. */
+export type SendOutcome = "sent" | "outcome_unknown" | "refused" | "failed" | "reserved"
 
 /** Absent in the journal means a message: that is every line written before reactions were guarded. */
 export type SendKind = "message" | "reaction" | "edit" | "forward" | "pin" | "read" | "delete" | "chat" | "account"
@@ -53,8 +54,12 @@ export interface SendEntry {
   length?: number
   /** What was attached, by kind and size — never a file name. */
   attachments?: { kind: "photo" | "file"; bytes: number }[]
-  /** When MAX will send it; the entry is written when it was queued, and the guard counted it then. */
+  /** When MAX will send it; it counts toward the limit of that hour, not of the hour it was queued. */
   scheduledFor?: string
+  /** Whether a pin told the members. */
+  notify?: boolean
+  /** Pairs an outcome with the `reserved` line it settles. */
+  reservation?: string
   errorCode?: string
 }
 
@@ -65,16 +70,66 @@ export interface SendEntry {
 export const sendsPathFor = (profile: string, env: NodeJS.ProcessEnv = process.env): string =>
   join(resolvePaths({ appName: "max-cli", prefix: "MAX", env }).state, "sends", `${profile}.jsonl`)
 
+const LOCK_WAIT_MS = 5_000
+/** Longer than any check and append takes; a lock this old was left by a process that died holding it. */
+const LOCK_STALE_MS = 30_000
+const pause = new Int32Array(new SharedArrayBuffer(4))
+
 export class SendJournal {
   constructor(readonly path: string) {}
+
+  /**
+   * Runs `body` with the journal to itself, across processes: two sends at the limit must not both
+   * read "one left". A lock file opened with `wx`, because `flock` is not there on Windows.
+   */
+  locked<T>(body: () => T): T {
+    mkdirSync(dirname(this.path), { recursive: true, mode: 0o700 })
+    const lock = `${this.path}.lock`
+    const deadline = Date.now() + LOCK_WAIT_MS
+    for (;;) {
+      try {
+        closeSync(openSync(lock, "wx", 0o600))
+        break
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error
+        if (Date.now() - lockTime(lock) > LOCK_STALE_MS) {
+          try {
+            unlinkSync(lock)
+          } catch {}
+          continue
+        }
+        if (Date.now() > deadline)
+          throw new Error(`the send journal stayed locked for ${LOCK_WAIT_MS / 1000}s (${lock})`)
+        Atomics.wait(pause, 0, 0, 20)
+      }
+    }
+    try {
+      return body()
+    } finally {
+      try {
+        unlinkSync(lock)
+      } catch {}
+    }
+  }
 
   append(entry: SendEntry): void {
     mkdirSync(dirname(this.path), { recursive: true, mode: 0o700 })
     appendFileSync(this.path, `${JSON.stringify(entry)}\n`, { mode: 0o600 })
   }
 
-  /** Oldest first. A line that does not parse is skipped: a torn last write must not block sending. */
+  /**
+   * Oldest first, each reservation folded into its outcome; one with no outcome yet is in flight,
+   * or its process died. A line that does not parse is skipped: a torn last write must not block sending.
+   */
   entries(): SendEntry[] {
+    const lines = this.#lines()
+    const settled = new Set(lines.filter((entry) => entry.outcome !== "reserved").map((entry) => entry.reservation))
+    return lines
+      .filter((entry) => entry.outcome !== "reserved" || !settled.has(entry.reservation))
+      .map(({ reservation, ...entry }) => (entry.outcome === "reserved" ? { ...entry, reservation } : entry))
+  }
+
+  #lines(): SendEntry[] {
     let text: string
     try {
       text = readFileSync(this.path, "utf8")
@@ -91,5 +146,13 @@ export class SendJournal {
           return []
         }
       })
+  }
+}
+
+const lockTime = (lock: string): number => {
+  try {
+    return statSync(lock).mtimeMs
+  } catch {
+    return Date.now()
   }
 }

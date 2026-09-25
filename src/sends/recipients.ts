@@ -6,6 +6,8 @@ import type { Id } from "../domain/models.js"
 export interface Recipient {
   id: Id
   title: string | null
+  /** The other person, for a one-to-one chat: who may be put in a group when the list is on. */
+  partnerId?: Id
   addedAt: string
 }
 
@@ -39,10 +41,16 @@ export class RecipientList {
     }
   }
 
-  /** Whether it was new. */
+  /** Whether it was new. Adding one again fills in a partner an older entry was stored without. */
   add(recipient: Recipient): boolean {
     const chats = this.read() ?? []
-    if (chats.some((chat) => chat.id === recipient.id)) return false
+    const known = chats.find((chat) => chat.id === recipient.id)
+    if (known) {
+      if (recipient.partnerId && !known.partnerId) {
+        this.#write(chats.map((chat) => (chat === known ? { ...known, partnerId: recipient.partnerId } : chat)))
+      }
+      return false
+    }
     this.#write([...chats, recipient])
     return true
   }

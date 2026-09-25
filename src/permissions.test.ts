@@ -51,21 +51,23 @@ describe("which permission an action needs", () => {
 
   it.each(cases)("%s %s needs %s, and nothing else lets it through", (kind, action, permission) => {
     expect(permissionFor(kind, action)).toBe(permission)
-    expect(() => guardFor(`p-${permission}`, [permission]).check("111", kind, action)).not.toThrow()
+    expect(() =>
+      guardFor(`p-${permission}`, [permission]).check({ chatId: "111", kind: kind, action: action }),
+    ).not.toThrow()
     const others = cases.map(([, , p]) => p).filter((p) => p !== permission)
-    expect(() => guardFor(`p-not-${permission}`, others).check("111", kind, action)).toThrow(
+    expect(() => guardFor(`p-not-${permission}`, others).check({ chatId: "111", kind: kind, action: action })).toThrow(
       `does not allow ${permission}`,
     )
   })
 
   it("lets everything through without a list, as before", () => {
     for (const [kind, action] of cases)
-      expect(() => guardFor("p-all", undefined).check("111", kind, action)).not.toThrow()
+      expect(() => guardFor("p-all", undefined).check({ chatId: "111", kind: kind, action: action })).not.toThrow()
   })
 
   it("refuses everything with an empty list, and read-only wins over any list", () => {
-    expect(() => guardFor("p-empty", []).check("111", "reaction")).toThrow("allow: nothing")
-    expect(() => guardFor("p-ro", ["send"], true).check("111", "message")).toThrow("is read-only")
+    expect(() => guardFor("p-empty", []).check({ chatId: "111", kind: "reaction" })).toThrow("allow: nothing")
+    expect(() => guardFor("p-ro", ["send"], true).check({ chatId: "111", kind: "message" })).toThrow("is read-only")
   })
 })
 
@@ -159,7 +161,7 @@ describe("a profile with an allow list", () => {
       recipients: new RecipientList(recipientsPathFor("p-def")),
       warn: () => {},
     })
-    expect(() => guard.check(null, "account", "sessions-end")).toThrow(
+    expect(() => guard.check({ chatId: null, kind: "account", action: "sessions-end" })).toThrow(
       "to allow it: max config set --defaults allow send,sessions",
     )
   })

@@ -141,15 +141,23 @@ describe("forwarding", () => {
     expect(journalOf("e-lost")).toMatchObject([{ kind: "forward", outcome: "outcome_unknown", cid: cids[0] }])
   })
 
-  it("counts against the hourly limit; an edit and a pin do not", async () => {
+  it("counts against the hourly limit, and so does an edit; a quiet pin does not", async () => {
     const { environment, sentWith } = messenger()
-    await runWith(["e-limit", "config", "set", "sendsPerHour", "1"])
+    await runWith(["e-limit", "config", "set", "sendsPerHour", "2"])
 
     expect((await runWith(["e-limit", "messages", "forward", "111", MESSAGE, "--to", "222"], environment)).code).toBe(0)
-    expect((await runWith(["e-limit", "messages", "edit", "111", MESSAGE, "new"], environment)).code).toBe(0)
     expect((await runWith(["e-limit", "messages", "pin", "111", MESSAGE], environment)).code).toBe(0)
+    expect((await runWith(["e-limit", "messages", "edit", "111", MESSAGE, "new"], environment)).code).toBe(0)
     expect((await runWith(["e-limit", "messages", "forward", "111", MESSAGE, "--to", "222"], environment)).code).toBe(8)
     expect(sentWith(Opcode.MSG_SEND)).toHaveLength(1)
+  })
+
+  it("counts a pin that notifies the members", async () => {
+    const { environment } = messenger()
+    await runWith(["e-pin-limit", "config", "set", "sendsPerHour", "1"])
+
+    expect((await runWith(["e-pin-limit", "messages", "pin", "111", MESSAGE, "--notify"], environment)).code).toBe(0)
+    expect((await runWith(["e-pin-limit", "messages", "pin", "111", MESSAGE, "--notify"], environment)).code).toBe(8)
   })
 })
 

@@ -106,10 +106,10 @@ export const chatsCommand = (): Command => {
   annotate(members.command("add"), { mutates: true })
     .argument("<chat>", "chat id, or part of a chat name")
     .argument("<person...>", "an id, or part of a name")
-    .option("--hide-history", "the people added do not see the messages from before they came")
+    .option("--history", "the people added also see the messages from before they came")
     .description("add people; they are told")
     .action(async function (this: Command, chat: string, people: string[]) {
-      const history = this.opts().hideHistory !== true
+      const history = this.opts().history === true
       await withClient(this, "chats members add", (client) => client.chats.members.add(chat, people, { history }))
     })
   annotate(members.command("remove"), { mutates: true })

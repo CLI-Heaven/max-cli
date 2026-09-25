@@ -21,6 +21,15 @@ export const objectOf = (value: unknown): Payload =>
 
 export const countOf = (value: unknown): number => (Array.isArray(value) ? value.length : 0)
 
+/** The people a request puts into a chat; one that cannot be read as an id is refused. */
+export const peopleOf = (value: unknown): string[] =>
+  (Array.isArray(value) ? value : []).map((one) => {
+    const person = asId(one)
+    if (person === undefined)
+      throw new CliError("validation_error", "a guarded request with a person that is not an id")
+    return person
+  })
+
 /** A request that could be read as two different changes is refused rather than guarded as one of them. */
 export const ambiguous = (operation: string): never => {
   throw new CliError("validation_error", `${operation}: one change per request`)

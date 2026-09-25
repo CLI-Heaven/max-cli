@@ -36,9 +36,11 @@ export const recipientsCommand = (): Command => {
         const client = createClient({ events })
         try {
           const found = await client.chats.show(chat)
+          const partnerId = found.kind === "dialog" ? await client.chats.partner(found.id) : undefined
           const added = listFor(settings.profile).add({
             id: found.id,
             title: found.title,
+            ...(partnerId ? { partnerId } : {}),
             addedAt: new Date().toISOString(),
           })
           renderer.result({ id: found.id, title: found.title, added })

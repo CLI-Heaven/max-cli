@@ -66,7 +66,10 @@ export interface Operation<
 
 /** One guarded write as the journal will record it; the outcome comes after. */
 export type Guarded = Omit<SendEntry, "at" | "profile" | "outcome" | "errorCode" | "kind"> &
-  Required<Pick<SendEntry, "kind">>
+  Required<Pick<SendEntry, "kind">> & {
+    /** Who a new group or an added member is: the recipient list is asked about each. Not journaled. */
+    personIds?: string[]
+  }
 
 /**
  * A number we know and will not send.

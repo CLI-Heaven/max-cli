@@ -6,6 +6,7 @@ import { run } from "./program.js"
 import { Connection } from "./protocol/connection.js"
 import type { Payload } from "./protocol/frame.js"
 import { SendJournal, sendsPathFor } from "./sends/journal.js"
+import { RecipientList, recipientsPathFor } from "./sends/recipients.js"
 import { SessionStore } from "./session/store.js"
 import { mockMax } from "./testing/mock-max.js"
 
@@ -148,15 +149,34 @@ describe("changing a group", () => {
     const { environment, sent } = messenger()
     await runWith(["gr-list", "recipients", "add", "-70000000000001"], environment)
 
-    expect((await runWith(["gr-list", "chats", "members", "add", "222", "20000002"], environment)).code).toBe(7)
+    expect((await runWith(["gr-list", "chats", "admins", "remove", "222", "20000002"], environment)).code).toBe(7)
     expect(sent(Opcode.CHAT_MEMBERS_UPDATE)).toEqual([])
-    expect((await runWith(["gr-list", "chats", "members", "add", "Team", "20000002"], environment)).code).toBe(0)
+    expect((await runWith(["gr-list", "chats", "admins", "remove", "Team", "20000002"], environment)).code).toBe(0)
     expect(sent(Opcode.CHAT_MEMBERS_UPDATE)).toHaveLength(1)
   })
 
-  it("adds with history unless asked not to, and removes without erasing anyone's messages", async () => {
+  it("with a recipient list, adds or invites only people whose own chat is on it", async () => {
     const { environment, sent } = messenger()
-    await runWith(["gr-members", "chats", "members", "add", "Team", "20000002", "--hide-history"], environment)
+    await runWith(["gr-people", "recipients", "add", "-70000000000001"], environment)
+
+    expect((await runWith(["gr-people", "chats", "members", "add", "Team", "20000002"], environment)).code).toBe(7)
+    expect((await runWith(["gr-people", "chats", "create", "Поход", "20000002"], environment)).code).toBe(7)
+    expect(sent(Opcode.CHAT_MEMBERS_UPDATE)).toEqual([])
+    expect(sent(Opcode.MSG_SEND)).toEqual([])
+
+    new RecipientList(recipientsPathFor("gr-people")).add({
+      id: "555",
+      title: "Боря",
+      partnerId: "20000002",
+      addedAt: new Date().toISOString(),
+    })
+    expect((await runWith(["gr-people", "chats", "members", "add", "Team", "20000002"], environment)).code).toBe(0)
+    expect(sent(Opcode.CHAT_MEMBERS_UPDATE)).toHaveLength(1)
+  })
+
+  it("adds without history unless asked, and removes without erasing anyone's messages", async () => {
+    const { environment, sent } = messenger()
+    await runWith(["gr-members", "chats", "members", "add", "Team", "20000002"], environment)
     await runWith(["gr-members", "chats", "members", "remove", "Team", "20000002"], environment)
 
     expect(sent(Opcode.CHAT_MEMBERS_UPDATE)).toMatchObject([

@@ -432,7 +432,7 @@ max chats inspect https://max.ru/join/…          # что за ссылкой;
 max chats join https://max.ru/join/…             # вступить в группу или канал
 max chats leave "Семья"                          # выйти
 max chats create "Поход" "Аня" 20000002          # создать группу с людьми (имя или id)
-max chats members add "Поход" "Боря" --hide-history
+max chats members add "Поход" "Боря"             # без старых сообщений; с ними — --history
 max chats members remove "Поход" "Боря"
 max chats admins add "Поход" "Аня" --can members,pin
 max chats admins remove "Поход" "Аня"              # снять права; участником остаётся
