@@ -37,9 +37,17 @@ describe("installing a speech model", () => {
   it("**refuses a file whose sha256 is not the pinned one**, and leaves nothing behind", async () => {
     const directory = directoryWithVad()
 
-    await expect(install(tiny, directory, { fetch: serving("tampered") })).rejects.toThrow(/not the file/)
+    await expect(install(tiny, directory, { fetch: serving("Weights") })).rejects.toThrow(/not the file/)
 
     expect(isInstalled(tiny, directory)).toBe(false)
+    expect(readdirSync(join(directory, "tiny"))).toEqual([])
+  })
+
+  it("stops reading a file that runs past its pinned size", async () => {
+    const directory = directoryWithVad()
+
+    await expect(install(tiny, directory, { fetch: serving("weights and more") })).rejects.toThrow(/larger than/)
+
     expect(readdirSync(join(directory, "tiny"))).toEqual([])
   })
 

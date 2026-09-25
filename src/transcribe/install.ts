@@ -5,6 +5,7 @@ import { join } from "node:path"
 import { Readable, Transform } from "node:stream"
 import { pipeline } from "node:stream/promises"
 import { CliError, resolvePaths } from "@leemour/cli-core"
+import { STALL_MS, type Watchdog, watchdog } from "../download.js"
 import { type ModelFile, type SpeechModel, VAD } from "./models.js"
 
 /** Beside the profile caches, so `max cache clear` — which empties a database — leaves them alone. */
@@ -37,7 +38,7 @@ const sizeOf = (path: string): number | undefined => {
 
 export const installedBytes = (model: SpeechModel): number => model.files.reduce((sum, file) => sum + file.bytes, 0)
 
-export type Fetch = (url: string) => Promise<Response>
+export type Fetch = (url: string, init?: { signal?: AbortSignal }) => Promise<Response>
 
 export const install = async (
   model: SpeechModel,
@@ -53,7 +54,21 @@ export const install = async (
 }
 
 const fetchVerified = async (file: ModelFile, path: string, get: Fetch): Promise<void> => {
-  const response = await get(file.url)
+  const stalled = watchdog(STALL_MS)
+  try {
+    await fetchInto(file, path, get, stalled)
+  } catch (error) {
+    if (stalled.signal.aborted) {
+      throw new CliError("timeout", `${file.name} stopped downloading for ${STALL_MS / 1000} s — nothing was installed`)
+    }
+    throw error
+  } finally {
+    stalled.stop()
+  }
+}
+
+const fetchInto = async (file: ModelFile, path: string, get: Fetch, stalled: Watchdog): Promise<void> => {
+  const response = await get(file.url, { signal: stalled.signal })
   if (!response.ok || !response.body) {
     await response.body?.cancel()
     throw new CliError("network_error", `${file.name} could not be downloaded: HTTP ${response.status}`)
@@ -61,8 +76,20 @@ const fetchVerified = async (file: ModelFile, path: string, get: Fetch): Promise
 
   const partial = `${path}.${process.pid}.part`
   const hash = createHash("sha256")
+  let bytes = 0
   const hashing = new Transform({
-    transform(chunk, _encoding, done) {
+    transform(chunk: Buffer, _encoding, done) {
+      stalled.poke()
+      bytes += chunk.length
+      if (bytes > file.bytes) {
+        done(
+          new CliError(
+            "invalid_response",
+            `${file.name} is larger than this version of max expects — nothing was installed`,
+          ),
+        )
+        return
+      }
       hash.update(chunk)
       done(null, chunk)
     },

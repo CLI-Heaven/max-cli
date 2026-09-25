@@ -2,7 +2,7 @@ import { CliError } from "@leemour/cli-core"
 import type { CacheStore } from "../cache/index.js"
 import type { MaxClient } from "../client.js"
 import type { AttachmentLink, Id } from "../domain/models.js"
-import { fetchBytes } from "../download.js"
+import { fetchBytes, LARGEST_VOICE } from "../download.js"
 import { installedBytes, isInstalled, megabytes, modelPath, vadPath } from "./install.js"
 import { type SpeechModel, VAD } from "./models.js"
 import { decodeOgg, openRecognizer, type Recognizer, toModelRate } from "./speech.js"
@@ -62,6 +62,12 @@ export const transcribe = async (
   if (!voice) throw new CliError("validation_error", `message ${messageId} has no voice recording to transcribe`)
   const bytes = await fetchAudio(voice)
   await release?.()
+  if (bytes.length > LARGEST_VOICE) {
+    throw new CliError(
+      "validation_error",
+      `the recording is larger than ${LARGEST_VOICE / 1024 ** 2} MiB — not decoded`,
+    )
+  }
 
   const { samples, rate } = await decodeOgg(bytes).catch((error: Error) => {
     throw new CliError("invalid_response", `the recording could not be read as Ogg Opus: ${error.message}`)

@@ -2,8 +2,10 @@ import { mkdtemp, readdir, readFile, writeFile } from "node:fs/promises"
 import { createServer, type Server } from "node:http"
 import type { AddressInfo } from "node:net"
 import { join } from "node:path"
-import { captureStreams, memoryKeyring } from "@leemour/cli-core"
+import { CliError, captureStreams, memoryKeyring } from "@leemour/cli-core"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import type { AttachmentLink } from "./domain/models.js"
+import { fetchBytes, publicOnly, type Reach } from "./download.js"
 import { Opcode } from "./generated/opcodes.generated.js"
 import { run } from "./program.js"
 import { Connection } from "./protocol/connection.js"
@@ -16,6 +18,17 @@ let origin: string
 beforeAll(async () => {
   server = createServer((request, response) => {
     if (request.url === "/missing") return response.writeHead(404).end()
+    if (request.url === "/moved") return response.writeHead(302, { location: "/elsewhere" }).end()
+    if (request.url === "/huge") return response.writeHead(200, { "content-length": String(64 * 1024 * 1024) }).end()
+    if (request.url === "/endless") {
+      response.writeHead(200)
+      const chunk = Buffer.alloc(1024 * 1024)
+      const more = () => {
+        while (response.write(chunk)) if (response.writableLength > 64 * 1024 * 1024) return
+        response.once("drain", more)
+      }
+      return more()
+    }
     response.writeHead(200, { "content-type": "application/octet-stream" }).end("file bytes")
   })
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
@@ -24,7 +37,13 @@ beforeAll(async () => {
 
 afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())))
 
-const download = async (directory: string, { name = "report.pdf", path = "/file" } = {}) => {
+/** The test's own server is on this machine, which a real download is refused. */
+const anywhere: Reach = async () => {}
+
+const download = async (
+  directory: string,
+  { name = "report.pdf", path = "/file", reach = anywhere }: { name?: string; path?: string; reach?: Reach } = {},
+) => {
   const max = mockMax({
     answers: {
       [Opcode.SESSION_INIT]: {},
@@ -48,6 +67,7 @@ const download = async (directory: string, { name = "report.pdf", path = "/file"
   const code = await run(["messages", "download", "111", "116762160362694583", "--output", directory, "--json"], {
     streams,
     tty: false,
+    reach,
     store: (profile: string) => {
       const store = new SessionStore({ profile, keyring })
       store.writeToken("a-token")
@@ -99,5 +119,73 @@ describe("max messages download", () => {
     expect(code).not.toBe(0)
     expect(stderr).toContain("HTTP 404")
     expect(await readdir(directory)).toEqual([])
+  })
+
+  it("refuses a plain http link, before asking anything", async () => {
+    const directory = await mkdtemp(join(process.env.TMPDIR ?? "/tmp", "download-"))
+    let asked = 0
+    server.once("request", () => {
+      asked += 1
+    })
+    const { code, stderr } = await download(directory, { reach: publicOnly })
+
+    expect(code).not.toBe(0)
+    expect(stderr).toContain("only https")
+    expect(asked).toBe(0)
+    expect(await readdir(directory)).toEqual([])
+  })
+
+  it("checks where a redirect goes before following it", async () => {
+    const directory = await mkdtemp(join(process.env.TMPDIR ?? "/tmp", "download-"))
+    const checked: string[] = []
+    const reach: Reach = async (url) => {
+      checked.push(url.pathname)
+      if (url.pathname === "/elsewhere") throw new CliError("validation_error", "not there")
+    }
+    const { code, stderr } = await download(directory, { path: "/moved", reach })
+
+    expect(code).not.toBe(0)
+    expect(checked).toEqual(["/moved", "/elsewhere"])
+    expect(stderr).toContain("not there")
+  })
+
+  it("strips control and direction characters from a name MAX sends", async () => {
+    const directory = await mkdtemp(join(process.env.TMPDIR ?? "/tmp", "download-"))
+    const { code } = await download(directory, { name: "invoice\u202efdp.exe\u001b[31m" })
+
+    expect(code).toBe(0)
+    expect(await readdir(directory)).toEqual(["invoicefdp.exe[31m"])
+  })
+})
+
+describe("fetchBytes, for a voice message", () => {
+  const voice = (path: string): AttachmentLink => ({ kind: "audio", url: `${origin}${path}` })
+
+  it("refuses a body its length says is too large, without reading it", async () => {
+    await expect(fetchBytes(voice("/huge"), anywhere)).rejects.toMatchObject({ code: "validation_error" })
+  })
+
+  it("stops reading a body that runs past the limit without saying its length", async () => {
+    await expect(fetchBytes(voice("/endless"), anywhere)).rejects.toThrow(/larger than 32 MiB/)
+  })
+})
+
+describe("publicOnly", () => {
+  it.each([
+    "https://127.0.0.1/",
+    "https://[::1]/",
+    "https://169.254.169.254/latest",
+    "https://10.1.2.3/",
+    "https://[::ffff:127.0.0.1]/",
+  ])("refuses %s", async (url) => {
+    await expect(publicOnly(new URL(url))).rejects.toThrow(/points into this machine/)
+  })
+
+  it.each(["http://93.184.215.14/", "file:///etc/passwd"])("refuses %s: only https", async (url) => {
+    await expect(publicOnly(new URL(url))).rejects.toThrow(/only https/)
+  })
+
+  it("lets a public address through", async () => {
+    await expect(publicOnly(new URL("https://93.184.215.14/"))).resolves.toBeUndefined()
   })
 })

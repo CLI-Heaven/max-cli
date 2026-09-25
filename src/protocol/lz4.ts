@@ -54,7 +54,7 @@ export const compressBlock = (src: Uint8Array): Uint8Array => {
 
 /** `maxOutput` bounds a hostile or corrupt block; the frame header gives the caller one. */
 export const decompressBlock = (src: Uint8Array, maxOutput: number): Uint8Array => {
-  const out = new Growable(Math.min(maxOutput, src.length * 4))
+  const out = new Growable(Math.min(maxOutput, src.length * 4), maxOutput)
   let p = 0
 
   while (p < src.length) {
@@ -63,9 +63,9 @@ export const decompressBlock = (src: Uint8Array, maxOutput: number): Uint8Array 
     let literals = token >> 4
     if (literals === 15) literals += readLength(src, () => p++)
     if (p + literals > src.length) throw new Lz4Error("runs past its own end")
+    if (out.length + literals > maxOutput) throw new Lz4Error("is larger than its frame allows")
     out.append(src.subarray(p, p + literals))
     p += literals
-    if (out.length > maxOutput) throw new Lz4Error("is larger than its frame allows")
 
     if (p >= src.length) break
 
@@ -128,9 +128,12 @@ const writeSequence = (out: Growable, literals: Uint8Array, offset: number, matc
 
 class Growable {
   #buffer: Uint8Array
+  readonly #limit: number
   length = 0
 
-  constructor(capacity: number) {
+  /** `limit` keeps doubling from allocating past what the caller will accept. */
+  constructor(capacity: number, limit = Number.POSITIVE_INFINITY) {
+    this.#limit = limit
     this.#buffer = new Uint8Array(Math.max(capacity, 16))
   }
 
@@ -159,7 +162,7 @@ class Growable {
 
   #reserve(extra: number): void {
     if (this.length + extra <= this.#buffer.length) return
-    const next = new Uint8Array(Math.max(this.#buffer.length * 2, this.length + extra))
+    const next = new Uint8Array(Math.max(Math.min(this.#buffer.length * 2, this.#limit), this.length + extra))
     next.set(this.#buffer.subarray(0, this.length))
     this.#buffer = next
   }
