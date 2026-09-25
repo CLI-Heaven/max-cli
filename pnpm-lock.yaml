@@ -12,8 +12,8 @@ importers:
         specifier: 0.0.22
         version: 0.0.22(cac@6.7.14)(commander@15.0.0)
       '@leemour/cli-core':
-        specifier: ^0.6.0
-        version: 0.6.0(commander@15.0.0)(typescript@7.0.2)
+        specifier: ^0.6.1
+        version: 0.6.1(commander@15.0.0)(typescript@7.0.2)
       '@modelcontextprotocol/server':
         specifier: ~2.1.0
         version: 2.1.0
@@ -320,8 +320,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@leemour/cli-core@0.6.0':
-    resolution: {integrity: sha512-wDOg72lRqVZaABu7R0NhWwS/gFxwh2B9AI6SMfud5Q1CApAF6Rk2G2koXEsniZU/UB1ctVz7sk/6PyazoydZQw==}
+  '@leemour/cli-core@0.6.1':
+    resolution: {integrity: sha512-9qogVF2s5ZVOpQlOqOH3/hjY109QEgbgbujn9/R5O3u+A1vRfMhxYZeZIbioPh66HS17fP97p6PZgJyPTKg+gA==}
     engines: {node: '>=22'}
     peerDependencies:
       commander: '>=15'
@@ -1298,7 +1298,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  '@leemour/cli-core@0.6.0(commander@15.0.0)(typescript@7.0.2)':
+  '@leemour/cli-core@0.6.1(commander@15.0.0)(typescript@7.0.2)':
     dependencies:
       cli-table3: 0.6.5
       env-paths: 4.0.0
