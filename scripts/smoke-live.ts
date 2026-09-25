@@ -106,7 +106,7 @@ try {
 
   const folder = await step("create a folder", () => client.folders.create(`smoke ${stamp.slice(11, 19)}`))
   if (folder) {
-    await step("rename the folder", () => client.folders.update(folder.id, { title: "max-cli smoke renamed" }))
+    await step("rename the folder", () => client.folders.update(folder.id, { title: "max-cli smoke 2" }))
     await step("delete the folder", () => client.folders.delete(folder.id))
   }
 
