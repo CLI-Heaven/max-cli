@@ -78,6 +78,20 @@ describe("the connection", () => {
     await connection.close()
   })
 
+  it("does not fail a request over an unreadable push that happens to share its seq", async () => {
+    const max = mockMax({ answers: { 49: silent } })
+    const connection = new Connection({ createSocket: max.createSocket, timeoutMs: 40 })
+    await connection.open()
+
+    const request = connection.invoke(49, {})
+    const push = encodeFrame({ seq: 0, opcode: 128, cmd: 2 })
+    push[6] = 0xff
+    max.pushBytes(push)
+
+    await expect(request).rejects.toThrow(/within 40ms/)
+    await connection.close()
+  })
+
   describe("live", () => {
     const live = (onClose?: (error: Error) => void) => {
       const max = mockMax({ answers: {} })

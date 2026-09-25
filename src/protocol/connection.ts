@@ -219,7 +219,8 @@ export class Connection {
       // A body we cannot read still has a header naming the request it answers. Failing that
       // request with the reason beats letting it wait out its timeout as "MAX did not answer".
       const header = safeHeader(raw)
-      const waiting = header && header.cmd !== Command.REQUEST ? this.#pending.get(header.seq) : undefined
+      const answers = header && (header.cmd === Command.RESPONSE || header.cmd === Command.ERROR)
+      const waiting = answers ? this.#pending.get(header.seq) : undefined
       if (!header || !waiting) return
       clearTimeout(waiting.timer)
       this.#pending.delete(header.seq)
