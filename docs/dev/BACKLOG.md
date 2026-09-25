@@ -164,12 +164,6 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   logging in again. Nothing retries a login today, but a scheduled `max inbox --new` logs in on
   every run, and in PyMax a login retried after the limit error kept the account locked out
   ([#106](https://github.com/MaxApiTeam/PyMax/issues/106), open since 2026-09-14). Research: G1 §3.11.
-- **MAX-39** · 🚧 `max-39-stale-version` · P2 · Notice when the client version we present goes stale. `appVersion` is
-  `26.9.8`, read from the web client on 2026-09-25 (`src/spec/identity.ts`); PyMax broke when MAX
-  began refusing an old one ([#86](https://github.com/MaxApiTeam/PyMax/issues/86)). The recorder
-  (`scripts/capture/web-recorder.js`) now reads the current one from a tab; `max doctor` could say
-  when ours is behind. The Chrome version in `headerUserAgent` ages the same way (`MAX-55`).
-  Correction 2026-09-25: this line said `26.5.5`, which `MAX-40` replaced.
 - **CORE-10** · P3 · Plugins from npm, **only from an allow-list** kept in the CLI itself — package
   names with pinned versions and integrity hashes — never an arbitrary package: a plugin runs inside
   a program holding the token of a personal account. oclif's `plugin-plugins` is the model.

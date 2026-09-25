@@ -15,6 +15,13 @@
  */
 
 const CHROME = "Chrome/151.0.0.0"
+const APP_VERSION = "26.9.8"
+
+/**
+ * When `APP_VERSION` and `CHROME` were read from a live tab. MAX refuses a client version it has
+ * dropped (PyMax #86), so `max doctor` reports their age (`MAX-39`); a release updates all three.
+ */
+export const CLIENT = { appVersion: APP_VERSION, chrome: CHROME, readOn: "2026-09-25" } as const
 
 /** Chrome's reduced user agent keeps one frozen OS string per platform. */
 const PLATFORMS = {
@@ -49,7 +56,7 @@ export const webUserAgent = ({ platform, timeZone, locale }: Host) => {
     deviceName: "Chrome",
     headerUserAgent: `Mozilla/5.0 (${host.system}) AppleWebKit/537.36 (KHTML, like Gecko) ${CHROME} Safari/537.36`,
     isPwa: false,
-    appVersion: "26.9.8",
+    appVersion: APP_VERSION,
     screen: host.screen,
     timezone: timeZone || "Europe/Moscow",
   } as const
