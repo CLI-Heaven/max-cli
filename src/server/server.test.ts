@@ -490,6 +490,9 @@ describe("a command through max serve", () => {
 
   it("sends through the server too: one connection to MAX for everything", async () => {
     const { store, max } = await serve("c-send")
+    // The reads after login first: sharing the 200 ms budget with them, the send timed out on CI and
+    // was retried with its cid — two MSG_SEND for one message.
+    await settle()
     const { client, opened } = commandClient(store)
 
     const sent = await client.messages.send("111", "sent")
