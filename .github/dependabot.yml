@@ -1,0 +1,7 @@
+version: 2
+updates:
+  # Actions are pinned by commit; this is what moves the pins forward.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
