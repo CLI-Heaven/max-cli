@@ -137,7 +137,7 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
 
 ## Foundation and risks
 
-- **CLI-39** · P2 · `max doctor report` explains, in Russian, what a problem report holds;
+- **CLI-39** · 🚧 `cli-39-doctor-report` · P2 · `max doctor report` explains, in Russian, what a problem report holds;
   `max doctor report create` writes it, prints its path, a `mailto:` link to `reports@neirox.ai` and
   what to do (`NEED-267`). Plan: `docs_ai/plans/2026-09-25-logging-and-report.md`.
 - **CORE-10** · P3 · Plugins from npm, **only from an allow-list** kept in the CLI itself — package
