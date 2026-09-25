@@ -56,9 +56,9 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
   Plan: `docs_ai/plans/2026-09-24-history-backup.md`.
 - **CLI-33** · 🟡 P2 · Mark a chat read on request. Done: `max chats read <chat> [--until <id>]`,
   `messages list --mark-read`, MCP `max_chats_read` behind `--allow-mark-read`; kind `read` in the
-  send guard (`src/client.ts`, `chats.markRead`). Left: measure `CHAT_MARK` (50) — the request is
-  PyMax's shape (`READ_MESSAGE`, `mark` in ms), never sent to the real MAX; the owner was logged
-  out on 2026-09-24 (`NEED-226`). Plan: `docs_ai/plans/2026-09-24-cli-33-mark-read.md`.
+  send guard (`src/client.ts`, `chats.markRead`). Left: what the web client sends — `RES-10`.
+  Correction 2026-09-25: `CHAT_MARK` (50) is measured — PyMax's shape was accepted in Saved
+  messages by `pnpm smoke:live` (`MAX-56`). Plan: `docs_ai/plans/2026-09-24-cli-33-mark-read.md`.
 **From the PyMax comparison (2026-09-24, `NEED-175`).** Each is what PyMax's source declares
 (`MaxApiTeam/PyMax`, `src/pymax/api/`, commit `53103f0`) — a claim until measured. Every writing
 operation is measured first in Saved messages (chat 0), as replies and reactions were (`NEED-150`),
@@ -75,12 +75,14 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   with `wave` as 80 raw bytes in a binary MessagePack frame, and none of six JSON forms was accepted
   (`FIND-104`). Unblocked: frames are binary since `MAX-40`, and a `Uint8Array` in a payload goes out
   as MessagePack bin.
-- **MAX-28** · ⏸️ P1 · Polls: show them when reading, and vote (`vote_poll`, `SEND_VOTE` 304
-  `{chatId, messageId, pollId, answersIds}`). Creating one is a `_type: "POLL"` attachment on
-  `MSG_SEND` 64 (PyMax 2.4.1, code; no user report).
-  ⏸️ Deferred by the owner 2026-09-25: web.max.ru does not show polls yet («Обновите MAX…»),
-  creating one over JSON is refused with `proto.payload`; PR #108 closed, branch
-  `feat/max-28-polls` kept.
+- **MAX-28** · P2 · Polls: show them when reading, vote (`SEND_VOTE` 304
+  `{chatId, messageId, pollId, answersIds}`), create one (a `_type: "POLL"` attachment on `MSG_SEND`
+  64, `settings` 2 multiple | 4 revote). **Creating one works over the binary protocol** — accepted
+  and deleted in Saved messages by `pnpm smoke:live`, 2026-09-25; over JSON it was refused with
+  `proto.payload`, most likely the float64 of `FIND-163`. Reopened by the owner 2026-09-25 (`NEED-261`)
+  after the ⏸️ of the same morning. web.max.ru still does not display polls («Обновите MAX…»), so
+  say in the output that recipients on the web will not see it. Branch `feat/max-28-polls` is on
+  the old JSON protocol: start again from `main`, take its parser and command.
 - **MAX-48** · P3 · Send a round video note ("кружок"): opcode 82 `{type: 1, uploaderType: 1}`,
   `thumbhash` from the upload answer, `_type: "VIDEO"` with `videoType: 1`. MAX refuses a file that
   is not 480×480, `yuv420p`, limited range, bt709, baseline, AAC 48 kHz mono (PyMax #94). `thumbhash`
@@ -187,8 +189,6 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   single-file build (G4 §3.9: Bun only). Lowest priority.
 - **CORE-5** · ⏸️ P3 · Move `braze-cli` onto `@leemour/cli-core` instead of its own copy. Deferred by
   the owner.
-- **RISK-2** · P3 · A login per command may exhaust the session. One source claims a reset after
-  30–50 logins; 65 on the real account broke nothing (2026-09-21). `max doctor` shows the count.
 
 ## Later — each reopens a ruling
 
