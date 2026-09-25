@@ -64,19 +64,22 @@ export const chatsMark = defineOperation({
     type: v.literal("READ_MESSAGE"),
     chatId: id(),
     messageId: id(),
-    /** When it was read, in milliseconds. */
+    /**
+     * The read message's own time, in milliseconds — **not** when it was read. Correction
+     * 2026-09-25: this said "when it was read", and the client sent `Date.now()`, which marks every
+     * newer message read too.
+     */
     mark: v.number(),
   }),
   response: v.looseObject({ unread: v.optional(v.number()), mark: v.optional(v.number()) }),
   provenance: {
-    confidence: "observed",
+    confidence: "measured",
     sources: [
-      "PyMax `api/messages/service.py` read_message, `payloads.py` ReadMessagesPayload, `types/domain/message.py` ReadState (53103f0)",
-      "tsmax",
-      "max-api-docs/protocol/chats.md",
+      "web.max.ru frame captured 2026-09-25 opening an unread channel: type, chatId, messageId, mark (`RES-10`); its code sets mark to the message's time",
+      "measured against MAX 2026-09-25 in Saved messages (`pnpm smoke:live`, `MAX-56`)",
+      "PyMax `api/messages/service.py` read_message (53103f0)",
     ],
-    notes:
-      "Not measured: the shape is PyMax's. PyMax also sends `type: READ_REACTION`, which is not used here (`CLI-33`).",
+    notes: "The web client also sends `READ_REACTION` and `SET_AS_UNREAD` on this opcode; neither is used here.",
   },
 })
 

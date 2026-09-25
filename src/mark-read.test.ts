@@ -1,5 +1,6 @@
 import { captureStreams, memoryKeyring } from "@leemour/cli-core"
 import { describe, expect, it } from "vitest"
+import { timeOfMessageId } from "./client.js"
 import type { Environment } from "./commands/context.js"
 import { Opcode } from "./generated/opcodes.generated.js"
 import { run } from "./program.js"
@@ -84,6 +85,15 @@ describe("marking a chat read", () => {
     expect(JSON.parse(newest.stdout)).toEqual({ chatId: "111", messageId: NEWER, unread: 0 })
     expect(given.code).toBe(0)
     expect(marks().map(({ messageId }) => messageId)).toEqual([NEWER, OLDER])
+  })
+
+  it("marks with the read message's own time, as the web client does, so nothing newer is marked", async () => {
+    const { max, environment } = messenger()
+    await runWith(["r-time", "chats", "read", "111", "--until", OLDER], environment)
+    await runWith(["r-time", "chats", "read", "111"], environment)
+
+    const marks = max.sent.filter(({ opcode }) => opcode === Opcode.CHAT_MARK).map(({ payload }) => payload.mark)
+    expect(marks).toEqual([timeOfMessageId(OLDER), timeOfMessageId(NEWER)])
   })
 
   it("a read-only profile refuses before connecting, and prints no messages", async () => {
