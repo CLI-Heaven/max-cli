@@ -258,6 +258,24 @@ describe("MaxClient", () => {
     expect(max.sent.find((call) => call.opcode === Opcode.CHAT_HISTORY)?.payload.interactive).toBe(false)
   })
 
+  it("sends no telemetry from a one-shot command, as a hidden tab closed within 20 s sends none", async () => {
+    const max = mockMax({
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: loginAnswer,
+        [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
+        [Opcode.CHAT_HISTORY]: historyAnswer,
+      },
+    })
+    const { client } = clientWith(max)
+
+    await client.connect()
+    await client.messages.list("111", { limit: 5 })
+    await client.close()
+
+    expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.LOG)
+  })
+
   describe("reactions", () => {
     const reading = (reactions: Record<number, unknown> = {}) =>
       mockMax({

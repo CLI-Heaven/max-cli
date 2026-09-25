@@ -1283,6 +1283,28 @@ export class MaxClient {
     },
 
     /**
+     * What a hidden web tab reports once, 20 s after it opened: the chat list, shown at `at`.
+     * `sessionId` is when the tab's connection began, and it survives the tab's reconnects.
+     */
+    chatListShown: async ({ at, sessionId }: { at: number; sessionId: number }): Promise<void> => {
+      const viewerId = this.#store.readState().viewerId
+      if (!viewerId) return
+      await this.#connectOnce()
+      await this.#wire.session.log({
+        events: [
+          {
+            type: "NAV",
+            userId: viewerId,
+            time: at,
+            sessionId,
+            event: "GO",
+            params: { action_id: 1, screen_to: 150, prev_time: 0, source_id: viewerId },
+          },
+        ],
+      })
+    },
+
+    /**
      * The login this connection holds, kept current from what MAX pushes — `max serve` hands it to
      * a command as that command's own login.
      */

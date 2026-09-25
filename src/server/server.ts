@@ -25,6 +25,7 @@ export interface MaxServerOptions {
   /** Tests hand in a scripted MAX; the hooks must reach it. */
   connection?: (hooks: Pick<ConnectionOptions, "onEvent" | "onClose">) => Connection
   pingEveryMs?: number
+  telemetryAfterMs?: number
   /** The least time between two background logins after the snapshot went stale. */
   refreshEveryMs?: number
   retryAfterMs?: (attempt: number) => number
@@ -44,6 +45,15 @@ export interface MaxServerOptions {
 
 /** The web client's keep-alive interval (web.max.ru bundle, 2026-09-24). A different one is a fingerprint. */
 const PING_EVERY_MS = 30_000
+
+/**
+ * A hidden web tab sends its one telemetry event this long after it opened, and nothing after
+ * (frames captured 2026-09-25, `docs/dev/capture/2026-09-25-web-tab.md`).
+ */
+const TELEMETRY_AFTER_MS = 20_000
+
+/** How long after its login answer the tab's chat list appeared in the same capture. */
+const CHAT_LIST_SHOWN_AFTER_MS = 500
 
 /** A message arrived — what MAX pushes, and what a send through this server is handed on as. */
 const NEW_MESSAGE = 128
@@ -86,6 +96,7 @@ export class MaxServer {
   #lastUse = Date.now()
   readonly #startedAt = new Date().toISOString()
   #idle: ReturnType<typeof setInterval> | undefined
+  #telemetry: ReturnType<typeof setTimeout> | undefined
   #finish: ((error?: Error) => void) | undefined
   /** Settles when the server stops — cleanly, or with the error that stopped it. */
   readonly done: Promise<void>
@@ -108,6 +119,7 @@ export class MaxServer {
   async start(): Promise<void> {
     // The socket first: whoever binds it is the profile's one server, and a second one learns it
     // before it has logged in — not after, with a login MAX has already counted.
+    const sessionId = Date.now()
     try {
       await this.#listen()
       await this.#connect()
@@ -117,6 +129,7 @@ export class MaxServer {
     } finally {
       rmSync(startingPath(this.#options.store), { force: true })
     }
+    this.#reportChatList(sessionId, Date.now() + CHAT_LIST_SHOWN_AFTER_MS)
     const { idleMs } = this.#options
     if (idleMs !== undefined) {
       this.#idle = setInterval(
@@ -140,6 +153,7 @@ export class MaxServer {
     clearTimeout(this.#retry)
     clearTimeout(this.#refresh)
     clearInterval(this.#idle)
+    clearTimeout(this.#telemetry)
     for (const socket of this.#open) socket.destroy()
     this.#subscribers.clear()
     // Only the server that bound the socket removes it: one refused as "already running" would
@@ -203,6 +217,16 @@ export class MaxServer {
     if (replaced) await replaced.close().catch(() => {})
     else this.#broadcast({ event: "status", connected: true, at: new Date().toISOString() })
     for (const [opcode, payload] of early) this.#pushed(client, opcode, payload)
+  }
+
+  /** Once per server, never again after a reconnect: the tab it copies keeps its session too. */
+  #reportChatList(sessionId: number, at: number): void {
+    const wait = Math.max(0, sessionId + (this.#options.telemetryAfterMs ?? TELEMETRY_AFTER_MS) - Date.now())
+    this.#telemetry = setTimeout(() => {
+      this.#client?.live
+        .chatListShown({ at, sessionId })
+        .catch((error: Error) => this.#options.note(`telemetry was not sent: ${error.message}`))
+    }, wait)
   }
 
   #pushed(client: MaxClient, opcode: number, payload: Record<string, unknown>): void {

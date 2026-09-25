@@ -6,9 +6,12 @@ else.
 
 `docs_ai/` is the working trail — handoff, plans, session journal, cleanup list, and the owner's
 brief (`REQUIREMENTS.md`), rulings (`DECISIONS.md`), closed items (`BACKLOG_DONE.md`) and release
-steps (`releasing.md`) — and it is **not in git**. A fresh clone does not have it. When it is
-absent, start from [`docs/dev/BACKLOG.md`](docs/dev/BACKLOG.md) and
-[`docs/dev/ARCHITECTURE.md`](docs/dev/ARCHITECTURE.md) instead, and create `docs_ai/` as you go.
+steps (`releasing.md`), plus captures of the real web client (`captures/`) — and it is **not in
+this repository**. **Correction 2026-09-25:** it is its own private repository,
+`leemour/max-cli-private`; clone it into `docs_ai/` (`secrets/` inside it is ignored and never
+pushed). A fresh clone of this repository does not have it. When it is absent, start from
+[`docs/dev/BACKLOG.md`](docs/dev/BACKLOG.md) and [`docs/dev/ARCHITECTURE.md`](docs/dev/ARCHITECTURE.md)
+instead. Commit and push `docs_ai/` like any other repository — it is the only copy of the rulings.
 
 Then the one reference that covers what you are about to touch —
 [`docs/dev/CONVENTIONS.md`](docs/dev/CONVENTIONS.md) for how code and documents are written here, and

@@ -19,7 +19,7 @@ import { subscribe } from "./subscribe.js"
 
 const ME = 10000001
 
-const scripted = () =>
+const scripted = (overrides: Parameters<typeof mockMax>[0]["answers"] = {}) =>
   mockMax({
     answers: {
       [Opcode.SESSION_INIT]: {},
@@ -29,12 +29,14 @@ const scripted = () =>
         contacts: [{ id: 10000002, names: [{ name: "Someone Else", type: "FULL_NAME" }] }],
       },
       [Opcode.PING]: {},
+      [Opcode.LOG]: {},
       [Opcode.CHAT_HISTORY]: {
         messages: [{ id: 116762160362694583n, time: 1789776000000, sender: 10000002, text: "hi", attaches: [] }],
       },
       [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
       [Opcode.MSG_SEND]: { message: { id: 116762160362694599n, time: 1789776001000, sender: ME, text: "sent" } },
       [Opcode.MSG_DELETE]: {},
+      ...overrides,
     },
   })
 
@@ -46,7 +48,13 @@ afterEach(async () => {
 const serve = async (
   profile: string,
   max = scripted(),
-  extra: { pingEveryMs?: number; refreshEveryMs?: number; idleMs?: number; startedByCommand?: boolean } = {},
+  extra: {
+    pingEveryMs?: number
+    telemetryAfterMs?: number
+    refreshEveryMs?: number
+    idleMs?: number
+    startedByCommand?: boolean
+  } = {},
 ) => {
   const store = new SessionStore({ profile, keyring: memoryKeyring() })
   store.writeToken("a-token")
@@ -114,6 +122,53 @@ describe("max serve", () => {
 
     expect(max.sent.filter((call) => call.opcode === Opcode.PING).length).toBeGreaterThanOrEqual(2)
     expect(max.sent.find((call) => call.opcode === Opcode.PING)?.payload).toEqual({ interactive: false })
+  })
+
+  it("reports the chat list once, as a hidden web tab does, and not again after a reconnect", async () => {
+    const started = Date.now()
+    const { max } = await serve("s-telemetry", scripted(), { telemetryAfterMs: 20 })
+    await settle(80)
+    max.drop()
+    await settle(80)
+
+    const logs = max.sent.filter((call) => call.opcode === Opcode.LOG)
+    expect(max.sent.filter((call) => call.opcode === Opcode.LOGIN)).toHaveLength(2)
+    expect(logs).toHaveLength(1)
+    const [event] = (logs[0]?.payload.events ?? []) as Record<string, unknown>[]
+    expect(event).toMatchObject({
+      type: "NAV",
+      userId: ME,
+      event: "GO",
+      params: { action_id: 1, screen_to: 150, prev_time: 0, source_id: ME },
+    })
+    expect(event?.sessionId).toBeGreaterThanOrEqual(started)
+    expect(event?.time).toBeGreaterThan(event?.sessionId as number)
+
+    // The captured frame: 144 bytes unpacked for an 8-digit user id, ids wrapped, times plain.
+    const frame = max.wire[max.sent.findIndex((call) => call.opcode === Opcode.LOG)] as Uint8Array
+    const { flags, length } = decodeHeader(frame)
+    const body = frame.subarray(HEADER_BYTES, HEADER_BYTES + length)
+    const unpacked = flags ? decompressBlock(body, flags * length) : body
+    const raw = decode(unpacked, { useBigInt64: true }) as { events: Record<string, unknown>[] }
+    expect(unpacked.length).toBe(144)
+    expect(raw.events[0]?.userId).toBeInstanceOf(ExtData)
+    expect(typeof raw.events[0]?.time).toBe("bigint")
+  })
+
+  it("keeps running when MAX does not answer the telemetry", async () => {
+    const silent = scripted({ [Opcode.LOG]: () => undefined })
+    const { server, notes } = await serve("s-telemetry-silent", silent, { telemetryAfterMs: 0 })
+    await settle(300)
+
+    expect(notes.some((line) => line.startsWith("telemetry was not sent"))).toBe(true)
+    expect(server.connected).toBe(true)
+  })
+
+  it("does not report the chat list before its time", async () => {
+    const { max } = await serve("s-telemetry-wait", scripted(), { telemetryAfterMs: 60_000 })
+    await settle(50)
+
+    expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.LOG)
   })
 
   it("logs in again when MAX drops it, and tells the watchers both ways", async () => {

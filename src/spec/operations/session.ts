@@ -1,5 +1,6 @@
 import * as v from "valibot"
 import { defineOperation, reserveOpcode } from "../define.js"
+import { id } from "../scalars.js"
 
 /**
  * What we claim to be, as a shape rather than a constant.
@@ -36,6 +37,46 @@ export const sessionPing = defineOperation({
     confidence: "confirmed",
     sources: ["web.max.ru bundle read 2026-09-24: `cmd(1, {interactive})` every 30 s", "PyMax Opcode.PING = 1"],
     notes: "MAX pings too; `Connection` answers those itself when it is live.",
+  },
+})
+
+/**
+ * **Telemetry, and only the one event a hidden web tab sends** (`MAX-8`): the chat list shown,
+ * 20 s after the tab opened. A one-shot command never sends it — a hidden tab closed that soon
+ * sends nothing either. Why exactly this and nothing more: `docs/dev/capture/requirements.md`.
+ *
+ * The request is strict and literal on purpose: anything beyond this one event claims a person in
+ * front of a visible tab, which is a different decision.
+ */
+export const sessionLog = defineOperation({
+  name: "session.log",
+  constant: "LOG",
+  opcode: 5,
+  auth: true,
+  request: v.strictObject({
+    events: v.array(
+      v.strictObject({
+        type: v.literal("NAV"),
+        userId: id(),
+        time: v.number(),
+        sessionId: v.number(),
+        event: v.literal("GO"),
+        params: v.strictObject({
+          action_id: v.literal(1),
+          screen_to: v.literal(150),
+          prev_time: v.literal(0),
+          source_id: id(),
+        }),
+      }),
+    ),
+  }),
+  response: v.looseObject({}),
+  provenance: {
+    confidence: "observed",
+    sources: [
+      "web.max.ru frames captured 2026-09-25 (docs/dev/capture/2026-09-25-web-tab.md): a hidden tab's only event, answered with an empty body",
+      "ids wrapped in extension 1 and times plain: inferred from the frame's unpacked size, 144 bytes, which only that encoding gives",
+    ],
   },
 })
 

@@ -7,6 +7,7 @@
  */
 export const Opcode = {
   PING: 1,
+  LOG: 5,
   SESSION_INIT: 6,
   PROFILE: 16,
   AUTH_REQUEST: 17,
