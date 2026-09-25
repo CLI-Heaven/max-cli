@@ -2,7 +2,7 @@ import { resolve } from "node:path"
 import { writeSecurely } from "@leemour/cli-core"
 import { Command } from "commander"
 import { diagnose } from "../diagnose.js"
-import { buildReport, mailtoFor, REPORT_ADDRESS, reportFileName } from "../report.js"
+import { buildReport, issueUrlFor, REPORT_URL, reportFileName } from "../report.js"
 import { runsDirFor } from "../runs/run.js"
 import { SendJournal, sendsPathFor } from "../sends/journal.js"
 import type { SessionStore } from "../session/store.js"
@@ -101,9 +101,9 @@ const INCLUDES = [
 const EXCLUDES = ["текстов сообщений", "названий чатов", "имён", "номеров телефонов", "токена"]
 
 /**
- * **A report is sent by the person, not by `max`**: there is no server of ours, and a mail password
- * inside a public package is anybody's (`NEED-267`). So `create` writes a file and prints a
- * `mailto:` link and the steps; the person's own mail program does the sending.
+ * **A report is posted by the person, not by `max`**: there is no server of ours, and `max` holds
+ * no GitHub credentials. So `create` writes a file and prints a pre-filled new-issue link and the
+ * steps (`NEED-267`).
  */
 const reportCommand = (): Command => {
   const report = new Command("report").description("what a problem report holds and where it goes; writes nothing")
@@ -112,7 +112,7 @@ const reportCommand = (): Command => {
     const { renderer, format, streams } = forCommand(this)
     if (format !== "pretty") {
       renderer.result({
-        sendTo: REPORT_ADDRESS,
+        sendTo: REPORT_URL,
         includes: INCLUDES,
         excludes: EXCLUDES,
         create: "max doctor report create",
@@ -121,13 +121,14 @@ const reportCommand = (): Command => {
     }
     streams.data(
       [
-        `Отчёт о проблеме — один файл для автора max. Он отправляется письмом на ${REPORT_ADDRESS}.`,
+        "Отчёт о проблеме — один файл для автора max. Он прикладывается к новой задаче на GitHub.",
         "",
         "В файле:",
         ...INCLUDES.map((line, index) => `- ${line}${index === INCLUDES.length - 1 ? "." : ";"}`),
         "",
         `В файле нет: ${EXCLUDES.join(", ")}.`,
         "Номера чатов и сообщений в нём есть: без вашего входа в MAX они ничего не дают, но это ваши чаты.",
+        "Задачи на GitHub видны всем — и приложенный файл тоже.",
         "",
         "Создать отчёт:             max doctor report create",
         "Про определённый запуск:   max doctor report create --run <id>   (номера — max runs list)",
@@ -157,19 +158,19 @@ const reportCommand = (): Command => {
         const path = resolve(options.output ?? reportFileName(now))
         writeSecurely(path, `${JSON.stringify(built, null, 2)}\n`, 0o600)
 
-        const mailto = mailtoFor(built, path)
+        const issue = issueUrlFor(built, path)
         const steps = [
-          `Откройте ссылку: почтовая программа откроет письмо на ${REPORT_ADDRESS} с темой и заготовкой текста. Если ничего не открылось — напишите на этот адрес сами.`,
-          `Приложите к письму файл ${path}.`,
+          `Откройте ссылку: GitHub откроет новую задачу с заголовком и заготовкой текста. Нужен аккаунт на GitHub.`,
+          `Перетащите в поле текста файл ${path} — GitHub приложит его.`,
           "Напишите, что делали, что ожидали и что случилось.",
-          "Отправьте.",
+          "Нажмите «Submit new issue». Задача будет видна всем.",
         ]
         const noRun = built.run
           ? undefined
           : "Неудачных запусков не записано. Если проблема повторяется, повторите команду, которая не работает, и создайте отчёт снова: неудачный запуск сохранится сам."
 
         if (format !== "pretty") {
-          renderer.result({ path, sendTo: REPORT_ADDRESS, mailto, run: built.run?.metadata.runId ?? null, steps })
+          renderer.result({ path, sendTo: REPORT_URL, issue, run: built.run?.metadata.runId ?? null, steps })
           if (noRun) renderer.note(noRun)
           return
         }
@@ -180,7 +181,7 @@ const reportCommand = (): Command => {
             "",
             "Что сделать:",
             `1. ${steps[0]}`,
-            `   ${mailto}`,
+            `   ${issue}`,
             ...steps.slice(1).map((step, index) => `${index + 2}. ${step}`),
             "",
             "Перед отправкой файл можно открыть и посмотреть: текстов сообщений в нём нет.",

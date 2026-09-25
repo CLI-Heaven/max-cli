@@ -4,7 +4,7 @@ import { captureStreams, memoryKeyring } from "@leemour/cli-core"
 import { describe, expect, it } from "vitest"
 import type { Environment } from "./commands/context.js"
 import { run } from "./program.js"
-import { mailtoFor, type Report } from "./report.js"
+import { issueUrlFor, type Report } from "./report.js"
 import { SessionStore } from "./session/store.js"
 
 const environment: Environment = { store: (profile) => new SessionStore({ profile, keyring: memoryKeyring() }) }
@@ -22,7 +22,10 @@ describe("max doctor report", () => {
     const { code, stdout } = await runWith(["doctor", "report", "--json"])
 
     expect(code).toBe(0)
-    expect(JSON.parse(stdout)).toMatchObject({ sendTo: "reports@neirox.ai", create: "max doctor report create" })
+    expect(JSON.parse(stdout)).toMatchObject({
+      sendTo: "https://github.com/leemour/max-cli/issues/new",
+      create: "max doctor report create",
+    })
     expect(JSON.parse(stdout).excludes).toContain("токена")
   })
 
@@ -52,7 +55,7 @@ describe("max doctor report", () => {
       keptBecauseFailed: true,
     })
     expect(report).toMatchObject({ runtime: expect.stringMatching(/^(node|bun) /), doctor: expect.any(Object) })
-    expect(answer.mailto).toMatch(/^mailto:reports@neirox\.ai\?subject=/)
+    expect(answer.issue).toMatch(/^https:\/\/github\.com\/leemour\/max-cli\/issues\/new\?title=/)
     expect(answer.steps).toHaveLength(4)
   })
 
@@ -62,8 +65,8 @@ describe("max doctor report", () => {
   })
 })
 
-describe("the letter", () => {
-  it("names the version and the failure in the subject, and the file in the body", () => {
+describe("the new issue", () => {
+  it("names the version and the failure in the title, and only the file's name in the body", () => {
     const report = {
       version: "0.10.0",
       runtime: "node 24.1.0",
@@ -72,11 +75,12 @@ describe("the letter", () => {
       run: { metadata: { runId: "r1", command: "chats list", errorCode: "provider_error", maxError: "proto.payload" } },
     } as unknown as Report
 
-    const link = decodeURIComponent(mailtoFor(report, "/tmp/r.json"))
+    const link = decodeURIComponent(issueUrlFor(report, "/home/someone/r.json"))
 
-    expect(link).toContain("subject=max 0.10.0: chats list — provider_error")
+    expect(link).toContain("title=max 0.10.0: chats list — provider_error")
     expect(link).toContain("run r1: provider_error (proto.payload)")
-    expect(link).toContain("Файл отчёта приложен: /tmp/r.json")
+    expect(link).toContain("Файл отчёта: r.json")
+    expect(link).not.toContain("/home/someone")
   })
 
   it("hides the home directory", async () => {
