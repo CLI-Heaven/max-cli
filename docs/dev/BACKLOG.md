@@ -25,22 +25,13 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
 
 ## Features
 
-- **MAX-56** · P1 · **Before announcing a public release:** run every writing command once over the
-  binary protocol, in Saved messages, with the owner's yes (`NEED-150`): send, reply, forward, edit,
-  pin, react, delete, a photo and a file, scheduled send, `chats read` (`CHAT_MARK` 50 — never
-  measured, on JSON or binary), profile update, a folder, a group with a member. Only reading was run
-  live after `MAX-40` (login, chats, history, through `max serve`); 0.9.0 is already on npm. The
-  codec changed how ids (extension 1) and times (int64) go out, so a refusal would show as
-  `proto.payload`. One script, one login, a line per operation.
-- **MAX-55** · P1 · **Before announcing a public release:** INIT built from this machine, as
-  web.max.ru builds it from the browser. Today `src/spec/identity.ts` holds the owner's browser, so
-  every install would present Europe/Madrid and Linux Chrome. The web client takes `timezone` from
-  `Intl`, `headerUserAgent` from `navigator.userAgent`, `screen` as `height×width` plus pixel ratio,
-  and `deviceLocale` from the browser language (web.max.ru code, read 2026-09-25,
-  `docs/dev/capture/2026-09-25-web-tab.md`). Take timezone and language from the system, pick the
-  user agent and `osVersion` for the host OS with a current Chrome version, and store them with the
-  device id so they do not change per run (HANDOFF bite 8).
-- **MAX-50** · P2 · When the keyring does not answer, say so instead of "no session — run `max session
+- **MAX-57** · 🚧 `max-57-folder-title` · P2 · The longest folder title MAX accepts, checked before
+  sending. MAX refused 22 characters (`folder.validation.title.too-long`) and took 13; find the
+  limit with one live login and refuse longer titles locally (`src/client.ts`, `folderTitle`).
+- **MAX-58** · 🚧 `max-58-pin-group` · P2 · Pin and unpin over the binary protocol, in a group. In
+  Saved messages our client refuses by itself, so `pnpm smoke:live` never sent it; give
+  `scripts/smoke-live.ts` a group chat as an argument and run it once with the owner's yes.
+- **MAX-50** · 🚧 `max-50-keyring-hint` · P2 · When the keyring does not answer, say so instead of "no session — run `max session
   start`". Measured 2026-09-25 from cron on Linux: no `XDG_RUNTIME_DIR`, the keyring is unreachable,
   and `max` tells the owner to log in again although the profile's state file holds a `viewerId`
   and hundreds of logins — following that advice is one more login and a new device. Starts at
@@ -106,7 +97,7 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   The plan weighs it against the smaller option: numbered `.sql` files and a ~30-line runner on
   the `user_version` we already keep. Either way: the FTS5 tables and triggers are hand-written
   SQL, and the migration files have to ship inside the npm package. Starts at `src/cache/schema.ts`.
-- **MAX-51** · P2 · The `chatsSync` marker, as the tab uses it. Captured 2026-09-25
+- **MAX-51** · 🚧 `max-51-chats-sync` · P2 · The `chatsSync` marker, as the tab uses it. Captured 2026-09-25
   (`docs/dev/capture/2026-09-25-web-tab.md`): a fresh tab sends `chatsSync: 0`; only a re-login on the
   same page sends a marker, and that marker is **not** the previous login's time — that goes in a new
   field, `lastLogin`, beside `configHash`. So: `0` on a fresh connection (every one-shot command,
@@ -114,7 +105,7 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   remains open: have the recorder keep the LOGIN answer's `time` and `chatMarker` (as `t0+N`) and
   match them in the next capture. Over JSON the stored marker went in all four fields and MAX
   answered only changed chats; the refusal after `MAX-40` was a float64, not the field (`FIND-163`).
-- **MAX-34** · P3 · Live events: a long-running `max listen` that prints new messages, edits,
+- **MAX-34** · 🚧 `max-34-watch-events` · P3 · Live events: a long-running `max listen` that prints new messages, edits,
   reactions and typing as they arrive (PyMax's `on_message`, `on_message_edit`,
   `on_reaction_update`…). Conflicts with one-shot commands (`CLAUDE.md` constraint 4), so it needs
   a ruling first. What is new since the last check is already `max inbox` (`CLI-23`).
@@ -131,21 +122,28 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   (`src/commands/chats.ts:22` and every command that opens it).
 - **CLI-5** · P3 · `max raw <operation>` — a debug escape hatch, validated against the spec, never
   arbitrary frames (REQUIREMENTS §22).
-- **MAX-52** · P2 · The requests a real tab sends right after LOGIN: 21 on a fresh start
+- **MAX-52** · 🚧 `max-52-serve-reads` · P2 · The requests a real tab sends right after LOGIN: 21 on a fresh start
   (`48 48 272 35 32 302 163 208 27×4 209 28 22 48 28 35 53 209 35`) and 9 after a re-login. `max`
   sends none, which shows on every login — a stronger difference than telemetry. Decide per
   request: the read-only ones (272 folders, 302 banners, 163 call history, 27) could be copied; 22
   subscribes to push and changes state. Captured 2026-09-25, `docs/dev/capture/2026-09-25-web-tab.md`.
-- **MAX-53** · P2 · LOGIN as the tab sends it: `chatsCount: 15` (we send 40) and `presenceSync: -1`
+  Names by PyMax (53103f0): 22 `CONFIG`, 27 `ASSETS_UPDATE`, 28 `ASSETS_GET_BY_IDS`, 32
+  `CONTACT_INFO`, 35 `CONTACT_PRESENCE`, 48 `CHAT_INFO`, 53 `CHATS_LIST`, 208/209 stories, 272
+  `FOLDERS_GET`, 302 `BANNERS_GET`; 163 is not in its list. Only `max serve` will send them.
+- **MAX-53** · 🚧 `max-53-login-15` · P2 · LOGIN as the tab sends it: `chatsCount: 15` (we send 40) and `presenceSync: -1`
   (we send 0). **Tied to opcode 208:** the tab asks LOGIN for 15 chats and pages the rest with
   `208 {cursor, count: 15}`. Changing only the number would lose chats in `max chats list`.
   Same capture.
+  Correction 2026-09-25: the tab pages the rest with `53 {marker}`, once, 2.3 s after LOGIN (capture,
+  t=3478) — an opcode we already have. 208 is `STORIES_LIST` in PyMax (`protocol/enums.py:156`,
+  53103f0) and repeats every ~5 minutes in the capture; the answers were not recorded, so that name
+  is PyMax's reading, not a frame. Plan: `docs_ai/plans/2026-09-25-pre-release-work.md`.
 
 - **RES-5** · 🟡 P2 · Does `LOGIN` move presence or read state? Reading history does not (no
   `CHAT_MARK`, tested). Partly answered by the capture of 2026-09-25: the tab's own LOGIN sends
   `interactive: false` too; `true` goes only in pings, while its window has focus. Left: whether
   opening a chat with unread messages marks it read without opcode 50 — see `RES-10`.
-- **RES-10** · P2 · Record the tab opening **one unread chat** (`docs/dev/capture/recording.md`),
+- **RES-10** · 🚧 `res-10-unread-chat` · P2 · Record the tab opening **one unread chat** (`docs/dev/capture/recording.md`),
   with the owner's yes: it will be marked read, as the owner opening it would. Answers three things
   at once: the real shape of `CHAT_MARK` 50 (`CLI-33` sends PyMax's), whether a history request
   without `interactive` marks the chat read (`RES-5`; we add `interactive: false` to opcode 49, which
@@ -176,7 +174,7 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   logging in again. Nothing retries a login today, but a scheduled `max inbox --new` logs in on
   every run, and in PyMax a login retried after the limit error kept the account locked out
   ([#106](https://github.com/MaxApiTeam/PyMax/issues/106), open since 2026-09-14). Research: G1 §3.11.
-- **MAX-39** · P2 · Notice when the client version we present goes stale. `appVersion` is
+- **MAX-39** · 🚧 `max-39-stale-version` · P2 · Notice when the client version we present goes stale. `appVersion` is
   `26.9.8`, read from the web client on 2026-09-25 (`src/spec/identity.ts`); PyMax broke when MAX
   began refusing an old one ([#86](https://github.com/MaxApiTeam/PyMax/issues/86)). The recorder
   (`scripts/capture/web-recorder.js`) now reads the current one from a tab; `max doctor` could say
