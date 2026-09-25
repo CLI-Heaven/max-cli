@@ -137,10 +137,6 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
 
 ## Foundation and risks
 
-- **OPS-15** · 🚧 `ops-15-record-every-failure` · P2 · Every failure of every command is kept as a
-  failed run, through the one recorder: usage errors, checks before a run starts, and the commands
-  that never opened one (`models`, `update`, `watch`, `server`, `cache`, `sends`, …). `--no-record`
-  and `"record": false` still turn it off (owner, 2026-09-25). Journal `FIND-193`.
 - **CORE-10** · P3 · Plugins from npm, **only from an allow-list** kept in the CLI itself — package
   names with pinned versions and integrity hashes — never an arbitrary package: a plugin runs inside
   a program holding the token of a personal account. oclif's `plugin-plugins` is the model.

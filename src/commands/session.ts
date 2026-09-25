@@ -1,3 +1,4 @@
+import { CliError } from "@leemour/cli-core"
 import { Argument, Command } from "commander"
 import { type MaxClientOptions, refuseWhilePaused } from "../client.js"
 import { commandWords, refuseCommandName, rootOf } from "../profile.js"
@@ -48,26 +49,26 @@ export const sessionCommand = (): Command => {
       if (store.hasLoggedIn()) refuseWhilePaused(store.readState())
 
       if (method !== "token" && !interactive) {
-        renderer.failure(`\`session start ${method}\` needs a person at a terminal — use \`session start token\``)
-        process.exitCode = 2
-        return
+        throw new CliError(
+          "validation_error",
+          `\`session start ${method}\` needs a person at a terminal — use \`session start token\``,
+        )
       }
 
       // It outranks the keyring, so every later command would still log in with it and the new
       // session would look as if it had not worked.
       if (method !== "token" && process.env.MAX_TOKEN) {
-        renderer.failure("MAX_TOKEN is set, and it would outrank the new session — unset it first")
-        process.exitCode = 2
-        return
+        throw new CliError(
+          "validation_error",
+          "MAX_TOKEN is set, and it would outrank the new session — unset it first",
+        )
       }
 
       const pasted = method === "token" ? process.env.MAX_TOKEN?.trim() || (await readSecret("MAX token: ")) : undefined
 
       // Before the run directory: nothing was attempted, so there is nothing to record.
       if (method === "token" && !pasted) {
-        renderer.failure("no token given")
-        process.exitCode = 2
-        return
+        throw new CliError("validation_error", "no token given")
       }
 
       await run("session start", async (events) => {

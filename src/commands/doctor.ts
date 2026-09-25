@@ -1,5 +1,5 @@
 import { resolve } from "node:path"
-import { writeSecurely } from "@leemour/cli-core"
+import { type Renderer, type RenderFormat, type Streams, writeSecurely } from "@leemour/cli-core"
 import { Command } from "commander"
 import { diagnose } from "../diagnose.js"
 import { buildReport, issueUrlFor, REPORT_URL, reportFileName } from "../report.js"
@@ -108,32 +108,9 @@ const EXCLUDES = ["текстов сообщений", "названий чат�
 const reportCommand = (): Command => {
   const report = new Command("report").description("what a problem report holds and where it goes; writes nothing")
 
-  report.action(function (this: Command) {
-    const { renderer, format, streams } = forCommand(this)
-    if (format !== "pretty") {
-      renderer.result({
-        sendTo: REPORT_URL,
-        includes: INCLUDES,
-        excludes: EXCLUDES,
-        create: "max doctor report create",
-      })
-      return
-    }
-    streams.data(
-      [
-        "Отчёт о проблеме — один файл для автора max. Он прикладывается к новой задаче на GitHub.",
-        "",
-        "В файле:",
-        ...INCLUDES.map((line, index) => `- ${line}${index === INCLUDES.length - 1 ? "." : ";"}`),
-        "",
-        `В файле нет: ${EXCLUDES.join(", ")}.`,
-        "Номера чатов и сообщений в нём есть: без вашего входа в MAX они ничего не дают, но это ваши чаты.",
-        "Задачи на GitHub видны всем — и приложенный файл тоже.",
-        "",
-        "Создать отчёт:             max doctor report create",
-        "Про определённый запуск:   max doctor report create --run <id>   (номера — max runs list)",
-      ].join("\n"),
-    )
+  report.action(async function (this: Command) {
+    const { renderer, format, streams, run } = forCommand(this)
+    await run("doctor report", async () => explain(renderer, format, streams))
   })
 
   report
@@ -191,6 +168,33 @@ const reportCommand = (): Command => {
     })
 
   return report
+}
+
+const explain = (renderer: Renderer, format: RenderFormat, streams: Streams): void => {
+  if (format !== "pretty") {
+    renderer.result({
+      sendTo: REPORT_URL,
+      includes: INCLUDES,
+      excludes: EXCLUDES,
+      create: "max doctor report create",
+    })
+    return
+  }
+  streams.data(
+    [
+      "Отчёт о проблеме — один файл для автора max. Он прикладывается к новой задаче на GitHub.",
+      "",
+      "В файле:",
+      ...INCLUDES.map((line, index) => `- ${line}${index === INCLUDES.length - 1 ? "." : ";"}`),
+      "",
+      `В файле нет: ${EXCLUDES.join(", ")}.`,
+      "Номера чатов и сообщений в нём есть: без вашего входа в MAX они ничего не дают, но это ваши чаты.",
+      "Задачи на GitHub видны всем — и приложенный файл тоже.",
+      "",
+      "Создать отчёт:             max doctor report create",
+      "Про определённый запуск:   max doctor report create --run <id>   (номера — max runs list)",
+    ].join("\n"),
+  )
 }
 
 /** One line per row: the pretty renderer prints a flat object and does not descend into one. */

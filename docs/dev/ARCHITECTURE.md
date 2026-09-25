@@ -347,6 +347,10 @@ starts, whole days by directory name. Rules not stated there:
   `recorded()` holds the newest 500 events in memory and opens the directory only on a failure,
   with `keptBecauseFailed: true`. Recording turned off by name (`--no-record`, `"record": false`)
   keeps nothing (`keepFailedRuns` in `src/config.ts`).
+  **Correction 2026-09-25 (`OPS-15`):** every failure, not only one inside `run()`. The last catch
+  of `run` in `src/program.ts` hands anything no run settled (`wasSettled`) to the same `recorded()`:
+  Commander's usage errors, checks made before a command opens its run, commands that never open
+  one. The run is named by the command's words only (`commandPath`), never the arguments.
 - **Beyond requests**: `warning` events carry a code from a closed list (`WarningCode`), never
   the sentence; a crash adds a `crash` event with the class and up to ten `function file:line`
   frames, never the message; `maxError` is MAX's refusal key when it is shaped like one

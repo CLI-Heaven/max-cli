@@ -15,13 +15,14 @@ export const recipientsCommand = (): Command => {
   command
     .command("list")
     .description("the chats on the list; empty and off until the first add")
-    .action(function (this: Command) {
-      const { settings, renderer } = forCommand(this)
-      const chats = listFor(settings.profile).read()
-
-      renderer.stream(chats ?? [])
-      if (!chats) renderer.note("the recipient list is off — this profile may send to any chat")
-      else if (chats.length === 0) renderer.note("the recipient list is on and empty — this profile may send nowhere")
+    .action(async function (this: Command) {
+      const { settings, renderer, run } = forCommand(this)
+      await run("recipients list", async () => {
+        const chats = listFor(settings.profile).read()
+        renderer.stream(chats ?? [])
+        if (!chats) renderer.note("the recipient list is off — this profile may send to any chat")
+        else if (chats.length === 0) renderer.note("the recipient list is on and empty — this profile may send nowhere")
+      })
     })
 
   command
@@ -51,19 +52,23 @@ export const recipientsCommand = (): Command => {
     .command("remove")
     .argument("<chat>", "chat id, or the title as the list shows it")
     .description("stop allowing this chat; the list stays on")
-    .action(function (this: Command, chat: string) {
-      const { settings, renderer } = forCommand(this)
-      const gone = listFor(settings.profile).remove(chat)
-      if (!gone) throw new CliError("not_found", `${chat.trim()} is not on the recipient list of ${settings.profile}`)
-      renderer.result({ id: gone.id, title: gone.title, removed: true })
+    .action(async function (this: Command, chat: string) {
+      const { settings, renderer, run } = forCommand(this)
+      await run("recipients remove", async () => {
+        const gone = listFor(settings.profile).remove(chat)
+        if (!gone) throw new CliError("not_found", `${chat.trim()} is not on the recipient list of ${settings.profile}`)
+        renderer.result({ id: gone.id, title: gone.title, removed: true })
+      })
     })
 
   command
     .command("off")
     .description("turn the list off: this profile may send to any chat again")
-    .action(function (this: Command) {
-      const { settings, renderer } = forCommand(this)
-      renderer.result({ off: true, wasOn: listFor(settings.profile).off() })
+    .action(async function (this: Command) {
+      const { settings, renderer, run } = forCommand(this)
+      await run("recipients off", async () => {
+        renderer.result({ off: true, wasOn: listFor(settings.profile).off() })
+      })
     })
 
   return command
