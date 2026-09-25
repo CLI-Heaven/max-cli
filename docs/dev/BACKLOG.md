@@ -45,11 +45,6 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
   `forward: 0`, the next page starts at the time of the oldest message loaded (it comes back again),
   a page shorter than 30 is the start of the chat; the web client sets no pause of its own.
   Plan: `docs_ai/plans/2026-09-24-history-backup.md`.
-- **CLI-33** · 🟡 P2 · Mark a chat read on request. Done: `max chats read <chat> [--until <id>]`,
-  `messages list --mark-read`, MCP `max_chats_read` behind `--allow-mark-read`; kind `read` in the
-  send guard (`src/client.ts`, `chats.markRead`). Left: what the web client sends — `RES-10`.
-  Correction 2026-09-25: `CHAT_MARK` (50) is measured — PyMax's shape was accepted in Saved
-  messages by `pnpm smoke:live` (`MAX-56`). Plan: `docs_ai/plans/2026-09-24-cli-33-mark-read.md`.
 **From the PyMax comparison (2026-09-24, `NEED-175`).** Each is what PyMax's source declares
 (`MaxApiTeam/PyMax`, `src/pymax/api/`, commit `53103f0`) — a claim until measured. Every writing
 operation is measured first in Saved messages (chat 0), as replies and reactions were (`NEED-150`),
@@ -143,12 +138,13 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   `CHAT_MARK`, tested). Partly answered by the capture of 2026-09-25: the tab's own LOGIN sends
   `interactive: false` too; `true` goes only in pings, while its window has focus. Left: whether
   opening a chat with unread messages marks it read without opcode 50 — see `RES-10`.
-- **RES-10** · 🚧 `res-10-unread-chat` · P2 · Record the tab opening **one unread chat** (`docs/dev/capture/recording.md`),
-  with the owner's yes: it will be marked read, as the owner opening it would. Answers three things
-  at once: the real shape of `CHAT_MARK` 50 (`CLI-33` sends PyMax's), whether a history request
-  without `interactive` marks the chat read (`RES-5`; we add `interactive: false` to opcode 49, which
-  the tab never sends — a difference on the most common read), and whether the tab sends 75
-  (subscribe to the chat) or 50 on its own.
+  Correction 2026-09-25 (`RES-10`, captured): the tab marks a chat read with an explicit opcode 50
+  after opening it, not with 49. Left: confirm that 49 alone moves nothing — `RES-11`.
+- **RES-11** · P3 · Drop `interactive: false` from our history request (49): the web client sends
+  5 fields and never it, and marks a chat read with an explicit `CHAT_MARK` 50 after opening it, not
+  with 49 (captured 2026-09-25, `docs_ai/captures/2026-09-25-res-10.jsonl`). One check first:
+  `max messages list` on a chat with unread messages, without the field, and see that `unread`
+  does not move.
 - **RES-7** · P3 · What a real client sends as opcode 36's payload. `{}`, `{marker}` are refused and
   `{marker, count}` closes the connection (`pnpm probe:contacts`), so only a capture answers it. It
   is the only route to contacts who share no chat. Closes `PROTO-1`.
