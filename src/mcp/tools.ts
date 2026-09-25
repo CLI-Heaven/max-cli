@@ -13,6 +13,7 @@ import { DELETE_AT_ONCE, type MaxClient } from "../client.js"
 import { sendTime } from "../config.js"
 import { maskedProfile } from "../domain/map.js"
 import type { Page } from "../domain/models.js"
+import { fetchBytes, publicOnly } from "../download.js"
 import type { Permission } from "../sends/permissions.js"
 import { transcribe } from "../transcribe/index.js"
 import { modelsDirectory } from "../transcribe/install.js"
@@ -24,6 +25,32 @@ const chat = v.pipe(v.string(), v.minLength(1), v.description("chat id, or part 
 const message = v.pipe(v.string(), v.regex(/^\d+$/), v.description("message id"))
 const limit = v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100), v.description("how many")))
 const page = v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.description("which page, from 1")))
+const markdown = v.optional(
+  v.pipe(v.boolean(), v.description("**bold**, _italic_, `code`, [links](…) become formatting")),
+)
+
+/**
+ * Photos MAX serves are already scaled down: five measured on 2026-09-26 were WebP of 6–81 KB. A
+ * client counts an image against its own output limit — `maxResultSizeChars` raises it for text
+ * only — so the cap stays well under that.
+ */
+const PHOTO_LIMIT = 512 * 1024
+
+const IMAGE_TYPES: [string, (bytes: Uint8Array) => boolean][] = [
+  ["image/jpeg", (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff],
+  ["image/png", (b) => b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47],
+  ["image/webp", (b) => ascii(b, 0, 4) === "RIFF" && ascii(b, 8, 12) === "WEBP"],
+]
+const ascii = (bytes: Uint8Array, from: number, to: number) => String.fromCharCode(...bytes.subarray(from, to))
+
+/** An answer that is a picture, not JSON; the handler turns it into `image` content. */
+class Picture {
+  constructor(
+    readonly bytes: Uint8Array,
+    readonly mimeType: string,
+    readonly about: object,
+  ) {}
+}
 
 const READ: ToolAnnotations = { readOnlyHint: true, destructiveHint: false, openWorldHint: true }
 const WRITE: ToolAnnotations = {
@@ -74,6 +101,9 @@ const envelope = <T>({ items, hasMore }: Page<T>, pageNumber: number, pageSize: 
   hasMore,
 })
 
+/** Per chat: unread across many chats at a hundred each would outgrow what a client keeps of one answer. */
+const INBOX_LIMIT = 20
+
 const window = (args: { limit?: number; page?: number }, defaults: { limit: number }) => {
   const size = args.limit ?? defaults.limit
   const number = args.page ?? 1
@@ -81,6 +111,27 @@ const window = (args: { limit?: number; page?: number }, defaults: { limit: numb
 }
 
 const READ_TOOLS = {
+  max_inbox: tool({
+    title: "What is new",
+    description:
+      "Other people's messages waiting for the owner, grouped by chat, in one call: the unread ones, or with " +
+      "`since` everything after that point. Marks nothing read and moves no saved point — the owner's " +
+      "`max inbox --new` is unaffected, whatever `mode` says. Returns { mode, chats: [{ id, title, messages, more }], skipped, partial }.",
+    input: v.object({
+      since: v.optional(v.pipe(v.string(), v.description("a message id or an ISO 8601 time"))),
+      limit: v.optional(
+        v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100), v.description("at most this many per chat")),
+      ),
+    }),
+    annotations: READ,
+    answer: async (client, args) => {
+      const limit = args.limit ?? INBOX_LIMIT
+      return args.since === undefined
+        ? client.inbox.unread({ limit })
+        : client.inbox.since({ since: client.messages.moment(args.since, "since"), limit })
+    },
+  }),
+
   max_account_show: tool({
     title: "Who this is",
     description: "The MAX account this server is logged in as.",
@@ -233,6 +284,51 @@ const READ_TOOLS = {
       }
     },
   }),
+  max_messages_attachment: tool({
+    title: "Look at a photo",
+    description:
+      `One photo from a message, as an image to look at. Up to ${PHOTO_LIMIT / 1024} KB; anything larger, and ` +
+      "files, videos and voice messages, are refused with the command the owner runs to save them. " +
+      "`index` counts the message's attachments from 0; without it, the first photo.",
+    input: v.object({
+      chat,
+      message,
+      index: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+    }),
+    annotations: READ,
+    answer: async (client, args) => {
+      const chatId = await client.chats.resolve(args.chat)
+      const [found] = await client.messages.around(chatId, args.message, { reactions: false })
+      if (!found) throw new CliError("not_found", `no message ${args.message} in chat ${chatId}`)
+      const saveIt = `the owner can save it with \`max messages download ${chatId} ${args.message}\``
+
+      if (found.attachments.length === 0) throw new CliError("not_found", `message ${args.message} has no attachments`)
+      const photo = found.attachments.findIndex(({ kind }) => kind === "photo")
+      const index = args.index ?? (photo === -1 ? 0 : photo)
+      const attachment = found.attachments[index]
+      if (!attachment) {
+        throw new CliError(
+          "not_found",
+          `message ${args.message} has ${found.attachments.length} attachments, no ${index}`,
+        )
+      }
+      if (attachment.kind !== "photo" || !attachment.url) {
+        throw new CliError("validation_error", `attachment ${index} is a ${attachment.kind}, not a photo — ${saveIt}`)
+      }
+
+      // Every download error names the kind, scheme or host at most; the link itself opens without a login.
+      const bytes = await fetchBytes({ kind: "photo", url: attachment.url }, publicOnly, PHOTO_LIMIT).catch(
+        (error: unknown) => {
+          const reason = error instanceof Error ? error.message : String(error)
+          throw new CliError("validation_error", `${reason} — ${saveIt}`)
+        },
+      )
+      const mimeType = IMAGE_TYPES.find(([, is]) => is(bytes))?.[0]
+      if (!mimeType) throw new CliError("validation_error", `the photo is not JPEG, PNG or WebP — ${saveIt}`)
+      return new Picture(bytes, mimeType, { chatId, messageId: args.message, index, bytes: bytes.length })
+    },
+  }),
+
   max_messages_context: tool({
     title: "Show a message",
     description:
@@ -273,6 +369,8 @@ const SEND_TOOLS = {
     input: v.object({
       chat,
       text: v.pipe(v.string(), v.minLength(1)),
+      reply_to: v.optional(v.pipe(message, v.description("the message this answers; MAX shows it quoted"))),
+      markdown,
       silent: v.optional(v.pipe(v.boolean(), v.description("deliver without a notification"))),
       cid: v.optional(v.pipe(v.number(), v.integer(), v.description("from an earlier outcome_unknown"))),
       at: v.optional(
@@ -295,11 +393,13 @@ const SEND_TOOLS = {
     description:
       "Replace the text of one of the owner's own messages. Only when the owner asked for this exact change. " +
       "The other person may have read the old text already. Attachments stay.",
-    input: v.object({ chat, message, text: v.pipe(v.string(), v.minLength(1)) }),
+    input: v.object({ chat, message, text: v.pipe(v.string(), v.minLength(1)), markdown }),
     annotations: WRITE,
     _meta: APPROVE,
     answer: async (client, args) =>
-      client.messages.edit(await client.chats.resolve(args.chat), args.message, args.text),
+      client.messages.edit(await client.chats.resolve(args.chat), args.message, args.text, {
+        markdown: args.markdown === true,
+      }),
   }),
   max_messages_forward: tool({
     title: "Forward a message",
@@ -310,6 +410,7 @@ const SEND_TOOLS = {
       chat: v.pipe(chat, v.description("the chat the message is in")),
       message,
       to: v.pipe(chat, v.description("the chat to forward it to")),
+      silent: v.optional(v.pipe(v.boolean(), v.description("deliver without a notification"))),
       cid: v.optional(v.pipe(v.number(), v.integer(), v.description("from an earlier outcome_unknown"))),
     }),
     annotations: WRITE,
@@ -319,16 +420,26 @@ const SEND_TOOLS = {
         await client.chats.resolve(args.chat),
         args.message,
         await client.chats.resolve(args.to),
-        args.cid === undefined ? {} : { cid: args.cid },
+        {
+          ...(args.cid === undefined ? {} : { cid: args.cid }),
+          ...(args.silent === true ? { notify: false } : {}),
+        },
       ),
   }),
   max_messages_pin: tool({
     title: "Pin a message",
-    description: "Pin one message in a chat, replacing what was pinned. Members are not notified.",
-    input: v.object({ chat, message }),
+    description:
+      "Pin one message in a chat, replacing what was pinned. Members are notified only with `notify`, and a " +
+      "pin that notifies counts toward the hourly limit like a message.",
+    input: v.object({
+      chat,
+      message,
+      notify: v.optional(v.pipe(v.boolean(), v.description("tell the members it was pinned"))),
+    }),
     annotations: WRITE,
     _meta: APPROVE,
-    answer: async (client, args) => client.messages.pin(await client.chats.resolve(args.chat), args.message),
+    answer: async (client, args) =>
+      client.messages.pin(await client.chats.resolve(args.chat), args.message, { notify: args.notify === true }),
   }),
   max_messages_unpin: tool({
     title: "Unpin a message",
@@ -338,9 +449,31 @@ const SEND_TOOLS = {
     _meta: APPROVE,
     answer: async (client, args) => client.messages.pin(await client.chats.resolve(args.chat), null),
   }),
+  max_reactions_add: tool({
+    title: "React to a message",
+    description:
+      "Put one emoji reaction on a message as the owner, replacing the owner's earlier one. The other people see it. " +
+      "Only when the owner asked for this reaction on this message.",
+    input: v.object({
+      chat,
+      message,
+      emoji: v.pipe(v.string(), v.minLength(1), v.maxLength(16), v.description("one emoji, for example 👍")),
+    }),
+    annotations: WRITE,
+    _meta: APPROVE,
+    answer: async (client, args) =>
+      client.messages.react(await client.chats.resolve(args.chat), args.message, args.emoji),
+  }),
+  max_reactions_remove: tool({
+    title: "Take a reaction off",
+    description: "Take the owner's reaction off a message. Only when the owner asked for it.",
+    input: v.object({ chat, message }),
+    annotations: { ...WRITE, idempotentHint: true },
+    _meta: APPROVE,
+    answer: async (client, args) => client.messages.unreact(await client.chats.resolve(args.chat), args.message),
+  }),
 }
 
-/** Registered only with `--allow-mark-read`: the other person sees it, and `--allow-send` does not imply it. */
 /** Which profile permission each writing tool needs (`CLI-37`). */
 const TOOL_PERMISSION: Record<string, Permission> = {
   max_messages_send: "send",
@@ -348,10 +481,13 @@ const TOOL_PERMISSION: Record<string, Permission> = {
   max_messages_forward: "forward",
   max_messages_pin: "pin",
   max_messages_unpin: "pin",
+  max_reactions_add: "reaction",
+  max_reactions_remove: "reaction",
   max_chats_read: "read",
   max_messages_delete: "delete",
 }
 
+/** Registered only with `--allow-mark-read`: the other person sees it, and `--allow-send` does not imply it. */
 const MARK_READ_TOOLS = {
   max_chats_read: tool({
     title: "Mark a chat read",
@@ -381,10 +517,15 @@ const DELETE_TOOLS = {
   }),
 }
 
-const answered = (value: object): CallToolResult => ({
-  content: [{ type: "text", text: JSON.stringify(value) }],
-  structuredContent: value as Record<string, unknown>,
-})
+const answered = (value: object): CallToolResult =>
+  value instanceof Picture
+    ? {
+        content: [
+          { type: "image", data: Buffer.from(value.bytes).toString("base64"), mimeType: value.mimeType },
+          { type: "text", text: JSON.stringify(value.about) },
+        ],
+      }
+    : { content: [{ type: "text", text: JSON.stringify(value) }], structuredContent: value as Record<string, unknown> }
 
 /** The same object the CLI prints on stderr, so an agent reads one error shape from both. */
 const failed = (error: unknown): CallToolResult => {

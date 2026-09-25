@@ -91,6 +91,7 @@ claude mcp add max -- max mcp --allow-send --confirm-send
 
 | Инструмент | Команда | Что делает |
 |---|---|---|
+| `max_inbox` | `max inbox`, `--since` | что пришло: непрочитанное или всё после момента, одним вызовом; ничего не отмечает и не сдвигает точку `max inbox --new` |
 | `max_account_show` | `max account show` | под кем вход |
 | `max_chats_list` | `max chats list` | чаты, с поиском по имени, видом и непрочитанными |
 | `max_chats_show` | `max chats show` | один чат и кто в нём |
@@ -99,13 +100,16 @@ claude mcp add max -- max mcp --allow-send --confirm-send
 | `max_messages_list` | `max messages list` | сообщения чата; ничего не отмечает прочитанным |
 | `max_messages_search` | `max messages search` | поиск по уже прочитанному на этой машине |
 | `max_messages_context` | `max messages show`, `context` | одно сообщение и соседние |
+| `max_messages_attachment` | `max messages download` | фото из сообщения как картинка, до 512 КБ; файл, видео, голосовое или фото крупнее — отказ с командой, которая их сохранит. ссылку на фото этот инструмент не отдаёт |
 | `max_messages_scheduled` | `max messages scheduled` | что ждёт отправки в чате, с `scheduledFor` |
 | `max_messages_transcribe` | `max messages transcribe` | текст голосового, распознанный на этой машине |
-| `max_messages_send` | `max messages send` | отправка, только с `--allow-send`; с `at` — позже, как `--at` |
-| `max_messages_edit` | `max messages edit` | правка своего сообщения, только с `--allow-send` |
-| `max_messages_forward` | `max messages forward` | пересылка в другой чат, только с `--allow-send` |
-| `max_messages_pin` | `max messages pin` | закрепить без уведомления, только с `--allow-send` |
+| `max_messages_send` | `max messages send` | отправка, только с `--allow-send`; с `at` — позже, как `--at`; `reply_to` — ответ на сообщение, `markdown` — оформление |
+| `max_messages_edit` | `max messages edit` | правка своего сообщения, только с `--allow-send`; `markdown` — оформление |
+| `max_messages_forward` | `max messages forward` | пересылка в другой чат, только с `--allow-send`; `silent` — без уведомления |
+| `max_messages_pin` | `max messages pin` | закрепить, только с `--allow-send`; без уведомления, если не передан `notify` |
 | `max_messages_unpin` | `max messages unpin` | открепить, только с `--allow-send` |
+| `max_reactions_add` | `max reactions add` | поставить реакцию, только с `--allow-send` и разрешением `reaction` |
+| `max_reactions_remove` | `max reactions remove` | снять свою реакцию, так же |
 | `max_chats_read` | `max chats read` | отметить чат прочитанным, только с `--allow-mark-read` |
 | `max_messages_delete` | `max messages delete` | удалить у владельца, только с `--allow-delete` |
 

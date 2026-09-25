@@ -2,9 +2,10 @@ import { captureStreams, memoryKeyring } from "@leemour/cli-core"
 import { Client, type ElicitResult } from "@modelcontextprotocol/client"
 import { InMemoryTransport } from "@modelcontextprotocol/server"
 import { serveStdio } from "@modelcontextprotocol/server/stdio"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { contextFor } from "./commands/context.js"
 import { Opcode } from "./generated/opcodes.generated.js"
+import { instructions } from "./mcp/instructions.js"
 import { createMaxServer, type ServerOptions } from "./mcp/server.js"
 import { run } from "./program.js"
 import { Connection } from "./protocol/connection.js"
@@ -14,7 +15,6 @@ import { type MockMaxOptions, mockMax } from "./testing/mock-max.js"
 const scriptedMax = (extra: MockMaxOptions["answers"] = {}) =>
   mockMax({
     answers: {
-      ...extra,
       [Opcode.SESSION_INIT]: {},
       [Opcode.LOGIN]: {
         profile: {
@@ -29,6 +29,7 @@ const scriptedMax = (extra: MockMaxOptions["answers"] = {}) =>
       [Opcode.CHAT_HISTORY]: {
         messages: [{ id: 116762160362694583n, time: 1789776000000, sender: 10000001, text: "hi", attaches: [] }],
       },
+      ...extra,
     },
   })
 
@@ -129,6 +130,8 @@ describe("the MCP server", () => {
       "max_messages_pin",
       "max_messages_send",
       "max_messages_unpin",
+      "max_reactions_add",
+      "max_reactions_remove",
     ])
     for (const { annotations, _meta } of writing) {
       expect(annotations).toMatchObject({ destructiveHint: true })
@@ -465,5 +468,233 @@ describe("the MCP server", () => {
       expect(forms).toEqual([])
       expect(sends(max)).toBe(1)
     })
+  })
+})
+
+describe("what the MCP server offers beyond the basics", () => {
+  const PHOTO_URL = "https://93.184.215.14/photo-secret-token.webp"
+  const webp = (size: number) => {
+    const bytes = new Uint8Array(size)
+    bytes.set(new TextEncoder().encode("RIFF"), 0)
+    bytes.set(new TextEncoder().encode("WEBP"), 8)
+    return bytes
+  }
+  const withPhoto = {
+    [Opcode.CONTACT_INFO]: { contacts: [] },
+    [Opcode.CHAT_HISTORY]: {
+      messages: [
+        {
+          id: 116762160362694583n,
+          time: 1789776000000,
+          sender: 20000002,
+          text: "look",
+          attaches: [
+            { _type: "FILE", fileId: 5, name: "a.pdf" },
+            { _type: "PHOTO", baseUrl: PHOTO_URL, width: 900, height: 593 },
+          ],
+        },
+      ],
+    },
+  }
+  const serving = (body: Uint8Array | Error) =>
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        if (body instanceof Error) throw body
+        return new Response(body, { headers: { "content-length": String(body.length) } })
+      }),
+    )
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("`max_inbox` answers the unread messages of every chat in one call and leaves the saved point alone", async () => {
+    const profile = "mcp-inbox"
+    const { client } = await connect(
+      {},
+      {
+        profile,
+        answers: {
+          [Opcode.LOGIN]: {
+            profile: { contact: { id: 10000001 } },
+            chats: [
+              { id: 111, title: "Team Alpha", type: "CHAT", lastEventTime: 1789776000000, newMessages: 1 },
+              { id: 222, title: "Team Beta", type: "CHAT", lastEventTime: 1789775000000, newMessages: 1 },
+            ],
+          },
+          [Opcode.CONTACT_INFO]: { contacts: [] },
+          [Opcode.CHAT_HISTORY]: (request) => ({
+            messages: [
+              { id: 116762160362694583n, time: 1789775000000, sender: 20000002, text: `in ${request.chatId}` },
+            ],
+          }),
+        },
+      },
+    )
+
+    const store = new SessionStore({ profile, keyring: memoryKeyring() })
+    store.writeState({ ...store.readState(), lastCheckAt: "2026-09-20T10:00:00.000Z" })
+
+    const unread = await call(client, "max_inbox")
+    const since = await call(client, "max_inbox", { since: "2026-09-01T00:00:00Z" })
+
+    expect(unread.isError).toBe(false)
+    expect((unread.body.chats as { id: string }[]).map(({ id }) => id)).toEqual(["111", "222"])
+    expect(since.body).toMatchObject({ mode: "new" })
+    expect(store.readState().lastCheckAt).toBe("2026-09-20T10:00:00.000Z")
+  })
+
+  it("a reply carries the REPLY link and Markdown goes out as markup", async () => {
+    const { client, max } = await connect(
+      { allowSend: true },
+      {
+        answers: {
+          [Opcode.MSG_SEND]: {
+            message: { id: 116762160362694590n, time: 1789776000000, sender: 10000001, text: "yes" },
+          },
+        },
+      },
+    )
+
+    const { isError } = await call(client, "max_messages_send", {
+      chat: "111",
+      text: "**yes**",
+      reply_to: "116762160362694583",
+      markdown: true,
+    })
+
+    expect(isError).toBe(false)
+    const { message } = (max.sent.find(({ opcode }) => opcode === Opcode.MSG_SEND)?.payload ?? {}) as {
+      message: { text: string; link: { type: string; messageId: unknown }; elements: unknown[] }
+    }
+    expect(message.link.type).toBe("REPLY")
+    expect(String(message.link.messageId)).toBe("116762160362694583")
+    expect(message).toMatchObject({ text: "yes", elements: [{ type: "STRONG", from: 0, length: 3 }] })
+  })
+
+  it("shows the reply in the confirmation form, so a yes is bound to it", async () => {
+    const { client, forms } = await connect(
+      { allowSend: true, confirmSend: true },
+      { form: () => ({ action: "decline" }) },
+    )
+
+    await call(client, "max_messages_send", { chat: "111", text: "yes", reply_to: "116762160362694583" })
+
+    expect(forms[0]).toContain('reply_to: "116762160362694583"')
+  })
+
+  it("offers reactions with --allow-send, and not on a profile whose allow list lacks them", async () => {
+    await run(["mcp-no-reactions", "config", "set", "allow", "send"], { streams: captureStreams(), tty: false })
+    const names = async (profile?: string) =>
+      (await (await connect({ allowSend: true }, profile ? { profile } : {})).client.listTools()).tools.map(
+        ({ name }) => name,
+      )
+
+    expect(await names()).toEqual(expect.arrayContaining(["max_reactions_add", "max_reactions_remove"]))
+    expect(await names("mcp-no-reactions")).not.toContain("max_reactions_add")
+  })
+
+  it("puts a reaction on a message", async () => {
+    const { client, max } = await connect(
+      { allowSend: true },
+      {
+        answers: {
+          [Opcode.MSG_REACTION]: {
+            reactionInfo: { counters: [{ count: 1, reaction: "👍" }], yourReaction: "👍", totalCount: 1 },
+          },
+        },
+      },
+    )
+
+    const { isError, body } = await call(client, "max_reactions_add", {
+      chat: "111",
+      message: "116762160362694583",
+      emoji: "👍",
+    })
+
+    expect(isError).toBe(false)
+    expect(body).toEqual({ counts: [{ reaction: "👍", count: 1 }], mine: "👍", total: 1 })
+    expect(max.sent.find(({ opcode }) => opcode === Opcode.MSG_REACTION)?.payload).toMatchObject({
+      reaction: { reactionType: "EMOJI", id: "👍" },
+    })
+  })
+
+  it("hands a photo over as an image, and never its link", async () => {
+    serving(webp(81_164))
+    const { client } = await connect({}, { answers: withPhoto })
+
+    const result = await client.callTool({
+      name: "max_messages_attachment",
+      arguments: { chat: "111", message: "116762160362694583" },
+    })
+
+    expect(result.isError).not.toBe(true)
+    expect(result.content).toEqual([
+      { type: "image", mimeType: "image/webp", data: Buffer.from(webp(81_164)).toString("base64") },
+      {
+        type: "text",
+        text: JSON.stringify({ chatId: "111", messageId: "116762160362694583", index: 1, bytes: 81_164 }),
+      },
+    ])
+    expect(JSON.stringify(result)).not.toContain("secret-token")
+  })
+
+  it.each([
+    ["a photo over the cap", () => serving(webp(600 * 1024)), {}],
+    ["a download that fails", () => serving(new TypeError("fetch failed")), {}],
+    ["a file", () => serving(webp(16)), { index: 0 }],
+    ["a message with a file and no photo", () => serving(webp(16)), {}, "no photo"],
+  ])("refuses %s, naming the command that saves it", async (_, serve, extra, variant?: string) => {
+    serve()
+    const history = withPhoto[Opcode.CHAT_HISTORY].messages[0]
+    const { client } = await connect(
+      {},
+      {
+        answers:
+          variant === "no photo"
+            ? {
+                ...withPhoto,
+                [Opcode.CHAT_HISTORY]: { messages: [{ ...history, attaches: history?.attaches.slice(0, 1) }] },
+              }
+            : withPhoto,
+      },
+    )
+
+    const result = await client.callTool({
+      name: "max_messages_attachment",
+      arguments: { chat: "111", message: "116762160362694583", ...extra },
+    })
+
+    expect(result.isError).toBe(true)
+    expect(JSON.stringify(result)).toContain("max messages download 111 116762160362694583")
+    expect(JSON.stringify(result)).not.toContain("secret-token")
+  })
+
+  it("asks the owner before a reaction, and reacts with nothing on a no", async () => {
+    const { client, max, forms } = await connect(
+      { allowSend: true, confirmSend: true },
+      { form: () => ({ action: "decline" }) },
+    )
+
+    const { isError } = await call(client, "max_reactions_add", {
+      chat: "111",
+      message: "116762160362694583",
+      emoji: "👍",
+    })
+
+    expect(isError).toBe(true)
+    expect(forms[0]).toContain('emoji: "👍"')
+    expect(max.sent.map(({ opcode }) => opcode)).not.toContain(Opcode.MSG_REACTION)
+  })
+
+  it("keeps its instructions within the 2048 characters a client shows, with every flag on", () => {
+    const text = instructions({
+      allowSend: true,
+      confirmSend: true,
+      allowMarkRead: true,
+      allowDelete: true,
+      profile: "a-profile-name-of-some-length",
+      permitted: ["send", "forward", "reaction", "edit", "pin", "read", "delete"],
+    })
+
+    expect(text.length).toBeLessThanOrEqual(2048)
   })
 })
