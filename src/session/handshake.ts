@@ -17,8 +17,10 @@ export interface SessionOptions {
    * moved. Where it is kept, and why the merge and the marker share a transaction, is
    * `docs/dev/architecture/session.md`.
    *
-   * All four carry the same value: nothing reads presence or drafts, and sending the marker in
-   * those two as well was measured harmless on the real account (`NEED-103`).
+   * **Only `contactsSync` carries it** — correction 2026-09-25: this said all four carry the same
+   * value, measured harmless over JSON (`NEED-103`). Over the binary protocol MAX refused a login
+   * with the time in all four (`proto.payload`, `FIND-162`), and web.max.ru sends a 64-bit time in
+   * `contactsSync` alone, small numbers in the other three. We send 0 there.
    */
   sync?: number
 }
@@ -53,9 +55,9 @@ export const startSession = async (
     // A script reading is not a person looking; see the specification for why this is never true.
     interactive: false,
     chatsCount,
-    chatsSync: sync,
+    chatsSync: 0,
     contactsSync: sync,
-    presenceSync: sync,
-    draftsSync: sync,
+    presenceSync: 0,
+    draftsSync: 0,
   })
 }

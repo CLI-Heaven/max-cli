@@ -29,7 +29,11 @@ const recorded = (opcode: number): Shape =>
 const shapeOfRecorded = (value: unknown): Shape => {
   if (typeof value === "boolean") return "bool"
   if (typeof value === "number") return "int"
-  if (typeof value === "string") return /^<(fixint|u8|u16|u32|u64|i8|i16|i32|i64)>$/.test(value) ? "int" : "str"
+  if (typeof value === "string") {
+    if (/^<(u64|i64)>$/.test(value)) return "int64"
+    if (/^<(f32|f64)>$/.test(value)) return "float"
+    return /^<(fixint|u8|u16|u32|i8|i16|i32)>$/.test(value) ? "int" : "str"
+  }
   if (Array.isArray(value)) return value.map(shapeOfRecorded)
   if (value && typeof value === "object") {
     if ("$ext1" in value) return "ext1"
@@ -41,7 +45,9 @@ const shapeOfRecorded = (value: unknown): Shape => {
 const shapeOfOurs = (value: unknown): Shape => {
   if (value instanceof ExtData) return value.type === 1 ? "ext1" : `ext${value.type}`
   if (typeof value === "boolean") return "bool"
-  if (typeof value === "number" || typeof value === "bigint") return "int"
+  // Decoded with `useBigInt64`, a 64-bit integer comes back a bigint and a float a number.
+  if (typeof value === "bigint") return "int64"
+  if (typeof value === "number") return Number.isInteger(value) && Math.abs(value) <= 0xffff_ffff ? "int" : "float"
   if (typeof value === "string") return "str"
   if (Array.isArray(value)) return value.map(shapeOfOurs)
   if (value && typeof value === "object")

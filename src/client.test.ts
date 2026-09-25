@@ -931,11 +931,12 @@ describe("with a cache", () => {
       await again.chats.list()
       await again.close()
 
+      // Only contacts: MAX refused the time in all four over the binary protocol (`FIND-162`).
       expect(markerOf(second)).toMatchObject({
-        chatsSync: 1_789_776_000_000,
+        chatsSync: 0,
         contactsSync: 1_789_776_000_000,
-        presenceSync: 1_789_776_000_000,
-        draftsSync: 1_789_776_000_000,
+        presenceSync: 0,
+        draftsSync: 0,
       })
     })
 
