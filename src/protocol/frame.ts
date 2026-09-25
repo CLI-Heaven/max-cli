@@ -146,7 +146,8 @@ const decodeBody = (bytes: Uint8Array): unknown =>
  */
 const wrapBigints = (value: unknown): unknown => {
   if (typeof value === "bigint") return new ExtData(WRAPPED, encode(value, { useBigInt64: true }))
-  if (typeof value === "number" && Number.isSafeInteger(value) && Math.abs(value) > 0xffff_ffff) return BigInt(value)
+  if (typeof value === "number" && Number.isSafeInteger(value) && (value > 0xffff_ffff || value < -0x8000_0000))
+    return BigInt(value)
   if (Array.isArray(value)) return value.map(wrapBigints)
   if (isRecord(value)) return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, wrapBigints(item)]))
   return value

@@ -76,6 +76,12 @@ describe("encodeFrame", () => {
     expect(decodeFrame(bytes).payload).toEqual({ contactsSync: 1_790_328_205_681 })
   })
 
+  it.each([-70_000_000_000_001, -3_000_000_000, 5_000_000_000])("never writes %d as a float", (value) => {
+    const body = Buffer.from(encodeFrame({ seq: 1, opcode: 49, payload: { n: value } }).subarray(HEADER_BYTES))
+    expect(body[3]).not.toBe(0xcb)
+    expect(decodeFrame(encodeFrame({ seq: 1, opcode: 49, payload: { n: value } })).payload).toEqual({ n: value })
+  })
+
   it("sends bytes as MessagePack bin — the field a voice message's wave needs", () => {
     const wave = Uint8Array.from({ length: 80 }, (_, index) => index)
     const bytes = encodeFrame({ seq: 1, opcode: 64, payload: { wave } })

@@ -1,10 +1,13 @@
 import { existsSync, statSync, writeFileSync } from "node:fs"
 import { createServer, type Server } from "node:net"
 import { memoryKeyring } from "@leemour/cli-core"
+import { decode, ExtData } from "@msgpack/msgpack"
 import { afterEach, describe, expect, it } from "vitest"
 import { MaxClient } from "../client.js"
 import { Opcode } from "../generated/opcodes.generated.js"
 import { Connection } from "../protocol/connection.js"
+import { decodeHeader, HEADER_BYTES } from "../protocol/frame.js"
+import { decompressBlock } from "../protocol/lz4.js"
 import { SessionStore } from "../session/store.js"
 import { mockMax } from "../testing/mock-max.js"
 import { VERSION } from "../version.js"
@@ -246,6 +249,23 @@ describe("a command through max serve", () => {
     })
     return { client, direct, opened: () => opened }
   }
+
+  it("hands MAX an id wrapped as the web client wraps it, however it crossed to the server", async () => {
+    const { store, max } = await serve("c-wrapped")
+    const { client } = commandClient(store)
+
+    await client.messages.list("111", { limit: 1 })
+    await client.close()
+
+    const index = max.sent.findIndex((call) => call.opcode === Opcode.CHAT_HISTORY)
+    const frame = max.wire[index] as Uint8Array
+    const { flags, length } = decodeHeader(frame)
+    const body = frame.subarray(HEADER_BYTES, HEADER_BYTES + length)
+    const raw = decode(flags ? decompressBlock(body, flags * length) : body, { useBigInt64: true }) as {
+      chatId: unknown
+    }
+    expect(raw.chatId).toBeInstanceOf(ExtData)
+  })
 
   it("reads without logging in: the server's login answers, and the history goes over its connection", async () => {
     const { store, max } = await serve("c-read")
