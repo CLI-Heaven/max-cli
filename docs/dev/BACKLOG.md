@@ -148,12 +148,13 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   seconds apart; minutes apart is unproven (`ARCHITECTURE.md` §6).
 - **PROTO-3** · P3 · The upper bound on `chatsCount` in `LOGIN`: 100 works, 200 is refused. The spec
   caps it at 100 (`src/spec/operations/session.ts:52`).
-- **PROTO-5** · P3 · Whether any id passes 2⁵³. Chat ids reach 14 digits, contact ids 9; ids are
-  strings everywhere, so only a number crossing the boundary in arithmetic would break.
 - **PROTO-6** · P3 · What the `messages` object in the `LOGIN` answer holds. Nothing reads it
   (`src/spec/operations/session.ts:89`); `pnpm probe:ids` prints its type and key count.
-- **SPEC-3** · P3 · Sanitized protocol fixtures under `fixtures/protocol/`, synthetic values only
-  (REQUIREMENTS §24). Response shapes are already tested with made-up payloads in `src/spec/`.
+- **SPEC-3** · 🟡 P3 · Sanitized protocol fixtures, synthetic values only (REQUIREMENTS §24). Done:
+  the web client's frames, headers and payload structure without values
+  (`src/testing/fixtures/web-capture-2026-09-25.json`, `MAX-40`), and the recorder for more
+  (`scripts/capture/web-recorder.js`). Left: fixtures of MAX's answers to our own operations —
+  response shapes are still tested with made-up payloads in `src/spec/`.
 - **SPEC-4** · P3 · A generated list of implemented operations (§8, §30). Deferred: listing what MAX
   has and we lack means maintaining MAX's whole surface (§10).
 
@@ -177,7 +178,7 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
 Added by the owner on 2026-09-24. Each one goes against REQUIREMENTS §3 or §18, and the line says
 which; the plan for it starts by saying so.
 
-- **CLI-24** · 🟡 🚧 `cli-24-transcribe` · P1 · Voice messages to text with a local speech model, downloaded on first use
+- **CLI-24** · 🟡 P1 · Voice messages to text with a local speech model, downloaded on first use
   and never bundled. Builds on `max messages download`. The model runs on this machine; audio never
   leaves it. Model: **GigaAM v3** (int8, ~230 MB) through the WebAssembly build of `sherpa-onnx`,
   Silero VAD for audio over 25 s, `ogg-opus-decoder` — no native module (owner, 2026-09-24,
