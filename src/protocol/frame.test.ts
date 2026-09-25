@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import { encode } from "@msgpack/msgpack"
 import { describe, expect, it } from "vitest"
 import { asId, Command, decodeFrame, encodeFrame, FrameError, HEADER_BYTES, PROTOCOL_VERSION } from "./frame.js"
-import { compressBlock } from "./lz4.js"
+import { compressBlock, decompressBlock } from "./lz4.js"
 
 interface CapturedFrame {
   dir: "in" | "out"
@@ -74,6 +74,16 @@ describe("encodeFrame", () => {
     expect(body).toContain("cf000001a0")
     expect(body).not.toContain("cb")
     expect(decodeFrame(bytes).payload).toEqual({ contactsSync: 1_790_328_205_681 })
+  })
+
+  it("sends bytes as MessagePack bin — the field a voice message's wave needs", () => {
+    const wave = Uint8Array.from({ length: 80 }, (_, index) => index)
+    const bytes = encodeFrame({ seq: 1, opcode: 64, payload: { wave } })
+    const length = bytes.length - HEADER_BYTES
+    const raw = decompressBlock(bytes.subarray(HEADER_BYTES), (bytes[6] as number) * length)
+
+    expect(decodeFrame(bytes).payload).toEqual({ wave })
+    expect(Buffer.from(raw).toString("hex")).toContain("a477617665c450")
   })
 
   it("wraps the two-byte seq", () => {

@@ -58,7 +58,8 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
 - **MAX-24** · 🚩 P1 · Send a voice message. The upload works (opcode 82, `uploaderType: 1` for
   .ogg); the message does not: the web client sends `{_type: "AUDIO", audioId, duration, wave, token}`
   with `wave` as 80 raw bytes in a binary MessagePack frame, and none of six JSON forms was accepted
-  (`FIND-104`). Waits on `MAX-40`.
+  (`FIND-104`). Unblocked: frames are binary since `MAX-40`, and a `Uint8Array` in a payload goes out
+  as MessagePack bin.
 - **MAX-28** · ⏸️ P1 · Polls: show them when reading, and vote (`vote_poll`, `SEND_VOTE` 304
   `{chatId, messageId, pollId, answersIds}`). Creating one is a `_type: "POLL"` attachment on
   `MSG_SEND` 64 (PyMax 2.4.1, code; no user report).
@@ -68,7 +69,7 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
 - **MAX-48** · P3 · Send a round video note ("кружок"): opcode 82 `{type: 1, uploaderType: 1}`,
   `thumbhash` from the upload answer, `_type: "VIDEO"` with `videoType: 1`. MAX refuses a file that
   is not 480×480, `yuv420p`, limited range, bt709, baseline, AAC 48 kHz mono (PyMax #94). `thumbhash`
-  is bytes — may need `MAX-40`.
+  is bytes — a `Uint8Array` in a payload goes out as MessagePack bin since `MAX-40`.
 - **MAX-49** · P3 · Two-step password: log in when MAX asks for it (`passwordChallenge` in the login
   answer, then `AUTH_LOGIN_CHECK_PASSWORD` 115 `{trackId, password}`), and set or remove one
   (112 → 107 → 111). PyMax 2.4.1, code; a user logged in with it on the mobile client (PyMax #106).
@@ -88,16 +89,12 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   The plan weighs it against the smaller option: numbered `.sql` files and a ~30-line runner on
   the `user_version` we already keep. Either way: the FTS5 tables and triggers are hand-written
   SQL, and the migration files have to ship inside the npm package. Starts at `src/cache/schema.ts`.
-- **MAX-40** · 🚧 `feat/max-40-binary-protocol` · P1 · Speak the official web client's binary protocol: frames with version 10, a
-  binary header and a MessagePack payload, instead of our JSON text frames (version 11,
-  `src/protocol/frame.ts`). Read in the web.max.ru bundle 2026-09-24 (`nre()` in its socket code). Raised from P3 by the owner
-  on 2026-09-24 (`NEED-230`), next after transcription: PyMax moved to MessagePack on
-  `wss://api.oneme.ru/websocket` on 2026-07-05, while we send JSON to `wss://ws-api.oneme.ru` —
-  the plainest difference between us and the official client (`RISK-28`). Handoff:
-  `docs_ai/plans/2026-09-24-max-40-binary-protocol-handoff.md`.
-  MAX can tell our frames from the web client's today (`REQUIREMENTS.md` §34), and voice messages
-  (`MAX-24`) need a byte field JSON cannot carry. Start with a read-only probe: log in and list chats
-  over binary frames. Ranked P3 by the owner 2026-09-24.
+- **MAX-51** · P2 · Chats since the last login again. Over JSON the stored marker went in all four
+  `*Sync` fields of LOGIN and MAX answered only the chats that changed; since `MAX-40` it goes in
+  `contactsSync` only (`src/session/handshake.ts`), as web.max.ru sends it, so every login brings the
+  whole chat list (27 chats, ~25 KB, measured 2026-09-25). The refusal that led there was a float64
+  on the wire, not the field (`FIND-163`) — putting the marker back in `chatsSync` may well work.
+  One login to measure. Also from the MAX-40 plan: history pages of 30, as the web client asks.
 - **MAX-34** · P3 · Live events: a long-running `max listen` that prints new messages, edits,
   reactions and typing as they arrive (PyMax's `on_message`, `on_message_edit`,
   `on_reaction_update`…). Conflicts with one-shot commands (`CLAUDE.md` constraint 4), so it needs
