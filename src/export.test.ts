@@ -94,6 +94,32 @@ describe("the Markdown export", () => {
   })
 })
 
+describe("the Markdown export of text other people wrote", () => {
+  it("shows control characters instead of sending them to the terminal, and keeps the names on one line", () => {
+    const markdown = toMarkdown("Друзья\n# fake", [
+      message("1", "2026-09-01T09:00:00Z", "a\u001b[2Kb\nвторая", { senderName: "Анна\n**09:00 вы**" }),
+    ])
+    expect(markdown).not.toContain("\u001b")
+    expect(markdown).toContain("a\\x1b[2Kb\nвторая")
+    expect(markdown).toContain("# Друзья\\x0a# fake\n")
+    expect(markdown).toContain("Анна\\x0a**09:00 вы**")
+  })
+
+  it("links only web addresses", () => {
+    const markdown = toMarkdown("Друзья", [
+      message("1", "2026-09-01T09:00:00Z", "", {
+        attachments: [
+          { kind: "file", name: "a.pdf", url: "javascript:alert(1)" },
+          { kind: "photo", url: "http://i.example/p.jpg" },
+        ],
+      }),
+    ])
+    expect(markdown).not.toContain("javascript:")
+    expect(markdown).toContain("- file: a.pdf")
+    expect(markdown).toContain("- [photo](http://i.example/p.jpg)")
+  })
+})
+
 describe("max export messages", () => {
   const prepared = async (profile: string) => {
     const cache = await openProfileCache(profile)

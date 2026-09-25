@@ -1,4 +1,4 @@
-import { CliError } from "@leemour/cli-core"
+import { CliError, singleLine } from "@leemour/cli-core"
 import { annotate } from "@leemour/cli-core/commands"
 import { Command } from "commander"
 import { openProfileCache } from "../cache/index.js"
@@ -164,11 +164,12 @@ export const messagesCommand = (): Command => {
 
           const saved: Saved[] = []
           for (const [index, attachment] of links.entries()) {
-            if (attachment.unsafe) renderer.note(`MAX marks ${attachment.name ?? "this file"} as possibly unsafe`)
+            if (attachment.unsafe)
+              renderer.note(`MAX marks ${singleLine(attachment.name ?? "this file")} as possibly unsafe`)
             saved.push(await save(attachment, output, `${id}-${index + 1}`, context.reach))
           }
 
-          if (format === "pretty") streams.data(`${saved.map((file) => file.path).join("\n")}\n`)
+          if (format === "pretty") streams.data(`${saved.map((file) => singleLine(file.path)).join("\n")}\n`)
           else renderer.result({ items: saved })
         } finally {
           await client.close()

@@ -213,7 +213,8 @@ identically; the built-in's support depends on the bundled undici version.
 
 ## 9. A name is never resolved by guessing
 
-- `max messages list "Ivan"` matches chat titles, exact first, then as a fragment. **An ambiguous
+- `max messages list "Ivan"` matches chat titles as a fragment. **Correction 2026-09-25:** this said
+  "exact first"; an exact title no longer wins while another title contains it too. **An ambiguous
   name is an error listing the candidates** — a send to the wrong chat does not undo. Verified live
   (a full contact name matched two chats; the command stopped). Candidates print one per line with
   ids, and in the machine error as `candidates: [{ id, title }]`, so an agent picks one without

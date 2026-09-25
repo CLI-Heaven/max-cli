@@ -1,12 +1,12 @@
 import { existsSync } from "node:fs"
 import { script } from "@bomb.sh/tab"
-import { CliError, visibleControls } from "@leemour/cli-core"
+import { CliError, singleLine } from "@leemour/cli-core"
 import { describeOptions, describeProgram } from "@leemour/cli-core/commands"
 import { type CompletionSources, formatSuggestions, type Suggestion, suggest } from "@leemour/cli-core/completion"
 import { Command } from "commander"
 import { type CacheStore, openProfileCache, profileCacheFile } from "../cache/index.js"
 import { configuredProfiles } from "../config.js"
-import { commandWords, DEFAULT_PROFILE, liftProfile, rootOf } from "../profile.js"
+import { commandWords, DEFAULT_PROFILE, liftProfile, rootOf, usableProfileName } from "../profile.js"
 import { outputFor } from "./context.js"
 
 const SHELLS = ["zsh", "bash", "fish", "powershell"]
@@ -57,8 +57,15 @@ export const completeCommand = (): Command =>
       }
     })
 
-const readableCache = async (profile: string): Promise<CacheStore | undefined> =>
-  existsSync(profileCacheFile(profile)) ? openProfileCache(profile) : undefined
+/** A half-typed or odd first word gets no names rather than an error: a shell shows whatever it is given. */
+const readableCache = async (profile: string): Promise<CacheStore | undefined> => {
+  try {
+    usableProfileName(profile)
+  } catch {
+    return undefined
+  }
+  return existsSync(profileCacheFile(profile)) ? openProfileCache(profile) : undefined
+}
 
 const sourcesFrom = (cache: CacheStore | undefined, atTheStart: boolean): CompletionSources => {
   const chats = () => (cache ? chatSuggestions(cache) : [])
@@ -84,13 +91,6 @@ const personSuggestions = (cache: CacheStore): Suggestion[] =>
   cache.people
     .page({ order: "name", limit: 500, offset: 0 })
     .map((person) => ({ value: person.id, description: singleLine(person.name ?? "") }))
-
-// cli-core 0.7.0 exports the same function; this goes when max-cli moves to it.
-const singleLine = (text: string): string =>
-  visibleControls(text).replace(/[\t\n\u2028\u2029]/g, (c) => {
-    const code = c.charCodeAt(0)
-    return code > 0xff ? `\\u${code.toString(16)}` : `\\x${code.toString(16).padStart(2, "0")}`
-  })
 
 const profileNames = (): string[] => {
   try {

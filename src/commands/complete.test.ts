@@ -77,6 +77,18 @@ describe("max complete", () => {
     expect(existsSync(profileCacheFile("nocache"))).toBe(false)
   })
 
+  it("reads no cache for a first word that cannot be a profile name, even when a file is there", async () => {
+    const outside = await openProfileCache("../outside")
+    outside?.chats.write([
+      { id: "201", title: "Outside", kind: "group", unreadCount: 0, lastMessageAt: null, participantsCount: 2 },
+    ])
+    outside?.close()
+
+    const { code, lines } = await complete("../outside", "messages", "list", "")
+    expect(code).toBe(0)
+    expect(lines).toEqual([":4"])
+  })
+
   it("refuses a shell it does not know, on stderr", async () => {
     const streams = captureStreams()
     expect(await run(["complete", "tcsh"], { streams })).toBe(2)

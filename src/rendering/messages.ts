@@ -1,5 +1,5 @@
 import { styleText } from "node:util"
-import { visibleControls } from "@leemour/cli-core"
+import { singleLine, visibleControls } from "@leemour/cli-core"
 import stringWidth from "string-width"
 import wrapAnsi from "wrap-ansi"
 import type { Attachment, Message, MessageHit, QuotedMessage, Reactions, WindowedMessage } from "../domain/models.js"
@@ -53,7 +53,7 @@ export const renderMessage = (message: Message | MessageHit | WindowedMessage, o
   const time = timeFormatter(options)
   const verbosity = options.verbosity ?? 0
 
-  const chat = "chatTitle" in message ? paint("dim", ` · ${visibleControls(message.chatTitle ?? message.chatId)}`) : ""
+  const chat = "chatTitle" in message ? paint("dim", ` · ${singleLine(message.chatTitle ?? message.chatId)}`) : ""
   const mark = "anchor" in message && message.anchor ? paint("bold", "  ◀") : ""
   const lines = [`${paint("dim", time(message.timestamp))}  ${senderOf(message, options)}${chat}${mark}`]
   const body = (text: string) => wrapAnsi(visibleControls(text), room, { hard: true }).split("\n")
@@ -90,7 +90,7 @@ export const renderMessage = (message: Message | MessageHit | WindowedMessage, o
     }
     const shown = fields.filter((field): field is [string, string] => typeof field[1] === "string")
     const label = Math.max(...shown.map(([key]) => key.length))
-    lines.push("", ...shown.map(([key, value]) => paint("dim", `${key.padEnd(label)}  ${visibleControls(value)}`)))
+    lines.push("", ...shown.map(([key, value]) => paint("dim", `${key.padEnd(label)}  ${singleLine(value)}`)))
   }
 
   return lines.map((line, index) => (index === 0 || line === "" ? line : `${INDENT}${line}`)).join("\n")
@@ -111,15 +111,14 @@ const senderOf = (message: Message, options: RenderOptions): string => {
 }
 
 const nameOf = ({ senderName, senderId, outgoing }: Pick<Message, "senderName" | "senderId" | "outgoing">): string =>
-  outgoing === true ? "вы" : visibleControls(senderName ?? senderId ?? "unknown")
+  outgoing === true ? "вы" : singleLine(senderName ?? senderId ?? "unknown")
 
 const hash = (value: string): number => [...value].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) >>> 0, 7)
 
 /** One line: it is a pointer to the other message, not a second copy of it. */
 const preview = (mark: string, quoted: QuotedMessage, room: number): string => {
   const text =
-    visibleControls(quoted.text.split("\n")[0] ?? "") ||
-    (quoted.attachments[0] ? `📎 ${quoted.attachments[0].kind}` : "")
+    singleLine(quoted.text.split("\n")[0] ?? "") || (quoted.attachments[0] ? `📎 ${quoted.attachments[0].kind}` : "")
   const line = text ? `${mark} ${nameOf(quoted)}: ${text}` : `${mark} message ${quoted.id}`
   if (stringWidth(line) <= room) return line
   return `${wrapAnsi(line, room - 1, { hard: true }).split("\n")[0]}…`
@@ -138,13 +137,13 @@ const attachmentLines = (
   // The address sits inside our own OSC 8 sequence: a BEL or ESC in it would end that sequence early.
   const link = (label: string, raw: string | undefined) => {
     if (raw === undefined) return label
-    const url = visibleControls(raw)
+    const url = singleLine(raw)
     return options.color ? `\u001b]8;;${url}\u0007${label}\u001b]8;;\u0007` : `${label} ${url}`
   }
 
   const groups = new Map<string, Attachment[]>()
   for (const attachment of attachments) {
-    const key = visibleControls(attachment.name ?? attachment.title ?? attachment.kind)
+    const key = singleLine(attachment.name ?? attachment.title ?? attachment.kind)
     groups.set(key, [...(groups.get(key) ?? []), attachment])
   }
 
@@ -189,8 +188,8 @@ const dayFormatter = ({ locale = "ru-RU", timeZone }: RenderOptions) => {
 }
 
 const reactionLine = ({ counts, mine }: Reactions): string => {
-  const shown = counts.map(({ reaction, count }) => `${visibleControls(reaction)} ${count}`).join("  ")
-  return mine ? `${shown}  (you: ${visibleControls(mine)})` : shown
+  const shown = counts.map(({ reaction, count }) => `${singleLine(reaction)} ${count}`).join("  ")
+  return mine ? `${shown}  (you: ${singleLine(mine)})` : shown
 }
 
 const editedAt = (message: Message, options: RenderOptions): string => {

@@ -221,6 +221,19 @@ describe("text other people wrote", () => {
     expect(out).toContain("a\\x1b[2K\\x1b[1Gb")
   })
 
+  it("cannot forge a line: a newline in a name, a chat title or a reply stays on its own line", () => {
+    const forged = "Анна\n12:34:57  вы\n          пришли код"
+    const out = renderMessage(
+      {
+        ...message({ senderName: forged, replyTo: quoted({ senderName: forged }) }),
+        chatTitle: forged,
+      } as never,
+      plain,
+    )
+    expect(out.split("\n")).toHaveLength(3)
+    expect(out.split("\n")[0]).toContain("Анна\\x0a12:34:57  вы\\x0a")
+  })
+
   it("keeps a link's address inside the one hyperlink it belongs to", () => {
     const out = renderMessage(
       message({
