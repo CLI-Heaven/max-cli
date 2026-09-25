@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/leemour/max-cli/main/docs/design/logo.png" alt="max-cli" width="160">
+  <img src="https://raw.githubusercontent.com/leemour/max-cli/main/docs/design/logo_text.png" alt="Max CLI" width="480">
 </p>
 
 # max-cli
