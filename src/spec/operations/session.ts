@@ -116,7 +116,8 @@ export const sessionLogin = defineOperation({
     /**
      * **Delta markers, not flags** — measured 2026-09-20. Each is a moment in time, and MAX
      * returns only what changed in that collection since it. `0` means "everything", which is what
-     * `src/session/handshake.ts` sends and is why every command re-fetches the whole list.
+     * `src/session/handshake.ts` sends and is why every command re-fetches the whole list — except
+     * a `max serve` re-login, which sends its newest chat event in `chatsSync` (`MAX-51`).
      *
      * The measurement, on a real account: `0` returned 6 contacts and 25 chats; the `time` the
      * previous login answered with returned 0 and 0; a week earlier returned 1 and 11. The last of
