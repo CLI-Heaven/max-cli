@@ -1,5 +1,11 @@
+import { resolve } from "node:path"
+import { writeSecurely } from "@leemour/cli-core"
 import { Command } from "commander"
 import { diagnose } from "../diagnose.js"
+import { buildReport, mailtoFor, REPORT_ADDRESS, reportFileName } from "../report.js"
+import { runsDirFor } from "../runs/run.js"
+import { SendJournal, sendsPathFor } from "../sends/journal.js"
+import type { SessionStore } from "../session/store.js"
 import { forCommand } from "./context.js"
 
 /**
@@ -24,18 +30,7 @@ export const doctorCommand = (): Command => {
     const { renderer, settings, format, run, store } = forCommand(this)
 
     await run("doctor", async () => {
-      const report = await diagnose({
-        profile: settings.profile,
-        // Reading the keyring is the one thing here that can prompt or hang on a locked keyring,
-        // so its failure is "no token found" rather than a failed command.
-        hasKeyringToken: () => {
-          try {
-            return store.readToken() !== undefined
-          } catch {
-            return false
-          }
-        },
-      })
+      const report = await diagnoseProfile(settings.profile, store)
 
       renderer.result(format === "pretty" ? forPerson(report, settings.profile) : report)
 
@@ -79,7 +74,122 @@ export const doctorCommand = (): Command => {
     })
   })
 
+  command.addCommand(reportCommand())
   return command
+}
+
+const diagnoseProfile = (profile: string, store: SessionStore) =>
+  diagnose({
+    profile,
+    // Reading the keyring is the one thing here that can prompt or hang on a locked keyring,
+    // so its failure is "no token found" rather than a failed command.
+    hasKeyringToken: () => {
+      try {
+        return store.readToken() !== undefined
+      } catch {
+        return false
+      }
+    },
+  })
+
+const INCLUDES = [
+  "версия max, среда (node или bun) и система",
+  "то же, что показывает `max doctor`; домашний каталог заменён на ~",
+  "последний запуск, который кончился ошибкой: команда, запросы к MAX, коды ошибок, время",
+  "последние 20 действий-записей (отправки, реакции, удаления): исход и номера, без текста",
+]
+const EXCLUDES = ["текстов сообщений", "названий чатов", "имён", "номеров телефонов", "токена"]
+
+/**
+ * **A report is sent by the person, not by `max`**: there is no server of ours, and a mail password
+ * inside a public package is anybody's (`NEED-267`). So `create` writes a file and prints a
+ * `mailto:` link and the steps; the person's own mail program does the sending.
+ */
+const reportCommand = (): Command => {
+  const report = new Command("report").description("what a problem report holds and where it goes; writes nothing")
+
+  report.action(function (this: Command) {
+    const { renderer, format, streams } = forCommand(this)
+    if (format !== "pretty") {
+      renderer.result({
+        sendTo: REPORT_ADDRESS,
+        includes: INCLUDES,
+        excludes: EXCLUDES,
+        create: "max doctor report create",
+      })
+      return
+    }
+    streams.data(
+      [
+        `Отчёт о проблеме — один файл для автора max. Он отправляется письмом на ${REPORT_ADDRESS}.`,
+        "",
+        "В файле:",
+        ...INCLUDES.map((line, index) => `- ${line}${index === INCLUDES.length - 1 ? "." : ";"}`),
+        "",
+        `В файле нет: ${EXCLUDES.join(", ")}.`,
+        "Номера чатов и сообщений в нём есть: без вашего входа в MAX они ничего не дают, но это ваши чаты.",
+        "",
+        "Создать отчёт:             max doctor report create",
+        "Про определённый запуск:   max doctor report create --run <id>   (номера — max runs list)",
+      ].join("\n"),
+    )
+  })
+
+  report
+    .command("create")
+    .description("write a problem report to a file, and print how to send it")
+    .option("--run <id>", "the run the report is about; the newest failed one if not given")
+    .option("--output <file>", "where to write it; a new file in this directory if not given")
+    .action(async function (this: Command) {
+      const options = this.opts<{ run?: string; output?: string }>()
+      const { renderer, settings, format, streams, run, store } = forCommand(this)
+
+      await run("doctor report create", async () => {
+        const now = new Date()
+        const built = buildReport({
+          profile: settings.profile,
+          doctor: await diagnoseProfile(settings.profile, store),
+          runsDir: runsDirFor(),
+          ...(options.run === undefined ? {} : { runId: options.run }),
+          sends: new SendJournal(sendsPathFor(settings.profile)).entries(),
+          now,
+        })
+        const path = resolve(options.output ?? reportFileName(now))
+        writeSecurely(path, `${JSON.stringify(built, null, 2)}\n`, 0o600)
+
+        const mailto = mailtoFor(built, path)
+        const steps = [
+          `Откройте ссылку: почтовая программа откроет письмо на ${REPORT_ADDRESS} с темой и заготовкой текста. Если ничего не открылось — напишите на этот адрес сами.`,
+          `Приложите к письму файл ${path}.`,
+          "Напишите, что делали, что ожидали и что случилось.",
+          "Отправьте.",
+        ]
+        const noRun = built.run
+          ? undefined
+          : "Неудачных запусков не записано. Если проблема повторяется, повторите команду, которая не работает, и создайте отчёт снова: неудачный запуск сохранится сам."
+
+        if (format !== "pretty") {
+          renderer.result({ path, sendTo: REPORT_ADDRESS, mailto, run: built.run?.metadata.runId ?? null, steps })
+          if (noRun) renderer.note(noRun)
+          return
+        }
+        streams.data(
+          [
+            `Отчёт записан: ${path}`,
+            ...(built.run ? [`Запуск в отчёте: ${built.run.metadata.runId} (${built.run.metadata.command})`] : [noRun]),
+            "",
+            "Что сделать:",
+            `1. ${steps[0]}`,
+            `   ${mailto}`,
+            ...steps.slice(1).map((step, index) => `${index + 2}. ${step}`),
+            "",
+            "Перед отправкой файл можно открыть и посмотреть: текстов сообщений в нём нет.",
+          ].join("\n"),
+        )
+      })
+    })
+
+  return report
 }
 
 /** One line per row: the pretty renderer prints a flat object and does not descend into one. */

@@ -145,7 +145,7 @@ export const startRun = (options: StartRunOptions): Run => {
   }
 }
 
-const runtime = (): string => {
+export const runtime = (): string => {
   const bun = (process.versions as Record<string, string | undefined>).bun
   return bun ? `bun ${bun}` : `node ${process.versions.node}`
 }
