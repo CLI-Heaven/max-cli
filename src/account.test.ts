@@ -236,6 +236,15 @@ describe("folders", () => {
     })
     expect(sent(Opcode.FOLDERS_DELETE)).toEqual([{ folderIds: ["folder.personal"] }])
   })
+
+  it("refuses a title longer than the 20 characters MAX takes, before sending", async () => {
+    const { environment, sent } = account()
+    const refused = await runWith(["chats", "folders", "create", "x".repeat(21)], environment)
+    await runWith(["chats", "folders", "create", "x".repeat(20)], environment)
+
+    expect(refused.stderr).toContain("at most 20 characters")
+    expect(sent(Opcode.FOLDERS_UPDATE).map((folder) => folder.title)).toEqual(["x".repeat(20)])
+  })
 })
 
 describe("sessions", () => {
