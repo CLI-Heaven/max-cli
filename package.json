@@ -55,6 +55,7 @@
     "probe:groups": "pnpm build && node --experimental-strip-types scripts/probe-groups.ts",
     "probe:members": "pnpm build && node --experimental-strip-types scripts/probe-members.ts",
     "probe:account": "pnpm build && node --experimental-strip-types scripts/probe-account.ts",
+    "probe:read-mark": "pnpm build && node --experimental-strip-types scripts/probe-read-mark.ts",
     "probe:pre-release": "pnpm build && node --experimental-strip-types scripts/probe-pre-release.ts",
     "probe:message-count": "pnpm build && node --experimental-strip-types scripts/probe-message-count.ts"
   },
