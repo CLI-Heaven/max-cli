@@ -1,7 +1,16 @@
 import { WebSocket } from "ws"
-import { Command, decodeFrame, encodeFrame, type InboundFrame, type Payload } from "./frame.js"
+import {
+  Command,
+  decodeFrame,
+  decodeHeader,
+  encodeFrame,
+  type InboundFrame,
+  type Payload,
+  SEQ_MODULO,
+} from "./frame.js"
 
-export const MAX_WEBSOCKET_URL = "wss://ws-api.oneme.ru/websocket"
+/** Where web.max.ru connects, read off its live socket on 2026-09-25. */
+export const MAX_WEBSOCKET_URL = "wss://api.oneme.ru/websocket"
 /** MAX's web client sends this; we send what it sends rather than announcing ourselves (§34). */
 export const WEB_ORIGIN = "https://web.max.ru"
 
@@ -85,7 +94,7 @@ export class Connection {
 
   #socket: WebSocket | undefined
   #seq = 0
-  #lastPush = 0
+  #lastPush: number | undefined
   #closed = false
 
   constructor(options: ConnectionOptions = {}) {
@@ -117,7 +126,7 @@ export class Connection {
       socket.once("error", onError)
     })
 
-    socket.on("message", (data: Buffer | string) => this.#receive(String(data)))
+    socket.on("message", (data: Buffer | ArrayBuffer | Buffer[]) => this.#receive(asBytes(data)))
     socket.on("close", () => this.#lost(new Error("MAX closed the connection")))
     socket.on("error", (error: Error) => this.#lost(error))
   }
@@ -142,8 +151,9 @@ export class Connection {
     if (this.#closed) throw new Error("the connection is closed")
     if (!this.#socket) throw new Error("the connection is not open")
 
-    this.#seq += 1
+    // The web client's INIT goes out as seq 0; the header holds two bytes, so the count wraps.
     const seq = this.#seq
+    this.#seq = (this.#seq + 1) % SEQ_MODULO
     const socket = this.#socket
 
     const answer = await new Promise<{ frame: InboundFrame; bytes: number }>((resolve, reject) => {
@@ -155,7 +165,7 @@ export class Connection {
       this.#pending.set(seq, { resolve, reject, timer })
       const sent = encodeFrame({ seq, opcode, payload })
       socket.send(sent)
-      watch?.({ phase: "sent", seq, opcode, bytes: Buffer.byteLength(sent) })
+      watch?.({ phase: "sent", seq, opcode, bytes: sent.length })
     })
 
     const frame = answer.frame
@@ -201,12 +211,20 @@ export class Connection {
     if (socket.readyState === socket.OPEN || socket.readyState === socket.CONNECTING) socket.close()
   }
 
-  #receive(raw: string): void {
+  #receive(raw: Uint8Array): void {
     let frame: InboundFrame
     try {
       frame = decodeFrame(raw)
-    } catch {
-      return // A frame we cannot read is not a reason to fail a request we can.
+    } catch (error) {
+      // A body we cannot read still has a header naming the request it answers. Failing that
+      // request with the reason beats letting it wait out its timeout as "MAX did not answer".
+      const header = safeHeader(raw)
+      const waiting = header && header.cmd !== Command.REQUEST ? this.#pending.get(header.seq) : undefined
+      if (!header || !waiting) return
+      clearTimeout(waiting.timer)
+      this.#pending.delete(header.seq)
+      waiting.reject(error instanceof Error ? error : new Error(String(error)))
+      return
     }
 
     // MAX numbers its own frames, so a push can carry the very `seq` a request is waiting on. Only
@@ -217,18 +235,19 @@ export class Connection {
       return
     }
 
-    const waiting = frame.seq === null ? undefined : this.#pending.get(frame.seq)
+    const waiting = this.#pending.get(frame.seq)
     if (!waiting) return
 
     clearTimeout(waiting.timer)
-    this.#pending.delete(frame.seq as number)
-    waiting.resolve({ frame, bytes: Buffer.byteLength(raw) })
+    this.#pending.delete(frame.seq)
+    waiting.resolve({ frame, bytes: raw.length })
   }
 
   #pushed(frame: InboundFrame): void {
-    if (this.#live && frame.seq !== null) {
+    if (this.#live) {
       // After a hiccup MAX sends some pushes again; the web client drops anything not newer.
-      if (frame.seq <= this.#lastPush) return
+      // "Newer" is modular: a two-byte seq wraps, and a plain `<=` would drop every push after it.
+      if (this.#lastPush !== undefined && !isAfter(frame.seq, this.#lastPush)) return
       this.#lastPush = frame.seq
 
       if (frame.opcode === PING) {
@@ -237,12 +256,12 @@ export class Connection {
       }
       const message = frame.payload?.message
       if (frame.opcode === NEW_MESSAGE && typeof message === "object" && message !== null && "id" in message) {
-        // The ids go back exactly as they came — numbers on the wire, through the lossless codec.
+        // As bigints, so they go back wrapped the way the web client wraps an id.
         this.#answer({
           cmd: Command.RESPONSE,
           seq: frame.seq,
           opcode: NEW_MESSAGE,
-          payload: { chatId: frame.payload?.chatId, messageId: message.id },
+          payload: { chatId: asWireId(frame.payload?.chatId), messageId: asWireId(message.id) },
         })
       }
     }
@@ -277,3 +296,24 @@ export class Connection {
     this.#pending.clear()
   }
 }
+
+const asBytes = (data: Buffer | ArrayBuffer | Buffer[]): Uint8Array => {
+  if (Array.isArray(data)) return Buffer.concat(data)
+  return data instanceof ArrayBuffer ? new Uint8Array(data) : data
+}
+
+const safeHeader = (raw: Uint8Array): ReturnType<typeof decodeHeader> | undefined => {
+  try {
+    return decodeHeader(raw)
+  } catch {
+    return undefined
+  }
+}
+
+const isAfter = (seq: number, last: number): boolean => {
+  const distance = (seq - last + SEQ_MODULO) % SEQ_MODULO
+  return distance > 0 && distance < SEQ_MODULO / 2
+}
+
+const asWireId = (value: unknown): unknown =>
+  typeof value === "number" && Number.isSafeInteger(value) ? BigInt(value) : value

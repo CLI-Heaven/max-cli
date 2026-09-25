@@ -30,14 +30,16 @@ export const chatsHistory = defineOperation({
     from: v.number(),
     forward: v.number(),
     backward: v.number(),
-    forwardTime: v.number(),
-    backwardTime: v.number(),
+    // web.max.ru sends chatId, from, forward, backward, getMessages and nothing else (captured
+    // 2026-09-25). We add `interactive: false` until its absence is measured on an unread chat.
+    forwardTime: v.optional(v.number()),
+    backwardTime: v.optional(v.number()),
     /** `DELAYED` is the queue of scheduled messages, read with `from: 1` and `forward` (measured 2026-09-24). */
-    itemType: v.picklist(["REGULAR", "DELAYED"]),
-    getChat: v.boolean(),
+    itemType: v.optional(v.picklist(["REGULAR", "DELAYED"])),
+    getChat: v.optional(v.boolean()),
     getMessages: v.boolean(),
     /** False for the same reason as on login: a script reading is not a person looking. */
-    interactive: v.literal(false),
+    interactive: v.optional(v.literal(false)),
   }),
   response: v.looseObject({ messages: v.optional(v.array(v.looseObject({}))) }),
   provenance: {

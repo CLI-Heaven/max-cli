@@ -1,6 +1,7 @@
+import { decode, ExtData } from "@msgpack/msgpack"
 import * as v from "valibot"
 import { describe, expect, it } from "vitest"
-import { asId, decodeFrame, encodeFrame } from "../protocol/frame.js"
+import { asId, decodeFrame, encodeFrame, HEADER_BYTES } from "../protocol/frame.js"
 import { id, toWireId, wireId } from "./scalars.js"
 
 const roundTrip = (value: string) => {
@@ -17,8 +18,12 @@ describe("an id on the way out", () => {
     ["7268926000000000001", "bigint"],
   ])("survives the wire intact: %s", (value) => {
     const { raw, back } = roundTrip(value)
+    const wire = decode(raw.subarray(HEADER_BYTES), { useBigInt64: true }) as { chatId: ExtData }
 
-    expect(raw).toContain(`"chatId":${value}`)
+    // Wrapped in extension 1 as a 64-bit integer, which is how web.max.ru sends a chat id.
+    expect(wire.chatId).toBeInstanceOf(ExtData)
+    expect(wire.chatId.type).toBe(1)
+    expect(decode(wire.chatId.data as Uint8Array, { useBigInt64: true })).toBe(BigInt(value))
     expect(back).toBe(value)
   })
 

@@ -15,6 +15,7 @@ const WebUserAgent = v.strictObject({
   osVersion: v.string(),
   deviceName: v.string(),
   headerUserAgent: v.string(),
+  isPwa: v.literal(false),
   appVersion: v.string(),
   screen: v.string(),
   timezone: v.string(),
@@ -59,15 +60,15 @@ export const sessionLogin = defineOperation({
   auth: false,
   request: v.strictObject({
     token: v.string(),
-    /**
-     * False, always. The web client sends true because a person is looking at it; we are a script
-     * reading, and claiming a human is present is the small lie that becomes a side effect nobody
-     * can trace (`RES-5`).
-     */
-    interactive: v.literal(false),
     // 100 works and 200 comes back `'chatsCount' out of range`; refusing locally beats a round
     // trip that only tells us what we already know. The real boundary is `PROTO-3`.
     chatsCount: v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100)),
+    /**
+     * False, always: we are a script reading, and claiming a human is present is the small lie that
+     * becomes a side effect nobody can trace (`RES-5`). **Correction 2026-09-25:** this said the web
+     * client sends true; its LOGIN on a live socket sent `false` too — `true` goes in its pings.
+     */
+    interactive: v.literal(false),
     /**
      * **Delta markers, not flags** — measured 2026-09-20. Each is a moment in time, and MAX
      * returns only what changed in that collection since it. `0` means "everything", which is what

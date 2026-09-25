@@ -1194,10 +1194,6 @@ export class MaxClient {
       from: time,
       forward: 0,
       backward: 1,
-      forwardTime: 0,
-      backwardTime: 0,
-      itemType: "REGULAR",
-      getChat: false,
       getMessages: true,
       interactive: false,
     })
@@ -1555,11 +1551,9 @@ export class MaxClient {
     const answer = await this.#wire.chats.history({
       chatId,
       ...window,
-      forwardTime: 0,
-      backwardTime: 0,
-      itemType: "REGULAR",
-      getChat: false,
       getMessages: true,
+      // The web client leaves this out. What MAX assumes when it is missing was not measured on a
+      // chat with unread messages, and a guess wrong here marks the owner's chats read.
       interactive: false,
     })
 

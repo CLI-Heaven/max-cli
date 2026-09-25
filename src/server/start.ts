@@ -2,7 +2,9 @@ import { spawn } from "node:child_process"
 import { closeSync, mkdirSync, openSync, rmSync, statSync } from "node:fs"
 import { dirname } from "node:path"
 import type { SessionStore } from "../session/store.js"
+import { VERSION } from "../version.js"
 import { answers, startingPath } from "./server.js"
+import { serverStatus, stopServer } from "./server-connection.js"
 
 /** A server a command started stops after this long unused. */
 export const IDLE_MS = 15 * 60_000
@@ -68,7 +70,9 @@ const START_WAIT_MS = 15_000
  * already starting one. `false`: none came up (no session, or MAX refused its login lately).
  */
 export const ensureServer = async (store: SessionStore): Promise<boolean> => {
-  if (await answers(store.socketPath())) return true
+  if (await answers(store.socketPath())) {
+    if (!(await replacedIfStale(store))) return true
+  }
   if (store.readToken() === undefined) return false
   const refusedAt = statSync(refusedPath(store), { throwIfNoEntry: false })?.mtimeMs
   if (refusedAt !== undefined && Date.now() - refusedAt < REFUSED_PAUSE_MS) return false
@@ -82,4 +86,15 @@ export const ensureServer = async (store: SessionStore): Promise<boolean> => {
     if ((statSync(refusedPath(store), { throwIfNoEntry: false })?.mtimeMs ?? 0) >= asked) return false
   }
   return false
+}
+
+/**
+ * A server a command started under another version gives way: it speaks to MAX with that
+ * version's code, and after an upgrade that can be a different protocol altogether. One started by
+ * hand is the owner's to stop.
+ */
+export const replacedIfStale = async (store: SessionStore): Promise<boolean> => {
+  const status = await serverStatus(store.socketPath())
+  if (!status || status.version === VERSION || status.byHand === true) return false
+  return (await stopServer(store.socketPath())) === "stopped"
 }
