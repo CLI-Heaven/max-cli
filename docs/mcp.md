@@ -100,6 +100,7 @@ claude mcp add max -- max mcp --allow-send --confirm-send
 | `max_messages_search` | `max messages search` | поиск по уже прочитанному на этой машине |
 | `max_messages_context` | `max messages show`, `context` | одно сообщение и соседние |
 | `max_messages_scheduled` | `max messages scheduled` | что ждёт отправки в чате, с `scheduledFor` |
+| `max_messages_transcribe` | `max messages transcribe` | текст голосового, распознанный на этой машине |
 | `max_messages_send` | `max messages send` | отправка, только с `--allow-send`; с `at` — позже, как `--at` |
 | `max_messages_edit` | `max messages edit` | правка своего сообщения, только с `--allow-send` |
 | `max_messages_forward` | `max messages forward` | пересылка в другой чат, только с `--allow-send` |
