@@ -86,6 +86,64 @@ describe("MaxClient", () => {
     expect(max.sent.map((call) => call.opcode)).toEqual([Opcode.SESSION_INIT, Opcode.LOGIN])
   })
 
+  describe("logging in again as a web tab does (MAX-51)", () => {
+    const before = [
+      { id: 111, title: "First", type: "CHAT", lastEventTime: 1_789_776_000_000 },
+      { id: 222, type: "DIALOG", lastEventTime: 1_789_700_000_000 },
+    ]
+    const resume = {
+      login: { lastLogin: 1_789_776_500_000, chatsSync: 1_789_776_000_000, configHash: "a-hash" },
+      chats: before,
+    }
+
+    it("sends the previous login's time, config hash and newest chat, and merges the chats that changed", async () => {
+      const changed = { id: 222, type: "DIALOG", lastEventTime: 1_789_777_000_000, newMessages: 1 }
+      const max = mockMax({
+        answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: { ...loginAnswer, chats: [changed] } },
+      })
+      const { store } = clientWith(max)
+      const client = new MaxClient({
+        store,
+        connection: new Connection({ createSocket: max.createSocket, timeoutMs: 50 }),
+        resume,
+      })
+
+      await client.connect()
+      const chats = client.live.snapshot().chats as Record<string, unknown>[]
+      await client.close()
+
+      expect(max.sent[1]?.payload).toMatchObject({
+        lastLogin: 1_789_776_500_000,
+        chatsSync: 1_789_776_000_000,
+        configHash: "a-hash",
+      })
+      expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.CHATS_LIST)
+      expect(chats.map((chat) => [String(chat.id), chat.newMessages ?? 0])).toEqual([
+        ["222", 1],
+        ["111", 0],
+      ])
+    })
+
+    it("offers a resume only from a login that carried its time and config hash", async () => {
+      const bare = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
+      const { client: plain } = clientWith(bare)
+      await plain.connect()
+      expect(plain.live.resumeFrom()).toBeUndefined()
+      await plain.close()
+
+      const full = { ...loginAnswer, time: 1_789_776_500_000, config: { hash: "a-hash" } }
+      const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: full } })
+      const { client } = clientWith(max)
+      await client.connect()
+      expect(client.live.resumeFrom()?.login).toEqual({
+        lastLogin: 1_789_776_500_000,
+        chatsSync: 1_789_776_000_000,
+        configHash: "a-hash",
+      })
+      await client.close()
+    })
+  })
+
   describe("the chats LOGIN leaves out (MAX-53)", () => {
     const fifteen = Array.from({ length: 15 }, (_, index) => ({
       id: 500 + index,
