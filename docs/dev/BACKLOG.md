@@ -56,7 +56,7 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   video, not as a file: opcode 82 with `type: 0`, POST, wait for push 136, then `_type: "VIDEO"`
   with `videoType: 0` (PyMax 2.4.1 `upload_video`, code; a user reports it works, PyMax #94).
   Correction 2026-09-24: this line said `type: 1`, which is a round video note (`MAX-48`).
-- **MAX-24** · 🚩 P1 · Send a voice message. The upload works (opcode 82, `uploaderType: 1` for
+- **MAX-24** · P1 · Send a voice message. The upload works (opcode 82, `uploaderType: 1` for
   .ogg); the message does not: the web client sends `{_type: "AUDIO", audioId, duration, wave, token}`
   with `wave` as 80 raw bytes in a binary MessagePack frame, and none of six JSON forms was accepted
   (`FIND-104`). Unblocked: frames are binary since `MAX-40`, and a `Uint8Array` in a payload goes out
