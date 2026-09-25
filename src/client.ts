@@ -1396,11 +1396,23 @@ export class MaxClient {
   async connect({ token: candidate }: { token?: string } = {}): Promise<void> {
     const token = candidate ?? this.#store.readToken()
     if (!token) {
+      const profile = this.#store.profile
+      // cli-core swallows a keyring that will not open, so the state file is the only witness: a
+      // profile that has logged in lost its keyring, not its session, and another login would
+      // register one more device for nothing (MAX-50, measured from cron 2026-09-25).
+      if (this.#store.hasLoggedIn()) {
+        throw new CliError(
+          "authentication_error",
+          `no token found for profile "${profile}", although it has logged in on this machine — ` +
+            `the keyring is probably out of reach (cron, ssh: set XDG_RUNTIME_DIR); ` +
+            `\`max ${asFirstWord(profile)}doctor\` shows it. Log in again only if the token was removed`,
+        )
+      }
       // The fix has to carry the profile, or it logs the wrong one in: a name nobody has logged
       // in under is the ordinary shape of this failure now that the first word is the profile.
       throw new CliError(
         "authentication_error",
-        `no session for profile "${this.#store.profile}" — run \`max ${asFirstWord(this.#store.profile)}session start\``,
+        `no session for profile "${profile}" — run \`max ${asFirstWord(profile)}session start\``,
       )
     }
 

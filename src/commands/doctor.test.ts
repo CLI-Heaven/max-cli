@@ -16,7 +16,7 @@ import { SessionStore } from "../session/store.js"
  */
 const homes: string[] = []
 
-const inAnEmptyHome = async (argv: string[], { token = false, tty = false } = {}) => {
+const inAnEmptyHome = async (argv: string[], { token = false, loggedIn = false, tty = false } = {}) => {
   const home = mkdtempSync(join(tmpdir(), "max-doctor-cmd-"))
   const before = { ...process.env }
   homes.push(home)
@@ -35,6 +35,7 @@ const inAnEmptyHome = async (argv: string[], { token = false, tty = false } = {}
       store: (profile) => {
         const store = new SessionStore({ profile, keyring })
         if (token) store.writeToken("a-token")
+        if (loggedIn) store.writeState({ deviceId: "a-device", logins: 2 })
         return store
       },
     })
@@ -63,6 +64,14 @@ describe("max doctor", () => {
       session: { exists: false },
       cache: { exists: false },
     })
+  })
+
+  it("blames the keyring, not the session, when a profile that has logged in has no token", async () => {
+    const { code, stderr } = await inAnEmptyHome(["doctor", "--json"], { loggedIn: true })
+
+    expect(code).toBe(0)
+    expect(stderr).toContain("keyring is probably out of reach")
+    expect(stderr).not.toContain("session start")
   })
 
   it("says the token is there and where from, and **never what it is**", async () => {
