@@ -748,7 +748,10 @@ describe("the token MAX answers with", () => {
     })
 
     await client.connect()
+    const handedOut = client.live.snapshot()
     await client.close()
+
+    expect(handedOut.token).toBeUndefined()
 
     const unset = new SessionStore({ keyring, configDir: dir, stateDir: join(dir, "state"), env: {} })
     expect(unset.readToken()).toBeUndefined()
