@@ -123,7 +123,7 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   opening a chat with unread messages marks it read without opcode 50 — see `RES-10`.
   Correction 2026-09-25 (`RES-10`, captured): the tab marks a chat read with an explicit opcode 50
   after opening it, not with 49. Left: confirm that 49 alone moves nothing — `RES-11`.
-- **RES-11** · P3 · Drop `interactive: false` from our history request (49): the web client sends
+- **RES-11** · 🚧 `feat/res-11-read-probe` · P3 · Drop `interactive: false` from our history request (49): the web client sends
   5 fields and never it, and marks a chat read with an explicit `CHAT_MARK` 50 after opening it, not
   with 49 (captured 2026-09-25, `docs_ai/captures/2026-09-25-res-10.jsonl`). One check first:
   `max messages list` on a chat with unread messages, without the field, and see that `unread`
