@@ -8,6 +8,9 @@
  * commands run, on a single connection — driving the commands would be a login per write, since
  * `max serve` carries reads only. Everything it creates is deleted at the end, the folder included.
  *
+ * Pin is not here: MAX pins only in groups, and our client refuses it in Saved messages before
+ * sending. `pnpm probe:pre-release "<group>" MAX-58` covers it in a group.
+ *
  * Printed: one line per step, `ok` or `FAIL` with MAX's own reason, and this script's own test
  * text. Never a message of the owner's, a name or an id.
  */
@@ -82,8 +85,6 @@ try {
     await step("edit", () => client.messages.edit(SAVED, text, `max-cli smoke ${stamp} (edited)`))
     await step("react", () => client.messages.react(SAVED, text, "👍"))
     await step("unreact", () => client.messages.unreact(SAVED, text))
-    await step("pin", () => client.messages.pin(SAVED, text))
-    await step("unpin", () => client.messages.pin(SAVED, null))
     keep(await step("forward (64)", () => client.messages.forward(SAVED, text, SAVED)))
   }
   keep(await step("send a photo", () => client.messages.send(SAVED, "", { files: [pixel] })))
@@ -103,7 +104,7 @@ try {
   await step("mark read (50) — never measured before", () => client.chats.markRead(SAVED))
   await step("profile, unchanged", () => client.account.update({}))
 
-  const folder = await step("create a folder", () => client.folders.create(`max-cli smoke ${stamp.slice(11, 19)}`))
+  const folder = await step("create a folder", () => client.folders.create(`smoke ${stamp.slice(11, 19)}`))
   if (folder) {
     await step("rename the folder", () => client.folders.update(folder.id, { title: "max-cli smoke renamed" }))
     await step("delete the folder", () => client.folders.delete(folder.id))
