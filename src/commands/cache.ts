@@ -1,5 +1,6 @@
 import { Command } from "commander"
 import { openProfileCache } from "../cache/index.js"
+import { resolveSettings } from "../config.js"
 import { outputFor } from "./context.js"
 
 /**
@@ -16,20 +17,20 @@ export const cacheCommand = (): Command => {
     .command("clear")
     .description("forget everything this profile has cached")
     .action(async function (this: Command) {
-      const options = this.optsWithGlobals()
+      const { profile } = resolveSettings(this.optsWithGlobals())
       const { renderer } = outputFor(this)
-      const cache = await openProfileCache(options.profile, { onProblem: (message) => renderer.note(message) })
+      const cache = await openProfileCache(profile, { onProblem: (message) => renderer.note(message) })
 
       if (!cache) {
-        renderer.result({ profile: options.profile, cleared: false })
+        renderer.result({ profile: profile, cleared: false })
         renderer.note("there is no cache for this profile")
         return
       }
 
       try {
         cache.clear()
-        renderer.result({ profile: options.profile, cleared: true })
-        renderer.success(`forgot everything cached for "${options.profile}"`)
+        renderer.result({ profile: profile, cleared: true })
+        renderer.success(`forgot everything cached for "${profile}"`)
       } finally {
         cache.close()
       }
