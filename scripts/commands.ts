@@ -142,6 +142,8 @@ writeFileSync(path, page(createProgram()))
 execFileSync("pnpm", ["exec", "biome", "check", "--write", "--no-errors-on-unmatched", "docs/commands.md"], {
   cwd: root,
   stdio: "ignore",
+  // pnpm is a .cmd script on Windows, which only a shell starts.
+  shell: process.platform === "win32",
 })
 
 console.log("generated docs/commands.md from the command tree")

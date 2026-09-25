@@ -46,15 +46,19 @@ describe("a run directory", () => {
     await run.logger.close()
   })
 
-  it("**is readable by nobody else** — the directory as much as the file", async () => {
-    const run = begin(runsDir())
+  // Windows has no owner-only mode bits.
+  it.skipIf(process.platform === "win32")(
+    "**is readable by nobody else** — the directory as much as the file",
+    async () => {
+      const run = begin(runsDir())
 
-    expect(statSync(run.dir).mode & 0o777).toBe(0o700)
-    expect(statSync(join(run.dir, "run.json")).mode & 0o777).toBe(0o600)
-    expect(statSync(join(run.dir, "events.jsonl")).mode & 0o777).toBe(0o600)
+      expect(statSync(run.dir).mode & 0o777).toBe(0o700)
+      expect(statSync(join(run.dir, "run.json")).mode & 0o777).toBe(0o600)
+      expect(statSync(join(run.dir, "events.jsonl")).mode & 0o777).toBe(0o600)
 
-    await run.logger.close()
-  })
+      await run.logger.close()
+    },
+  )
 
   it("writes one JSON object per event, and no colour ever", async () => {
     const run = begin(runsDir())

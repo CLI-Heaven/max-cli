@@ -1,7 +1,7 @@
-name: Windows
+name: Windows and macOS
 
-# By hand only (Actions → Windows → Run workflow): Windows is checked before a release, not on
-# every push.
+# By hand only (Actions → Windows and macOS → Run workflow): Windows and macOS are checked before a
+# release, not on every push.
 on:
   workflow_dispatch:
 
@@ -10,7 +10,11 @@ permissions:
 
 jobs:
   check:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       # Otherwise checkout turns every line ending into CRLF and fixtures stop matching.
       - run: git config --global core.autocrlf false
@@ -21,7 +25,8 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test
+      # These runners are slower than ubuntu's; five seconds timed out tests that do not hang.
+      - run: pnpm test --testTimeout=20000
       - run: pnpm build
       - run: node dist/bin/max.js --version
       - run: node dist/bin/max.js update --check --json

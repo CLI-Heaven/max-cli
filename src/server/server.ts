@@ -178,7 +178,7 @@ export class MaxServer {
     // otherwise delete the running server's socket and let a third start beside it.
     if (this.#listener) {
       await new Promise<void>((resolve) => this.#listener?.close(() => resolve()))
-      rmSync(this.#options.store.socketPath(), { force: true })
+      if (process.platform !== "win32") rmSync(this.#options.store.socketPath(), { force: true })
     }
     await this.#client?.close()
     this.#client = undefined
@@ -335,19 +335,30 @@ export class MaxServer {
     if ((await answers(path)) && !(!this.#options.startedByCommand && (await stopServer(path)) === "stopped")) {
       throw new CliError("validation_error", `a server is already running for profile "${this.#options.store.profile}"`)
     }
-    // Nobody answers on it, so it is what a crashed server left behind.
-    rmSync(path, { force: true })
-    mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
-    // The socket is open to everyone between `listen` and its `chmod`; only the directory keeps
-    // others out then, and `mkdirSync` leaves an existing one as it found it.
-    chmodSync(dirname(path), 0o700)
+    const pipe = process.platform === "win32"
+    // macOS takes 104 bytes with the terminator, Linux 108; past that `listen` says only EINVAL.
+    if (!pipe && Buffer.byteLength(path) > 103) {
+      throw new CliError(
+        "configuration_error",
+        `the server's socket path is ${Buffer.byteLength(path)} bytes, more than this system allows (103): ${path} — ` +
+          "a shorter profile name or MAX_STATE_DIR fixes it",
+      )
+    }
+    if (!pipe) {
+      // Nobody answers on it, so it is what a crashed server left behind.
+      rmSync(path, { force: true })
+      mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
+      // The socket is open to everyone between `listen` and its `chmod`; only the directory keeps
+      // others out then, and `mkdirSync` leaves an existing one as it found it.
+      chmodSync(dirname(path), 0o700)
+    }
 
     const listener = createServer((socket) => this.#serve(socket))
     await new Promise<void>((resolve, reject) => {
       listener.once("error", reject)
       listener.listen(path, () => resolve())
     })
-    chmodSync(path, 0o600)
+    if (!pipe) chmodSync(path, 0o600)
     this.#listener = listener
   }
 
@@ -543,7 +554,7 @@ export const refusedLogin = (error: unknown): boolean =>
 const backoff = (attempt: number): number => Math.min(60_000, 1000 * 2 ** attempt)
 
 /** Present while a server is being started in the background, so two commands do not start two. */
-export const startingPath = (store: SessionStore): string => `${store.socketPath()}.starting`
+export const startingPath = (store: SessionStore): string => store.serverFile(".sock.starting")
 
 /** Whether something is listening on the socket — a live server, not a leftover file. */
 export const answers = (path: string): Promise<boolean> =>

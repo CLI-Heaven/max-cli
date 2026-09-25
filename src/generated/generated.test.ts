@@ -22,7 +22,8 @@ describe("what the generator wrote", () => {
 
   it("is what `pnpm generate` produces right now", () => {
     const before = files().map((path) => readFileSync(path, "utf8"))
-    execFileSync("pnpm", ["generate"], { stdio: "ignore" })
+    // On Windows pnpm is a .cmd script, which only a shell starts.
+    execFileSync("pnpm", ["generate"], { stdio: "ignore", shell: process.platform === "win32" })
 
     expect(files().map((path) => readFileSync(path, "utf8"))).toEqual(before)
   }, 60_000)

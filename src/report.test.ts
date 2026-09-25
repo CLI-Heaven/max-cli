@@ -47,7 +47,8 @@ describe("max doctor report", () => {
     const report = JSON.parse(readFileSync(file, "utf8")) as Report
 
     expect(code).toBe(0)
-    expect(statSync(file).mode & 0o777).toBe(0o600)
+    // Windows has no owner-only mode bits.
+    if (process.platform !== "win32") expect(statSync(file).mode & 0o777).toBe(0o600)
     expect(report.run?.metadata).toMatchObject({
       command: "chats list",
       status: "failed",
