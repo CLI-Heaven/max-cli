@@ -187,6 +187,25 @@
     )
   }
 
+  // A push's structure for MAX-34 (edits, reactions, typing): every key at every level, values only
+  // as types — except booleans, enum-like `type`/`status`/`_type`, and times as t0+N. Arrays keep
+  // their first element's structure and their length. Text, names, links and ids never survive.
+  const ENUM_KEYS = new Set(["type", "_type", "status", "event"])
+  const structure = (v, k = "", depth = 0) => {
+    if (v === null || typeof v === "boolean") return v
+    if (SECRET.test(k)) return "<redacted>"
+    if (ID.test(k) && !KEPT_IDS.has(k)) return "id"
+    if (EPOCH_MS(v)) return relative(v)
+    if (typeof v === "number") return "number"
+    if (typeof v === "string") return ENUM_KEYS.has(k) && ENUM.test(v) ? v : "string"
+    if (depth > 5) return typeof v
+    if (Array.isArray(v)) return v.length === 0 ? [] : [`length ${v.length}`, structure(v[0], k, depth + 1)]
+    if (typeof v === "object") {
+      return Object.fromEntries(Object.entries(v).map(([kk, vv]) => [kk, structure(vv, kk, depth + 1)]))
+    }
+    return typeof v
+  }
+
   const parse = (data) => {
     if (typeof data === "string") return { format: "text", length: data.length }
     const u8 =
@@ -237,6 +256,7 @@
         if (answers !== undefined) frame.answers = answers
         if (answers === 5 || answers === 1) frame.payload = clean(payload)
         else if (answers === 6 || answers === 19 || AFTER_LOGIN.has(answers)) frame.payload = shape(payload)
+        else if (header.cmd === 0 && header.opcode !== 1) frame.payload = structure(payload)
       }
       cap.frames.push(frame)
     } catch (error) {
