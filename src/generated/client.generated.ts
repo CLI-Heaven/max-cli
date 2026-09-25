@@ -59,6 +59,15 @@ export const wireClient = (invoke: Invoke) => ({
     delete: (request: RequestOf<(typeof OPERATIONS)["folders.delete"]>) =>
       invoke(OPERATIONS["folders.delete"], request),
   },
+  banners: {
+    list: (request: RequestOf<(typeof OPERATIONS)["banners.list"]>) => invoke(OPERATIONS["banners.list"], request),
+  },
+  calls: {
+    history: (request: RequestOf<(typeof OPERATIONS)["calls.history"]>) => invoke(OPERATIONS["calls.history"], request),
+  },
+  assets: {
+    update: (request: RequestOf<(typeof OPERATIONS)["assets.update"]>) => invoke(OPERATIONS["assets.update"], request),
+  },
   chats: {
     history: (request: RequestOf<(typeof OPERATIONS)["chats.history"]>) => invoke(OPERATIONS["chats.history"], request),
     mark: (request: RequestOf<(typeof OPERATIONS)["chats.mark"]>) => invoke(OPERATIONS["chats.mark"], request),
