@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync } from "node:fs"
+import { chmodSync, closeSync, existsSync, mkdirSync, openSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { resolvePaths } from "@leemour/cli-core"
 import { openCache } from "./open.js"
@@ -39,9 +39,14 @@ export const openProfileCache = async (
     // SQLite will not create a file in a directory that does not exist, and on a fresh machine
     // this one never does.
     mkdirSync(dirname(file), { recursive: true, mode: 0o700 })
-    const store = openStore({ database: await openCache(file) })
-    chmodSync(file, 0o600)
-    return store
+    chmodSync(dirname(file), 0o700)
+    // SQLite gives the -wal and -shm files the database's own mode, and writes the -wal while it
+    // opens — so the database has to be 0600 before that, not after. Older ones are put right too.
+    closeSync(openSync(file, "a", 0o600))
+    for (const path of [file, `${file}-wal`, `${file}-shm`]) {
+      if (existsSync(path)) chmodSync(path, 0o600)
+    }
+    return openStore({ database: await openCache(file) })
   } catch (error) {
     onProblem?.(`the local record is unavailable, so this ran against MAX: ${asReason(error)}`)
     return undefined

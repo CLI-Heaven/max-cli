@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, statSync } from "node:fs"
+import { chmodSync, existsSync, mkdtempSync, statSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
@@ -25,6 +25,22 @@ describe("opening a profile's record", () => {
     const env = freshHome()
     const store = await openProfileCache("default", { env })
     const file = join(env.MAX_CACHE_DIR, "default.db")
+
+    expect(statSync(file).mode & 0o777).toBe(0o600)
+    expect(statSync(`${file}-wal`).mode & 0o777).toBe(0o600)
+    expect(statSync(`${file}-shm`).mode & 0o777).toBe(0o600)
+    expect(statSync(env.MAX_CACHE_DIR).mode & 0o777).toBe(0o700)
+    store?.close()
+  })
+
+  it("puts right a directory and files an older version left open to others", async () => {
+    const env = freshHome()
+    const file = join(env.MAX_CACHE_DIR, "default.db")
+    ;(await openProfileCache("default", { env }))?.close()
+    chmodSync(env.MAX_CACHE_DIR, 0o755)
+    chmodSync(file, 0o644)
+
+    const store = await openProfileCache("default", { env })
 
     expect(statSync(file).mode & 0o777).toBe(0o600)
     expect(statSync(env.MAX_CACHE_DIR).mode & 0o777).toBe(0o700)

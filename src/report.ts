@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto"
 import { homedir } from "node:os"
 import { basename, join } from "node:path"
 import { CliError } from "@leemour/cli-core"
@@ -27,8 +28,8 @@ export interface Report {
 
 /**
  * **Everything a report holds is already free of content** — the run log and the send journal are
- * built that way — so nothing here filters. The one thing added is hiding the home directory: the
- * doctor's paths name the person's account on this machine.
+ * built that way. Two things are added: chat and message ids become labels, and the home directory
+ * is hidden, since the doctor's paths name the person's account on this machine.
  */
 export const buildReport = ({
   profile,
@@ -50,6 +51,8 @@ export const buildReport = ({
   const chosen = runId === undefined ? newestFailed(runsDir) : findRun(runsDir, runId)
   if (runId !== undefined && !chosen) throw new CliError("not_found", `no run ${runId} — \`max runs list\` names them`)
 
+  const label = labeller()
+  const labelled = labelledEvent(label)
   const report: Report = {
     createdAt: now.toISOString(),
     version: VERSION,
@@ -58,11 +61,41 @@ export const buildReport = ({
     arch: process.arch,
     profile,
     doctor,
-    run: chosen ? { metadata: chosen.metadata, events: readEvents(chosen.dir) } : null,
-    sends: sends.slice(-RECENT_SENDS),
+    run: chosen ? { metadata: chosen.metadata, events: readEvents(chosen.dir).map(labelled) } : null,
+    sends: sends.slice(-RECENT_SENDS).map((entry) => ({
+      ...entry,
+      chatId: entry.chatId === null ? null : label(entry.chatId),
+      ...(entry.messageId === undefined ? {} : { messageId: label(entry.messageId) }),
+    })),
   }
   return JSON.parse(JSON.stringify(report).replaceAll(home, "~")) as Report
 }
+
+/**
+ * The report is posted to a public issue, and a chat id is somebody's conversation with the owner.
+ * Each id becomes a label that is the same everywhere in this report — so a failure can still be
+ * followed from request to journal — and **a new salt per report**, so two reports cannot be joined.
+ */
+const labeller = () => {
+  const salt = randomBytes(16)
+  return (id: string): string => `id:${createHash("sha256").update(salt).update(id).digest("hex").slice(0, 12)}`
+}
+
+const labelledEvent =
+  (label: (id: string) => string) =>
+  (event: Record<string, unknown>): Record<string, unknown> => {
+    const ids = event.ids
+    if (typeof ids !== "object" || ids === null) return event
+    const { chat, message, ...rest } = ids as Record<string, unknown>
+    return {
+      ...event,
+      ids: {
+        ...rest,
+        ...(typeof chat === "string" ? { chat: label(chat) } : {}),
+        ...(typeof message === "string" ? { message: label(message) } : {}),
+      },
+    }
+  }
 
 /**
  * A new issue with its title and body filled in, through GitHub's `title` and `body` query

@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from "node:fs"
+import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { captureStreams, memoryKeyring } from "@leemour/cli-core"
 import { describe, expect, it } from "vitest"
@@ -94,5 +94,40 @@ describe("the new issue", () => {
     })
     expect(JSON.stringify(report)).not.toContain("/home/someone")
     expect(JSON.stringify(report)).toContain("~/.local/state")
+  })
+
+  it("replaces chat and message ids with labels that match inside one report and nowhere else", async () => {
+    const { buildReport } = await import("./report.js")
+    const runsDir = output("labelled-runs")
+    const dir = join(runsDir, "2026-09-25", "run-1")
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(
+      join(dir, "run.json"),
+      JSON.stringify({
+        runId: "run-1",
+        command: "messages send",
+        profile: "p",
+        startedAt: "",
+        status: "failed",
+        cliVersion: "",
+      }),
+    )
+    writeFileSync(
+      join(dir, "events.jsonl"),
+      `${JSON.stringify({ event: "request", ids: { chat: "4242", message: "99", cid: "7" } })}\n`,
+    )
+    const sends = [{ at: "", profile: "p", chatId: "4242", messageId: "99", outcome: "sent" as const }]
+    const build = () =>
+      buildReport({ profile: "p", doctor: { session: {} } as never, runsDir, runId: "run-1", sends, home: "/nowhere" })
+
+    const report = build()
+    const ids = report.run?.events[0]?.ids as Record<string, string>
+
+    expect(JSON.stringify(report)).not.toMatch(/4242|"99"/)
+    expect(ids.chat).toMatch(/^id:[0-9a-f]{12}$/)
+    expect(report.sends[0]?.chatId).toBe(ids.chat)
+    expect(report.sends[0]?.messageId).toBe(ids.message)
+    expect(ids.cid).toBe("7")
+    expect(build().sends[0]?.chatId).not.toBe(ids.chat)
   })
 })
