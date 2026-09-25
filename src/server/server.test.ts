@@ -152,6 +152,32 @@ describe("max serve", () => {
     expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.CHAT_MARK)
   })
 
+  it("hands on an edit, a deletion and a reaction as changes, never as new messages (MAX-34)", async () => {
+    const { store, max } = await serve("s-changes")
+    const watch = watching(store)
+    await settle()
+
+    const message = { id: 116762160362694583n, time: 1789776000000, sender: 10000002, text: "hi" }
+    max.push(128, { chatId: 111, message: { ...message, text: "hi!", status: "EDITED", updateTime: 1789776005000 } }, 5)
+    max.push(
+      155,
+      { chatId: 111, messageId: 116762160362694583n, counters: [{ reaction: "👍", count: 1 }], totalCount: 1 },
+      6,
+    )
+    max.push(128, { chatId: 111, message: { ...message, status: "REMOVED", updateTime: 1789776009000 } }, 7)
+    await settle()
+    watch.stop()
+    await watch.listening
+
+    const changes = watch.events.filter((event) => event.event !== "status")
+    expect(changes.map((event) => event.event)).toEqual(["change", "change", "change"])
+    expect(changes.map((event) => event.event === "change" && event.change)).toMatchObject([
+      { event: "edit", message: { id: "116762160362694583", text: "hi!", chatTitle: "First" } },
+      { event: "reaction", chatId: "111", messageId: "116762160362694583", reactions: { total: 1 } },
+      { event: "delete", chatId: "111", chatTitle: "First", messageId: "116762160362694583" },
+    ])
+  })
+
   it("pings on its own interval", async () => {
     const { max } = await serve("s-ping", scripted(), { pingEveryMs: 10 })
     await settle(150)

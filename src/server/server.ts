@@ -6,7 +6,7 @@ import * as v from "valibot"
 import type { CacheStore } from "../cache/store.js"
 import { FIRST_TAB_SYNC, MaxClient, type MaxClientOptions, type ResumeFrom, type TabSync } from "../client.js"
 import { resolveSettings } from "../config.js"
-import type { MessageHit } from "../domain/models.js"
+import type { MessageChange, MessageHit } from "../domain/models.js"
 import { Opcode } from "../generated/opcodes.generated.js"
 import { Connection, type ConnectionOptions, ProtocolError } from "../protocol/connection.js"
 import { asId, type Payload } from "../protocol/frame.js"
@@ -20,6 +20,7 @@ import { forwardedOperation, stopServer } from "./server-connection.js"
 
 export type ServerEvent =
   | { event: "message"; message: MessageHit }
+  | { event: "change"; change: MessageChange }
   | { event: "status"; connected: boolean; at: string; byHand?: boolean; pid?: number }
 
 export interface MaxServerOptions {
@@ -113,6 +114,7 @@ export class MaxServer {
   #tabSync: TabSync = FIRST_TAB_SYNC
   /** The last connection's login, kept past a drop so the next login resumes it (`MAX-51`). */
   #resume: ResumeFrom | undefined
+  #handing: Promise<void> = Promise.resolve()
   #finish: ((error?: Error) => void) | undefined
   /** Settles when the server stops — cleanly, or with the error that stopped it. */
   readonly done: Promise<void>
@@ -256,10 +258,17 @@ export class MaxServer {
 
   #pushed(client: MaxClient, opcode: number, payload: Record<string, unknown>): void {
     if (!client.live.patch(opcode, payload)) this.#goneStale()
-    client.live
-      .message(opcode, payload)
-      .then((message) => message && this.#broadcast({ event: "message", message }))
-      .catch((error: Error) => this.#options.note(`a pushed message could not be read: ${error.message}`))
+    // In arrival order: an edit waits on a name lookup, and must not reach a watcher after the deletion behind it.
+    this.#handing = this.#handing.then(async () => {
+      try {
+        const message = await client.live.message(opcode, payload)
+        if (message) this.#broadcast({ event: "message", message })
+        const change = await client.live.change(opcode, payload)
+        if (change) this.#broadcast({ event: "change", change })
+      } catch (error) {
+        this.#options.note(`a pushed message could not be read: ${(error as Error).message}`)
+      }
+    })
   }
 
   /**

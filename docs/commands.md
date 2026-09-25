@@ -843,8 +843,12 @@ max server restart [options]
 print new messages as they arrive, from a running `max serve`
 
 ```sh
-max watch
+max watch [options]
 ```
+
+| Опция | Что делает |
+|---|---|
+| `--events` | also print edits, deletions and reactions; every line then names its event |
 
 ## `max config`
 
