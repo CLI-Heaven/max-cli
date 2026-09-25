@@ -9,6 +9,7 @@ export const callsHistory = defineOperation({
   constant: "CALL_HISTORY",
   opcode: 163,
   auth: true,
+  guard: null,
   request: v.strictObject({ callHistorySync: v.number() }),
   response: v.looseObject({
     callHistoryItems: v.optional(v.array(v.unknown())),
