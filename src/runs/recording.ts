@@ -82,6 +82,7 @@ export const recorded = async <T>(
     await run?.finish("success", { requests })
     return answer
   } catch (error) {
+    settled.add(error)
     const failed = run ?? (held ? keep(open({ startedAt }), held) : undefined)
     if (failed) {
       if (!(error instanceof CliError)) failed.logger.info(crashOf(error))
@@ -129,3 +130,16 @@ export const crashOf = (error: unknown): { event: "crash"; errorName: string; fr
     })
   return { event: "crash", errorName: error instanceof Error ? error.name : typeof error, frames }
 }
+
+/** Failures a run already dealt with — kept, or not kept by the owner's choice. The program's last catch skips them. */
+const settled = new (class {
+  readonly #errors = new WeakSet<object>()
+  add(error: unknown): void {
+    if (typeof error === "object" && error !== null) this.#errors.add(error)
+  }
+  has(error: unknown): boolean {
+    return typeof error === "object" && error !== null && this.#errors.has(error)
+  }
+})()
+
+export const wasSettled = (error: unknown): boolean => settled.has(error)

@@ -19,47 +19,55 @@ export const serverCommand = (): Command => {
     .option("--idle <duration>", "stop after this long with nobody using it — 15m, 1h is 60m")
     .action(async function (this: Command) {
       const { idle } = this.opts<{ idle?: string }>()
-      const { renderer, store } = forCommand(this)
-      if (idle !== undefined) parseDuration(idle, "--idle")
-      renderer.result(await detached(store, idle))
+      const { renderer, store, run } = forCommand(this)
+      await run("server start", async () => {
+        if (idle !== undefined) parseDuration(idle, "--idle")
+        renderer.result(await detached(store, idle))
+      })
     })
 
   command
     .command("stop")
     .description("stop it, however it was started")
     .action(async function (this: Command) {
-      const { renderer, store } = forCommand(this)
-      const outcome = await stopServer(store.socketPath(), { force: true })
-      renderer.result({ profile: store.profile, stopped: outcome === "stopped" })
-      if (outcome === "none") renderer.note(`no server is running for profile "${store.profile}"`)
+      const { renderer, store, run } = forCommand(this)
+      await run("server stop", async () => {
+        const outcome = await stopServer(store.socketPath(), { force: true })
+        renderer.result({ profile: store.profile, stopped: outcome === "stopped" })
+        if (outcome === "none") renderer.note(`no server is running for profile "${store.profile}"`)
+      })
     })
 
   command
     .command("status")
     .description("whether it runs, since when, which version, and whether it is connected to MAX")
     .action(async function (this: Command) {
-      const { renderer, store } = forCommand(this)
-      const status = await serverStatus(store.socketPath())
-      if (!status) {
-        renderer.result({ profile: store.profile, running: false })
-        return
-      }
-      const version = typeof status.version === "string" ? status.version : null
-      renderer.result({
-        profile: store.profile,
-        running: true,
-        connected: status.connected === true,
-        pid: status.pid ?? null,
-        startedAt: status.startedAt ?? null,
-        byHand: status.byHand === true,
-        version,
-        cliVersion: VERSION,
-        log: logPath(store),
+      const { renderer, store, run } = forCommand(this)
+      await run("server status", async () => {
+        const status = await serverStatus(store.socketPath())
+        if (!status) {
+          renderer.result({ profile: store.profile, running: false })
+          return
+        }
+        const version = typeof status.version === "string" ? status.version : null
+        renderer.result({
+          profile: store.profile,
+          running: true,
+          connected: status.connected === true,
+          pid: status.pid ?? null,
+          startedAt: status.startedAt ?? null,
+          byHand: status.byHand === true,
+          version,
+          cliVersion: VERSION,
+          log: logPath(store),
+        })
+        // A server from before an upgrade still speaks to MAX with the old code.
+        if (version !== VERSION) {
+          renderer.note(
+            `the server runs ${version ?? "an older version"} and max is ${VERSION} — \`max server restart\``,
+          )
+        }
       })
-      // A server from before an upgrade still speaks to MAX with the old code.
-      if (version !== VERSION) {
-        renderer.note(`the server runs ${version ?? "an older version"} and max is ${VERSION} — \`max server restart\``)
-      }
     })
 
   command
@@ -68,10 +76,12 @@ export const serverCommand = (): Command => {
     .option("--idle <duration>", "stop after this long with nobody using it — 15m, 1h is 60m")
     .action(async function (this: Command) {
       const { idle } = this.opts<{ idle?: string }>()
-      const { renderer, store } = forCommand(this)
-      if (idle !== undefined) parseDuration(idle, "--idle")
-      await stopServer(store.socketPath(), { force: true })
-      renderer.result(await detached(store, idle))
+      const { renderer, store, run } = forCommand(this)
+      await run("server restart", async () => {
+        if (idle !== undefined) parseDuration(idle, "--idle")
+        await stopServer(store.socketPath(), { force: true })
+        renderer.result(await detached(store, idle))
+      })
     })
 
   return command

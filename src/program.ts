@@ -32,7 +32,9 @@ import { sessionCommand } from "./commands/session.js"
 import { skillCommand } from "./commands/skill.js"
 import { selfUpdateCommand } from "./commands/update.js"
 import { watchCommand } from "./commands/watch.js"
+import { resolveSettings } from "./config.js"
 import { commandWords, liftProfile } from "./profile.js"
+import { recorded, wasSettled } from "./runs/recording.js"
 import { updateNotice } from "./update.js"
 import { VERSION } from "./version.js"
 
@@ -168,12 +170,11 @@ export const run = async (argv: string[], options: RunOptions = {}): Promise<num
   // commander answers a missing command by printing help **on stdout**. That breaks the one
   // contract this program has, and it tells the person nothing about why their command vanished.
   if (profile !== undefined && rest.length === 0) {
-    report(streams, options, {
-      code: "validation_error",
-      message:
-        `"${profile}" is not a command, so it was read as a profile name — and no command followed it. ` +
-        `Run \`max --help\` for the commands, or \`max ${profile} account show\` if "${profile}" is your profile.`,
-    })
+    const message =
+      `"${profile}" is not a command, so it was read as a profile name — and no command followed it. ` +
+      `Run \`max --help\` for the commands, or \`max ${profile} account show\` if "${profile}" is your profile.`
+    report(streams, options, { code: "validation_error", message })
+    await keepFailure(new CliError("validation_error", message), program, rest, profile, streams)
     return exitCodeFor("validation_error")
   }
 
@@ -185,6 +186,11 @@ export const run = async (argv: string[], options: RunOptions = {}): Promise<num
     if (line) streams.diagnostic(line)
     return process.exitCode === undefined ? 0 : Number(process.exitCode)
   } catch (error) {
+    if (!(error instanceof CommanderError) || error.exitCode !== 0) {
+      const failure = error instanceof CommanderError ? new CliError("validation_error", error.message) : error
+      await keepFailure(failure, program, rest, profile, streams)
+    }
+
     if (error instanceof CommanderError) {
       // `max chat list` — one letter short of `chats` — now reports an unknown command `list`,
       // which is baffling on its own. This is the everyday cost of the first word being a profile.
@@ -207,6 +213,54 @@ export const run = async (argv: string[], options: RunOptions = {}): Promise<num
     })
     return GENERIC_FAILURE
   }
+}
+
+/**
+ * **Every failure is kept as a run** — a usage error, a check before a command opened its run, a
+ * command that never opens one — through the same recorder, unless recording was turned off by
+ * name (`OPS-15`). Only the command's words are named, never its arguments: those can be a message.
+ */
+const keepFailure = async (
+  error: unknown,
+  program: Command,
+  rest: string[],
+  profile: string | undefined,
+  streams: Streams,
+): Promise<void> => {
+  if (wasSettled(error)) return
+  let settings: ReturnType<typeof resolveSettings> | undefined
+  try {
+    settings = resolveSettings({ ...program.opts(), ...(profile === undefined ? {} : { profile }) })
+  } catch {
+    // A configuration that will not load is a failure worth keeping too; the flag is all there is to go on.
+  }
+  await recorded(
+    {
+      command: commandPath(program, rest) || "max",
+      profile: settings?.profile ?? profile ?? "default",
+      options: { keepFailed: settings?.keepFailedRuns ?? !rest.includes("--no-record") },
+      format: "json",
+      streams,
+      ...(settings ? { keepDays: settings.keepRunsForDays } : {}),
+    },
+    async () => {
+      throw error
+    },
+  ).catch(() => {})
+}
+
+/** `messages list` from `messages list 111 --limit 5`: the words that name commands, and nothing typed after them. */
+const commandPath = (program: Command, rest: string[]): string => {
+  const words: string[] = []
+  let current = program
+  for (const token of rest) {
+    if (token.startsWith("-")) continue
+    const next = current.commands.find((command) => command.name() === token || command.aliases().includes(token))
+    if (!next) break
+    words.push(token)
+    current = next
+  }
+  return words.join(" ")
 }
 
 interface ReportedError {

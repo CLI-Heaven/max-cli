@@ -10,13 +10,14 @@ export const sendsCommand = (): Command => {
     .command("list")
     .description("attempts to send, newest first: sent, refused, failed, or not known")
     .option("--limit <n>", "how many to show", (value) => Number.parseInt(value, 10), 20)
-    .action(function (this: Command) {
+    .action(async function (this: Command) {
       const { limit } = this.opts<{ limit: number }>()
-      const { settings, renderer } = forCommand(this)
-      const entries = new SendJournal(sendsPathFor(settings.profile)).entries().reverse()
-
-      renderer.stream(entries.slice(0, limit))
-      if (entries.length === 0) renderer.note(`profile ${settings.profile} has not tried to send anything`)
+      const { settings, renderer, run } = forCommand(this)
+      await run("sends list", async () => {
+        const entries = new SendJournal(sendsPathFor(settings.profile)).entries().reverse()
+        renderer.stream(entries.slice(0, limit))
+        if (entries.length === 0) renderer.note(`profile ${settings.profile} has not tried to send anything`)
+      })
     })
 
   return command
