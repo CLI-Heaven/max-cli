@@ -4,7 +4,7 @@ import { Command, Option } from "commander"
 import { openProfileCache } from "../cache/index.js"
 import { parseDuration } from "../config.js"
 import { asFirstWord } from "../profile.js"
-import { MaxServer } from "../server/server.js"
+import { MaxServer, refusedLogin } from "../server/server.js"
 import { serverStatus, stopServer } from "../server/server-connection.js"
 import { logPath, refusedPath, startInBackground } from "../server/start.js"
 import type { SessionStore } from "../session/store.js"
@@ -70,7 +70,7 @@ export const serveCommand = (): Command =>
           await server.done
         } catch (error) {
           await server.stop()
-          if (error instanceof CliError && error.code === "authentication_error") {
+          if (refusedLogin(error)) {
             writeFileSync(refusedPath(store), `${new Date().toISOString()}\n`, { mode: 0o600 })
           }
           throw error

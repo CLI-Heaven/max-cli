@@ -50,7 +50,13 @@ import type { SendGuard } from "./sends/guard.js"
 import type { AccountAction, ChatAction, SendKind } from "./sends/journal.js"
 import { LOGIN_CHATS, startSession } from "./session/handshake.js"
 import { type QrLogin, tokenByQr } from "./session/login.js"
-import type { SessionStore } from "./session/store.js"
+import {
+  loginPausedUntil,
+  type SessionState,
+  type SessionStore,
+  withLoginRefused,
+  withoutLoginPause,
+} from "./session/store.js"
 import { WEB_USER_AGENT } from "./spec/identity.js"
 import { buildRequest, checkResponse, type Operation, type RequestOf } from "./spec/index.js"
 import type { chatsUpdateMembers } from "./spec/operations/chats.js"
@@ -1483,6 +1489,7 @@ export class MaxClient {
     }
 
     const state = this.#store.readState()
+    refuseWhilePaused(state)
 
     const sync = this.#fullLogin ? undefined : this.#cache?.syncMarker()
 
@@ -1494,7 +1501,15 @@ export class MaxClient {
         ...(sync === undefined ? {} : { sync }),
       })
     } catch (error) {
-      throw asCliError(error)
+      const failure = asCliError(error)
+      if (failure.code !== "rate_limited") throw failure
+      const paused = withLoginRefused(state)
+      this.#store.writeState(paused)
+      throw new CliError(
+        "rate_limited",
+        `${failure.message} — this profile will not log in again before ${paused.loginPausedUntil}; ` +
+          "logging in sooner is what keeps an account locked",
+      )
     }
 
     const viewerId = toProfile(record(this.#login.profile) ?? {}).id
@@ -1512,7 +1527,7 @@ export class MaxClient {
     }
 
     this.#store.writeState({
-      ...state,
+      ...withoutLoginPause(state),
       ...(viewerId ? { viewerId } : {}),
       logins: state.logins + 1,
       lastLoginAt: new Date().toISOString(),
@@ -2335,6 +2350,11 @@ const asCliError = (error: unknown): CliError => {
 
   if (error instanceof ProtocolError) {
     const text = error.message.toLowerCase()
+    // First: "too many auth attempts" is a limit, not a bad token. The words are claims —
+    // `error.limit.violate` from PyMax #106, `rate_limit_exceeded` from GREEN-API — never measured here.
+    if (LIMIT_WORDS.some((words) => text.includes(words))) {
+      return new CliError("rate_limited", error.message, { operation: String(error.opcode) })
+    }
     if (text.includes("token") || text.includes("auth")) {
       return new CliError(
         "authentication_error",
@@ -2347,6 +2367,19 @@ const asCliError = (error: unknown): CliError => {
   const message = error instanceof Error ? error.message : String(error)
   if (message.includes("did not answer")) return new CliError("timeout", message)
   return new CliError("network_error", message)
+}
+
+const LIMIT_WORDS = ["limit.violate", "rate_limit", "rate limit", "too many", "слишком много"]
+
+/** Before any request: a login inside the pause is one more attempt MAX counts (`MAX-38`). */
+export const refuseWhilePaused = (state: SessionState): void => {
+  const until = loginPausedUntil(state)
+  if (until === undefined) return
+  throw new CliError(
+    "rate_limited",
+    `MAX refused this profile's last login for too many attempts; it will not try again before ${until} — ` +
+      "logging in sooner is what keeps an account locked",
+  )
 }
 
 export interface ProfileChange {

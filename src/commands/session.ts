@@ -1,5 +1,5 @@
 import { Argument, Command } from "commander"
-import type { MaxClientOptions } from "../client.js"
+import { type MaxClientOptions, refuseWhilePaused } from "../client.js"
 import { commandWords, refuseCommandName, rootOf } from "../profile.js"
 import { stopServer } from "../server/server-connection.js"
 import { adoptToken } from "../session/adopt.js"
@@ -44,6 +44,8 @@ export const sessionCommand = (): Command => {
       // Creation is the only moment the collision can still be explained; after this the name is
       // written down and `max <name>` would silently be a command instead.
       refuseCommandName(settings.profile, commandWords(rootOf(this)))
+      // Before `qr` asks MAX for a code over our socket: PyMax #106 hit the limit on exactly that.
+      if (store.hasLoggedIn()) refuseWhilePaused(store.readState())
 
       if (method !== "token" && !interactive) {
         renderer.failure(`\`session start ${method}\` needs a person at a terminal — use \`session start token\``)

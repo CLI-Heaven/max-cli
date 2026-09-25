@@ -37,6 +37,8 @@ export interface Diagnosis {
     /** What `RISK-2` wants counted: a token that stops working can then be explained. */
     logins: number | null
     lastLoginAt: string | null
+    /** MAX refused a login for too many attempts; none goes out before this (`MAX-38`). */
+    loginPausedUntil: string | null
   }
   loggedInProfiles: string[]
   cache: {
@@ -110,6 +112,10 @@ export const diagnose = async ({
       viewerId: typeof stored?.viewerId === "string" && stored.viewerId !== "",
       logins: typeof stored?.logins === "number" ? stored.logins : null,
       lastLoginAt: typeof stored?.lastLoginAt === "string" ? stored.lastLoginAt : null,
+      loginPausedUntil:
+        typeof stored?.loginPausedUntil === "string" && Date.parse(stored.loginPausedUntil) > Date.now()
+          ? stored.loginPausedUntil
+          : null,
     },
     loggedInProfiles: profilesWithState(join(state, "profiles")),
     cache: {

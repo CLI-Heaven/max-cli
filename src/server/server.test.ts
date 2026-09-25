@@ -19,8 +19,21 @@ import { subscribe } from "./subscribe.js"
 
 const ME = 10000001
 
-const scripted = (overrides: Parameters<typeof mockMax>[0]["answers"] = {}) =>
+/** The first login goes through; every later one is refused with this. */
+const refusedAfterFirst = (refusal: string) => {
+  let logins = 0
+  return () => {
+    logins += 1
+    return logins > 1 ? refusal : undefined
+  }
+}
+
+const scripted = (
+  overrides: Parameters<typeof mockMax>[0]["answers"] = {},
+  refuse: Parameters<typeof mockMax>[0]["refuse"] = {},
+) =>
   mockMax({
+    refuse,
     answers: {
       [Opcode.SESSION_INIT]: {},
       [Opcode.LOGIN]: {
@@ -182,6 +195,38 @@ describe("max serve", () => {
     await watch.listening
 
     expect(watch.events.map((event) => event.event === "status" && event.connected)).toEqual([true, false, true])
+    expect(max.sent.filter((call) => call.opcode === Opcode.LOGIN)).toHaveLength(2)
+  })
+
+  it.each([
+    ["the rate limit", "error.limit.violate"],
+    ["a refusal it does not recognise", "some.new.error"],
+  ])("stops, and logs in no more, when MAX refuses the login after a drop with %s", async (_, refusal) => {
+    const { server, max } = await serve(
+      `s-refused-${refusal}`,
+      scripted({}, { [Opcode.LOGIN]: refusedAfterFirst(refusal) }),
+    )
+    const stopped = expect(server.done).rejects.toThrow(refusal)
+
+    max.drop()
+    await settle(60)
+
+    await stopped
+    expect(max.sent.filter((call) => call.opcode === Opcode.LOGIN)).toHaveLength(2)
+  })
+
+  it("stops when its background login is refused, instead of trying again every minute", async () => {
+    const { server, max } = await serve(
+      "c-refresh-refused",
+      scripted({}, { [Opcode.LOGIN]: refusedAfterFirst("error.limit.violate") }),
+      { refreshEveryMs: 0 },
+    )
+    const stopped = expect(server.done).rejects.toThrow("error.limit.violate")
+
+    max.push(142, { chatId: 111, messageIds: [1] }, 9)
+    await settle(60)
+
+    await stopped
     expect(max.sent.filter((call) => call.opcode === Opcode.LOGIN)).toHaveLength(2)
   })
 
