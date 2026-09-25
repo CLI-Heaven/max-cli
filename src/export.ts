@@ -6,6 +6,22 @@ export interface Unread {
   to: string
 }
 
+export interface Window {
+  from: number
+  to: number
+}
+
+/** Windows read completely, oldest first, with those that share a message merged into one. */
+export const heldWindows = (ranges: Window[]): Window[] => {
+  const windows: Window[] = []
+  for (const range of [...ranges].sort((a, b) => a.from - b.from)) {
+    const previous = windows.at(-1)
+    if (previous && range.from <= previous.to) previous.to = Math.max(previous.to, range.to)
+    else windows.push({ ...range })
+  }
+  return windows
+}
+
 /**
  * **What an export cannot contain**, worked out from the windows the cache read completely.
  *
@@ -14,17 +30,10 @@ export interface Unread {
  * for — it may hold messages or none; the cache cannot tell, and says so rather than guessing.
  */
 export const unreadStretches = (
-  ranges: { from: number; to: number }[],
+  ranges: Window[],
   { since, last }: { since?: number; last?: number } = {},
 ): Unread[] => {
-  const windows: { from: number; to: number }[] = []
-  for (const range of ranges) {
-    const previous = windows.at(-1)
-    if (previous && range.from <= previous.to) previous.to = Math.max(previous.to, range.to)
-    else windows.push({ ...range })
-  }
-
-  const held = windows.filter((window) => since === undefined || window.to >= since)
+  const held = heldWindows(ranges).filter((window) => since === undefined || window.to >= since)
   const first = held[0]
   const newest = held.at(-1)
   if (!first || !newest) return []

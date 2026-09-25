@@ -613,6 +613,30 @@ max messages unpin <chat>
 |---|---|---|
 | `chat` | обязательный | chat id, or part of a chat name |
 
+## `max backup`
+
+bring a chat's history into this machine's copy, within limits
+
+### `max backup messages`
+
+what a chat's history back to --since or --last costs; with --run, fetch it
+
+```sh
+max backup messages <chat> [options]
+```
+
+| Аргумент | | Что это |
+|---|---|---|
+| `chat` | обязательный | chat id, or part of a chat name |
+
+| Опция | Что делает |
+|---|---|
+| `--since <id-or-time>` | back to this message id or ISO 8601 time |
+| `--last <n>` | the newest n messages |
+| `--run` | fetch what is missing; without it nothing is sent |
+| `--max-pages <n>` | pages of 30 per run По умолчанию: `40`. |
+| `--pause <seconds>` | the least wait between pages; each is up to twice that По умолчанию: `1.5`. |
+
 ## `max export`
 
 write what this machine holds to a file; never connects

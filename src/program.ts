@@ -8,6 +8,7 @@ import {
 } from "@leemour/cli-core"
 import { Command, CommanderError } from "commander"
 import { accountCommand } from "./commands/account.js"
+import { backupCommand } from "./commands/backup.js"
 import { cacheCommand } from "./commands/cache.js"
 import { chatsCommand } from "./commands/chats.js"
 import { commandsCommand } from "./commands/commands.js"
@@ -92,6 +93,7 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
   program.addCommand(chatsCommand())
   program.addCommand(contactsCommand())
   program.addCommand(messagesCommand())
+  program.addCommand(backupCommand())
   program.addCommand(exportCommand())
   program.addCommand(modelsCommand())
   program.addCommand(reactionsCommand())
