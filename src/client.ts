@@ -28,6 +28,7 @@ import type {
   Inbox,
   InboxChat,
   Message,
+  MessageChange,
   MessageHit,
   Page,
   PersonCard,
@@ -1491,16 +1492,45 @@ export class MaxClient {
      */
     message: async (opcode: number, payload: Payload): Promise<MessageHit | undefined> => {
       const raw = record(payload.message)
-      const chatId = asId(payload.chatId)
-      if (opcode !== NEW_MESSAGE || !raw || chatId === undefined) return undefined
-
-      const session = this.#session()
-      const [message] = await this.#nameSenders([
-        toMessage(raw, chatId, { names: namesFrom(session.contacts), ...viewer(this.#store) }),
-      ])
-      const chat = (await this.chats.list()).items.find((candidate) => candidate.id === chatId)
-      return message && { ...message, chatTitle: chat?.title ?? null }
+      if (opcode !== NEW_MESSAGE || !raw || raw.status !== undefined) return undefined
+      return this.#messageHit(payload)
     },
+
+    /** An edit, a deletion or a reaction pushed by MAX, or `undefined` for anything else. */
+    change: async (opcode: number, payload: Payload): Promise<MessageChange | undefined> => {
+      const chatId = asId(payload.chatId)
+      if (chatId === undefined) return undefined
+      const raw = record(payload.message)
+      if (opcode === NEW_MESSAGE && raw?.status === "EDITED") {
+        const message = await this.#messageHit(payload)
+        return message && { event: "edit", message }
+      }
+      const messageId = asId(opcode === NEW_MESSAGE ? raw?.id : payload.messageId)
+      if (messageId === undefined) return undefined
+      if (opcode === NEW_MESSAGE && raw?.status === "REMOVED") {
+        return { event: "delete", chatId, chatTitle: await this.#chatTitle(chatId), messageId }
+      }
+      if (opcode === REACTIONS_CHANGED) {
+        const reactions = toReactions(payload)
+        return { event: "reaction", chatId, chatTitle: await this.#chatTitle(chatId), messageId, reactions }
+      }
+      return undefined
+    },
+  }
+
+  async #messageHit(payload: Payload): Promise<MessageHit | undefined> {
+    const raw = record(payload.message)
+    const chatId = asId(payload.chatId)
+    if (!raw || chatId === undefined) return undefined
+    const session = this.#session()
+    const [message] = await this.#nameSenders([
+      toMessage(raw, chatId, { names: namesFrom(session.contacts), ...viewer(this.#store) }),
+    ])
+    return message && { ...message, chatTitle: await this.#chatTitle(chatId) }
+  }
+
+  async #chatTitle(chatId: Id): Promise<string | null> {
+    return (await this.chats.list()).items.find((candidate) => candidate.id === chatId)?.title ?? null
   }
 
   /**
@@ -2359,6 +2389,9 @@ const eventTime = (chat: unknown): number => {
   const time = record(chat)?.lastEventTime
   return typeof time === "number" ? time : 0
 }
+
+/** Reactions on a message changed; PyMax calls it `NOTIF_MSG_REACTIONS_CHANGED` (tab recording 2026-09-25). */
+const REACTIONS_CHANGED = 155
 
 /** MAX pushes this when a message arrives in any chat. PyMax calls it `NOTIF_MESSAGE`. */
 const NEW_MESSAGE = 128

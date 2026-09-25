@@ -72,7 +72,7 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   The plan weighs it against the smaller option: numbered `.sql` files and a ~30-line runner on
   the `user_version` we already keep. Either way: the FTS5 tables and triggers are hand-written
   SQL, and the migration files have to ship inside the npm package. Starts at `src/cache/schema.ts`.
-- **MAX-34** · 🚧 `max-34-watch-events` · P3 · Live events: a long-running `max listen` that prints new messages, edits,
+- **MAX-34** · 🟡 P3 · Live events: a long-running `max listen` that prints new messages, edits,
   reactions and typing as they arrive (PyMax's `on_message`, `on_message_edit`,
   `on_reaction_update`…). Conflicts with one-shot commands (`CLAUDE.md` constraint 4), so it needs
   a ruling first. What is new since the last check is already `max inbox` (`CLI-23`).
@@ -80,6 +80,10 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   watch` prints new messages as they arrive (`src/server/server.ts`, `#pushed`). What is left is
   edits, reactions and typing. The server receives them but passes on only new messages (opcode 128).
 
+  Done 2026-09-25 from the third tab recording: `max watch --events` prints edits (128 with
+  `status: EDITED`), deletions (128 with `status: REMOVED`) and reactions (155); the plain stream is
+  unchanged. Left: typing — MAX pushes 129 only after `75 {chatId, subscribe: true}`, which the tab
+  sends for the chat it has open and repeats every 60 s; `max serve` subscribes to nothing.
 - **MAX-4** · 🟡 P3 · Chat addressing. Done: an id, or a title matched exactly then as a fragment,
   an ambiguous one refused (`src/client.ts:149`). Left: `@username`, a phone number, a chat the
   account is not in.

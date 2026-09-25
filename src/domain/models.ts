@@ -132,6 +132,16 @@ export interface MessageHit extends Message {
   chatTitle: string | null
 }
 
+/**
+ * What happened to a message after it arrived, as `max watch --events` prints it (`MAX-34`). MAX
+ * pushes an edit and a deletion as the same message again with `status` `EDITED` or `REMOVED`, and
+ * a reaction as opcode 155 (tab recording 2026-09-25).
+ */
+export type MessageChange =
+  | { event: "edit"; message: MessageHit }
+  | { event: "delete"; chatId: Id; chatTitle: string | null; messageId: Id }
+  | { event: "reaction"; chatId: Id; chatTitle: string | null; messageId: Id; reactions: Reactions }
+
 /** One chat's share of `max inbox`: other people's messages since the last check, oldest first. */
 export interface InboxChat extends Pick<Chat, "id" | "title" | "kind" | "unreadCount"> {
   messages: Message[]
