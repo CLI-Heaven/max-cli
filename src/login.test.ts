@@ -249,6 +249,27 @@ describe("max session start qr-chrome and sms", () => {
   })
 })
 
+describe("max session start token", () => {
+  it("prints the phone number masked, as `account show` does", async () => {
+    const adopt = mockMax({
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: { profile: { contact: { ...LOGIN.profile.contact, phone: 71234567890 } } },
+      },
+    })
+    const { start, streams } = setUp(undefined, adopt)
+    process.env.MAX_TOKEN = "a-token"
+    try {
+      expect(await start("token", "--json")).toBe(0)
+    } finally {
+      delete process.env.MAX_TOKEN
+    }
+
+    expect(JSON.parse(streams.stdout.join("")).profile.phone).toBe("***7890")
+    expect(streams.stdout.join("")).not.toContain("71234567890")
+  })
+})
+
 describe("max session start without a person at the terminal", () => {
   it.each(["qr", "qr-chrome", "sms"])("refuses %s before opening anything", async (method) => {
     const { start, connections } = setUp(undefined, adopting(), { interactive: false })

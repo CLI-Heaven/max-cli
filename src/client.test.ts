@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync } from "node:fs"
+import { existsSync, mkdtempSync, readdirSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { memoryKeyring } from "@leemour/cli-core"
@@ -726,6 +726,35 @@ describe("the token MAX answers with", () => {
     await client.close()
 
     expect(store.readToken()).toBe("the-rotated-one")
+  })
+
+  it("is not kept when the one in use came from MAX_TOKEN: nothing reaches the keyring or a file", async () => {
+    const max = mockMax({
+      answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: { ...loginAnswer, token: "the-rotated-one" } },
+    })
+    const dir = mkdtempSync(join(tmpdir(), "max-cli-"))
+    const keyring = memoryKeyring()
+    const store = new SessionStore({
+      keyring,
+      configDir: dir,
+      stateDir: join(dir, "state"),
+      env: { MAX_TOKEN: "from-env" },
+    })
+    const notes: string[] = []
+    const client = new MaxClient({
+      store,
+      connection: new Connection({ createSocket: max.createSocket, timeoutMs: 50 }),
+      warn: (note) => notes.push(note),
+    })
+
+    await client.connect()
+    await client.close()
+
+    const unset = new SessionStore({ keyring, configDir: dir, stateDir: join(dir, "state"), env: {} })
+    expect(unset.readToken()).toBeUndefined()
+    expect(readdirSync(dir).filter((file) => file !== "state")).toEqual([])
+    expect(notes.join(" ")).toContain("MAX_TOKEN")
+    expect(notes.join(" ")).not.toContain("the-rotated-one")
   })
 
   it("is left alone when MAX sends the same one back, or none at all", async () => {

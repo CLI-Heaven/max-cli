@@ -1,7 +1,14 @@
 import { randomUUID } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { Credentials, type KeyringStore, pathsAreOverridden, resolvePaths, writeSecurely } from "@leemour/cli-core"
+import {
+  type CredentialSource,
+  Credentials,
+  type KeyringStore,
+  pathsAreOverridden,
+  resolvePaths,
+  writeSecurely,
+} from "@leemour/cli-core"
 
 /**
  * What a MAX session actually is: a token, and an identity for this installation.
@@ -78,6 +85,11 @@ export class SessionStore {
   /** `undefined` means nobody has logged in on this profile. */
   readToken(): string | undefined {
     return this.#credentials.read(this.profile)?.secret
+  }
+
+  /** Where `readToken` found it: `MAX_TOKEN`, the keyring, or the file that stands in for one. */
+  tokenSource(): CredentialSource | undefined {
+    return this.#credentials.read(this.profile)?.source
   }
 
   writeToken(token: string): void {

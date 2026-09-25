@@ -71,15 +71,16 @@ describe("what a command depends on", () => {
 
   describe("the token", () => {
     it("says it came from the environment, and never what it is", async () => {
-      const report = await look({ env: { MAX_TOKEN: "a-secret" }, hasKeyringToken: () => true })
+      const report = await look({ env: { MAX_TOKEN: "a-secret" }, storedToken: () => "keyring" })
 
       expect(report.token).toEqual({ present: true, from: "environment" })
       expect(JSON.stringify(report)).not.toContain("a-secret")
     })
 
     it("falls back to the keyring, and reports nothing when neither has one", async () => {
-      expect((await look({ hasKeyringToken: () => true })).token).toEqual({ present: true, from: "keyring" })
-      expect((await look({ hasKeyringToken: () => false })).token).toEqual({ present: false, from: "none" })
+      expect((await look({ storedToken: () => "keyring" })).token).toEqual({ present: true, from: "keyring" })
+      expect((await look({ storedToken: () => "file" })).token).toEqual({ present: true, from: "file" })
+      expect((await look({ storedToken: () => undefined })).token).toEqual({ present: false, from: "none" })
     })
   })
 

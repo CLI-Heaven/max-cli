@@ -83,11 +83,12 @@ const diagnoseProfile = (profile: string, store: SessionStore) =>
     profile,
     // Reading the keyring is the one thing here that can prompt or hang on a locked keyring,
     // so its failure is "no token found" rather than a failed command.
-    hasKeyringToken: () => {
+    storedToken: () => {
       try {
-        return store.readToken() !== undefined
+        const source = store.tokenSource()
+        return source === "keyring" || source === "file" ? source : undefined
       } catch {
-        return false
+        return undefined
       }
     },
   })
@@ -197,10 +198,17 @@ const explain = (renderer: Renderer, format: RenderFormat, streams: Streams): vo
   )
 }
 
+const TOKEN_FROM = {
+  environment: "MAX_TOKEN",
+  keyring: "the keyring",
+  file: "credentials.json — there is no keyring here",
+  none: "nowhere",
+} as const
+
 /** One line per row: the pretty renderer prints a flat object and does not descend into one. */
 const forPerson = (report: Awaited<ReturnType<typeof diagnose>>, profile: string) => ({
   profile,
-  token: report.token.present ? `yes, from the ${report.token.from}` : "none",
+  token: report.token.present ? `yes, from ${TOKEN_FROM[report.token.from]}` : "none",
   keyring: report.keyring.movedByEnvironment
     ? `${report.keyring.service} (moved by the environment)`
     : report.keyring.service,

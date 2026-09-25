@@ -1,6 +1,7 @@
 import { CliError } from "@leemour/cli-core"
 import { Argument, Command } from "commander"
 import { type MaxClientOptions, refuseWhilePaused } from "../client.js"
+import { maskedProfile } from "../domain/map.js"
 import { commandWords, refuseCommandName, rootOf } from "../profile.js"
 import { stopServer } from "../server/server-connection.js"
 import { adoptToken } from "../session/adopt.js"
@@ -86,7 +87,7 @@ export const sessionCommand = (): Command => {
         try {
           await adoptToken(client, store, token)
           const profile = await client.account.me()
-          renderer.result({ profile, stored: true, method })
+          renderer.result({ profile: maskedProfile(profile), stored: true, method })
           renderer.success(`logged in as ${profile.name ?? profile.id}`)
           if (firstLogin) renderer.note(TERMS_NOTICE)
         } finally {
