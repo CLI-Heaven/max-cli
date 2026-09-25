@@ -247,7 +247,10 @@ export class MaxServer {
     const wait = Math.max(0, this.#lastRefresh + every - Date.now())
     this.#refresh = setTimeout(() => {
       this.#connect()
-        .catch((error: Error) => this.#options.note(`could not log in again: ${error.message}`))
+        .catch((error: Error) => {
+          if (refusedLogin(error)) void this.stop(error)
+          else this.#options.note(`could not log in again: ${error.message}`)
+        })
         .finally(() => {
           this.#refresh = undefined
         })
@@ -274,8 +277,7 @@ export class MaxServer {
     this.#options.note(`${error.message} — connecting again in ${Math.round(wait / 1000)}s`)
     this.#retry = setTimeout(() => {
       this.#connect().catch((failure: Error) => {
-        // A token MAX no longer takes will not start working on the next attempt.
-        if (failure instanceof CliError && failure.code === "authentication_error") this.stop(failure)
+        if (refusedLogin(failure)) this.stop(failure)
         else this.#reconnectLater(failure)
       })
     }, wait)
@@ -413,6 +415,17 @@ export class MaxServer {
 }
 
 /** 1 s, 2 s, 4 s … a minute at most — a server that hammers MAX after a drop looks like nothing MAX knows. */
+/**
+ * **MAX answered the login and said no** — as opposed to a network that dropped or a MAX that did
+ * not answer. Only those two are retried. A refusal is not: a token MAX no longer takes will not
+ * start working, and a login repeated after the limit error kept a PyMax account locked (PyMax
+ * #106). Any refusal counts, not only the recognised limit, because what that error says is a claim
+ * (`NEED-266`).
+ */
+export const refusedLogin = (error: unknown): boolean =>
+  error instanceof CliError &&
+  (error.code === "authentication_error" || error.code === "rate_limited" || error.code === "provider_error")
+
 const backoff = (attempt: number): number => Math.min(60_000, 1000 * 2 ** attempt)
 
 /** Present while a server is being started in the background, so two commands do not start two. */

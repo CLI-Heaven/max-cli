@@ -141,11 +141,6 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
 
 ## Foundation and risks
 
-- **MAX-38** · P2 · When MAX answers a login with its rate limit, stop and remember it: its own exit
-  code and message, and a cool-down in the profile state so the next run refuses locally instead of
-  logging in again. Nothing retries a login today, but a scheduled `max inbox --new` logs in on
-  every run, and in PyMax a login retried after the limit error kept the account locked out
-  ([#106](https://github.com/MaxApiTeam/PyMax/issues/106), open since 2026-09-14). Research: G1 §3.11.
 - **CORE-10** · P3 · Plugins from npm, **only from an allow-list** kept in the CLI itself — package
   names with pinned versions and integrity hashes — never an arbitrary package: a plugin runs inside
   a program holding the token of a personal account. oclif's `plugin-plugins` is the model.

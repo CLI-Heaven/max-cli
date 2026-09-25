@@ -20,7 +20,29 @@ export interface SessionState {
   lastLoginAt?: string
   /** Where `max inbox` starts next time: the newest message it has read (`NEED-162`). */
   lastCheckAt?: string
+  /** Logins MAX refused for too many attempts in a row; a login that succeeds clears it (`MAX-38`). */
+  loginRefusals?: number
+  /** No login before this time, ISO 8601. */
+  loginPausedUntil?: string
 }
+
+/**
+ * **How long a profile stays out after each refusal in a row** (owner, `NEED-265`). In PyMax a
+ * login retried after the limit error kept the account locked (PyMax #106), so the wait grows.
+ */
+export const LOGIN_PAUSES_MS = [1, 5, 30, 60, 6 * 60, 24 * 60].map((minutes) => minutes * 60_000)
+
+/** When the pause ends, or `undefined` if a login may go out now. */
+export const loginPausedUntil = (state: SessionState, now = Date.now()): string | undefined =>
+  state.loginPausedUntil !== undefined && Date.parse(state.loginPausedUntil) > now ? state.loginPausedUntil : undefined
+
+export const withLoginRefused = (state: SessionState, now = Date.now()): SessionState => {
+  const refusals = (state.loginRefusals ?? 0) + 1
+  const wait = LOGIN_PAUSES_MS[Math.min(refusals, LOGIN_PAUSES_MS.length) - 1] ?? 0
+  return { ...state, loginRefusals: refusals, loginPausedUntil: new Date(now + wait).toISOString() }
+}
+
+export const withoutLoginPause = ({ loginRefusals, loginPausedUntil, ...state }: SessionState): SessionState => state
 
 export interface SessionStoreOptions {
   profile?: string
@@ -126,5 +148,7 @@ const pick = (state: Partial<SessionState>) => {
   if (typeof state.viewerId === "string") extra.viewerId = state.viewerId
   if (typeof state.lastLoginAt === "string") extra.lastLoginAt = state.lastLoginAt
   if (typeof state.lastCheckAt === "string") extra.lastCheckAt = state.lastCheckAt
+  if (typeof state.loginRefusals === "number") extra.loginRefusals = state.loginRefusals
+  if (typeof state.loginPausedUntil === "string") extra.loginPausedUntil = state.loginPausedUntil
   return extra
 }

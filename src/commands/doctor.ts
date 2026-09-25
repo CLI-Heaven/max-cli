@@ -62,6 +62,12 @@ export const doctorCommand = (): Command => {
         )
       }
 
+      if (report.session.loginPausedUntil) {
+        renderer.note(
+          `MAX refused the last login for too many attempts — no login before ${report.session.loginPausedUntil}; wait`,
+        )
+      }
+
       if (!report.token.present && ((report.session.logins ?? 0) > 0 || report.session.viewerId)) {
         renderer.note(
           "no token, although this profile has logged in here — the keyring is probably out of reach " +
@@ -87,6 +93,7 @@ const forPerson = (report: Awaited<ReturnType<typeof diagnose>>, profile: string
     ? `${report.session.logins ?? 0} time(s)${report.session.lastLoginAt ? `, last ${report.session.lastLoginAt}` : ""}`
     : "never on this machine",
   "account known": report.session.viewerId,
+  ...(report.session.loginPausedUntil ? { "login paused until": report.session.loginPausedUntil } : {}),
   "presents as": `web client ${report.client.appVersion}, ${report.client.chrome}, read ${report.client.readOn} (${report.client.ageDays} days ago)`,
   "profiles logged in": report.loggedInProfiles.length === 0 ? "none" : report.loggedInProfiles.join(", "),
   "local copy": report.cache.exists
