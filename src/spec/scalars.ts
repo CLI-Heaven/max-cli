@@ -8,8 +8,8 @@ import * as v from "valibot"
  * never arithmetic. The write direction did not exist, and `Number(id)` was standing in for it:
  * `Number("7268926000000000001")` is `7268926000000000000`, which is a different chat.
  *
- * `lossless-json` serialises a bigint as a bare number literal, so a `bigint` in a payload reaches
- * MAX with every digit and an id below 2^53 produces the identical bytes it does today.
+ * The frame codec sends a `bigint` as a 64-bit integer wrapped in MessagePack extension 1, the way
+ * web.max.ru sends an id, so every digit reaches MAX (`src/protocol/frame.ts`).
  */
 
 const WHOLE_NUMBER = /^-?\d+$/
