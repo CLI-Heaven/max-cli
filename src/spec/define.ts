@@ -1,6 +1,7 @@
 import { CliError } from "@leemour/cli-core"
 import * as v from "valibot"
 import type { Payload } from "../protocol/frame.js"
+import type { SendEntry } from "../sends/journal.js"
 
 /**
  * How much we actually know about a shape.
@@ -54,8 +55,18 @@ export interface Operation<
   readonly request: TRequest
   /** Loose: a response that gained a field must not break a command (§29). */
   readonly response: TResponse
+  /**
+   * What the send guard is asked before this goes to MAX, read from the request as it goes on the
+   * wire — or `null` for an operation nobody else sees. Required, so a new operation cannot reach
+   * `max serve`'s socket unguarded because somebody forgot to say it writes.
+   */
+  readonly guard: ((request: Payload) => Guarded) | null
   readonly provenance: Provenance
 }
+
+/** One guarded write as the journal will record it; the outcome comes after. */
+export type Guarded = Omit<SendEntry, "at" | "profile" | "outcome" | "errorCode" | "kind"> &
+  Required<Pick<SendEntry, "kind">>
 
 /**
  * A number we know and will not send.

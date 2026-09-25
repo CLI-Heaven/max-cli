@@ -1,15 +1,23 @@
 import { CliError } from "@leemour/cli-core"
+import type { Settings } from "../config.js"
 import type { Id } from "../domain/models.js"
-import type { AccountAction, ChatAction, SendEntry, SendJournal, SendKind } from "./journal.js"
+import {
+  type AccountAction,
+  type ChatAction,
+  type SendEntry,
+  SendJournal,
+  type SendKind,
+  sendsPathFor,
+} from "./journal.js"
 import { type Permission, permissionFor } from "./permissions.js"
-import type { RecipientList } from "./recipients.js"
+import { RecipientList, recipientsPathFor } from "./recipients.js"
 
 const HOUR_MS = 60 * 60 * 1000
 
 /** What `MaxClient.messages.send` asks before it sends, and tells after — on every outcome. */
 export interface SendGuard {
   /** `null` for a chat that does not exist yet — joining or creating one — or for the account itself: no list can name either. */
-  check(chatId: Id | null, kind?: SendKind, action?: ChatAction | AccountAction, count?: number): void
+  check(chatId: Id | null, kind?: SendKind, action?: ChatAction | AccountAction, count?: number, cid?: number): void
   record(entry: Omit<SendEntry, "at" | "profile">): void
 }
 
@@ -56,7 +64,7 @@ export const sendGuard = ({
   warn,
   now = () => new Date(),
 }: SendGuardOptions): SendGuard => ({
-  check: (chatId, kind = "message", action, count = 1) => {
+  check: (chatId, kind = "message", action, count = 1, cid) => {
     if (readOnly) {
       throw new CliError(
         "permission_error",
@@ -97,12 +105,21 @@ export const sendGuard = ({
     }
 
     const since = now().getTime() - HOUR_MS
-    const recent = journal
+    const counted = journal
       .entries()
       .filter(countsTowardLimit)
       .filter((entry) => entry.outcome === "sent" || entry.outcome === "outcome_unknown")
+      .filter((entry) => Date.parse(entry.at) > since)
+    // A retry of a send whose outcome was unknown repeats its `cid` in the same chat, and MAX
+    // delivers one message for both. Only that: a `cid` that was sent, or another chat, is a new send.
+    const unsure = (entry: SendEntry) => entry.outcome === "outcome_unknown"
+    const same = (a: SendEntry, b: { chatId: Id | null; cid?: number }) =>
+      a.cid !== undefined && a.cid === b.cid && a.chatId === b.chatId
+    const last = [...counted].reverse().find((entry) => same(entry, { chatId, cid }))
+    if (cid !== undefined && last && unsure(last)) return
+    const recent = counted
+      .filter((entry, index) => !(unsure(entry) && counted.slice(index + 1).some((later) => same(later, entry))))
       .map((entry) => ({ time: Date.parse(entry.at), weight: weightOf(entry) }))
-      .filter(({ time }) => time > since)
       .sort((a, b) => a.time - b.time)
     const used = recent.reduce((sum, { weight }) => sum + weight, 0)
     if (used + count > sendsPerHour) {
@@ -134,3 +151,33 @@ export const sendGuard = ({
     }
   },
 })
+
+/**
+ * The guard a profile's configuration asks for — the command's, and `max serve`'s for every write
+ * it forwards. Built per request in the server, so `config set readOnly true` needs no restart.
+ */
+export const guardFor = (settings: Settings, warn: (message: string) => void): SendGuard =>
+  sendGuard({
+    profile: settings.profile,
+    readOnly: settings.readOnly,
+    readOnlyFrom: settings.sources.readOnly,
+    ...(settings.allow ? { allow: settings.allow, allowFrom: settings.sources.allow } : {}),
+    sendsPerHour: settings.sendsPerHour,
+    journal: new SendJournal(sendsPathFor(settings.profile)),
+    recipients: new RecipientList(recipientsPathFor(settings.profile)),
+    warn,
+  })
+
+/**
+ * Over `max serve`, the server journals what it forwards, with the outcome it saw; the command
+ * writes only the refusals of its own check, which never reached the server.
+ */
+export const sharedJournal = (guard: SendGuard, wire: { readonly journals: boolean } | undefined): SendGuard =>
+  wire
+    ? {
+        check: guard.check,
+        record: (entry) => {
+          if (entry.outcome === "refused" || !wire.journals) guard.record(entry)
+        },
+      }
+    : guard

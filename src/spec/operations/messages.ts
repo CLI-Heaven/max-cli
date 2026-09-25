@@ -1,5 +1,6 @@
 import * as v from "valibot"
 import { defineOperation } from "../define.js"
+import { ambiguous, chatOf, countOf, messageOf, objectOf } from "../guards.js"
 import { id } from "../scalars.js"
 
 export const messagesSend = defineOperation({
@@ -59,6 +60,28 @@ export const messagesSend = defineOperation({
     }),
   ]),
   response: v.looseObject({ message: v.optional(v.looseObject({})), chat: v.optional(v.looseObject({})) }),
+  guard: (request) => {
+    const message = objectOf(request.message)
+    const cid = typeof message.cid === "number" ? { cid: message.cid } : {}
+    const [control] = Array.isArray(message.attaches) ? message.attaches.map(objectOf) : []
+    if (request.chatId === undefined && control?._type === "CONTROL" && control.event === "new") {
+      return { chatId: null, kind: "chat", action: "create", people: countOf(control.userIds), ...cid }
+    }
+    const chatId = chatOf(request)
+    const link = objectOf(message.link)
+    const at = objectOf(message.delayedAttributes).timeToFire
+    if (link.type === "FORWARD") {
+      if (typeof message.text === "string" && message.text !== "") return ambiguous("messages.send")
+      return { chatId, kind: "forward", ...cid }
+    }
+    return {
+      chatId,
+      kind: "message",
+      ...cid,
+      length: typeof message.text === "string" ? message.text.length : 0,
+      ...(typeof at === "number" ? { scheduledFor: new Date(at).toISOString() } : {}),
+    }
+  },
   provenance: {
     confidence: "measured",
     sources: [
@@ -89,6 +112,12 @@ export const messagesEdit = defineOperation({
     attachments: v.array(v.unknown()),
   }),
   response: v.looseObject({ message: v.optional(v.looseObject({})) }),
+  guard: (request) => ({
+    chatId: chatOf(request),
+    kind: "edit",
+    ...messageOf(request),
+    length: typeof request.text === "string" ? request.text.length : 0,
+  }),
   provenance: {
     confidence: "measured",
     sources: [
@@ -110,6 +139,7 @@ export const messagesReactions = defineOperation({
   auth: true,
   request: v.strictObject({ chatId: id(), messageIds: v.array(id()) }),
   response: v.looseObject({ messagesReactions: v.optional(v.looseObject({})) }),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: [
@@ -133,6 +163,7 @@ export const messagesReact = defineOperation({
     reaction: v.strictObject({ reactionType: v.literal("EMOJI"), id: v.string() }),
   }),
   response: v.looseObject({ reactionInfo: v.optional(v.looseObject({})) }),
+  guard: (request) => ({ chatId: chatOf(request), kind: "reaction", ...messageOf(request) }),
   provenance: {
     confidence: "measured",
     sources: [
@@ -152,6 +183,7 @@ export const messagesUnreact = defineOperation({
   auth: true,
   request: v.strictObject({ chatId: id(), messageId: id() }),
   response: v.looseObject({ reactionInfo: v.optional(v.looseObject({})) }),
+  guard: (request) => ({ chatId: chatOf(request), kind: "reaction", ...messageOf(request) }),
   provenance: {
     confidence: "measured",
     sources: ["measured against MAX 2026-09-24 in Saved messages", "tsmax removeReaction", "PyMax remove_reaction"],
@@ -166,6 +198,12 @@ export const messagesDelete = defineOperation({
   auth: true,
   request: v.strictObject({ chatId: id(), messageIds: v.array(id()), forMe: v.boolean() }),
   response: v.looseObject({}),
+  guard: (request) => ({
+    chatId: chatOf(request),
+    kind: "delete",
+    count: Math.max(1, countOf(request.messageIds)),
+    forEveryone: request.forMe === false,
+  }),
   provenance: {
     confidence: "observed",
     sources: ["PyMax 2.4.1 `delete_message`", "tsmax"],

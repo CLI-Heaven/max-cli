@@ -10,6 +10,7 @@ const operation = defineOperation({
   auth: true,
   request: v.strictObject({ chatId: v.string() }),
   response: v.looseObject({ messages: v.array(v.looseObject({ time: v.number() })) }),
+  guard: null,
   provenance: { confidence: "measured", sources: ["a test"] },
 })
 

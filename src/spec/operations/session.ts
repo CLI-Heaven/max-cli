@@ -33,6 +33,7 @@ export const sessionPing = defineOperation({
   auth: true,
   request: v.strictObject({ interactive: v.boolean() }),
   response: v.looseObject({}),
+  guard: null,
   provenance: {
     confidence: "confirmed",
     sources: ["web.max.ru bundle read 2026-09-24: `cmd(1, {interactive})` every 30 s", "PyMax Opcode.PING = 1"],
@@ -71,6 +72,7 @@ export const sessionLog = defineOperation({
     ),
   }),
   response: v.looseObject({}),
+  guard: null,
   provenance: {
     confidence: "observed",
     sources: [
@@ -87,6 +89,7 @@ export const sessionInit = defineOperation({
   auth: false,
   request: v.strictObject({ userAgent: WebUserAgent, deviceId: v.string() }),
   response: v.looseObject({}),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: ["measured against MAX 2026-09-19", "max-api-docs/protocol/auth.md", "tsmax createWebAgent"],
@@ -169,6 +172,7 @@ export const sessionLogin = defineOperation({
     config: v.optional(v.unknown()),
     videoChatHistory: v.optional(v.unknown()),
   }),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: [

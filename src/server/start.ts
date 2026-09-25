@@ -55,7 +55,7 @@ export const startInBackground = (
   const child = spawn(process.execPath, [entry, "--no-record", "serve", ...serveArgs], {
     detached: true,
     stdio: ["ignore", "ignore", log],
-    env: { ...process.env, MAX_PROFILE: store.profile },
+    env: serverEnvironment(process.env, store.profile),
   })
   child.unref()
   closeSync(log)
@@ -98,3 +98,9 @@ export const replacedIfStale = async (store: SessionStore): Promise<boolean> => 
   if (!status || status.version === VERSION || status.byHand === true) return false
   return (await stopServer(store.socketPath())) === "stopped"
 }
+
+/** The server outlives the command by minutes; a token it was not given for keeping stays behind. */
+export const serverEnvironment = ({ MAX_TOKEN: _, ...env }: NodeJS.ProcessEnv, profile: string): NodeJS.ProcessEnv => ({
+  ...env,
+  MAX_PROFILE: profile,
+})

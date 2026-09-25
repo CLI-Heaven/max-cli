@@ -24,10 +24,18 @@ const isTagged = (item: unknown): item is { [BIGINT]: string } =>
   Object.keys(item).length === 1 &&
   typeof (item as Record<string, unknown>)[BIGINT] === "string"
 
-/** Calls `onLine` for each complete line `data` finishes, keeping the rest for next time. */
-export const lineReader = (onLine: (line: string) => void) => {
+/**
+ * Calls `onLine` for each complete line `data` finishes, keeping the rest for next time. With
+ * `maxLength`, a line that grows past it calls `onTooLong` instead and nothing more is read.
+ */
+export const lineReader = (
+  onLine: (line: string) => void,
+  { maxLength = Number.POSITIVE_INFINITY, onTooLong = () => {} }: { maxLength?: number; onTooLong?: () => void } = {},
+) => {
   let buffered = ""
+  let stopped = false
   return (data: Buffer | string) => {
+    if (stopped) return
     buffered += String(data)
     let end = buffered.indexOf("\n")
     while (end >= 0) {
@@ -35,6 +43,11 @@ export const lineReader = (onLine: (line: string) => void) => {
       buffered = buffered.slice(end + 1)
       if (line.trim() !== "") onLine(line)
       end = buffered.indexOf("\n")
+    }
+    if (buffered.length > maxLength) {
+      stopped = true
+      buffered = ""
+      onTooLong()
     }
   }
 }
