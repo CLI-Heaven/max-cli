@@ -163,6 +163,18 @@ describe("the order a setting is decided in", () => {
   })
 })
 
+describe("a process locked to one profile", () => {
+  it("uses the locked profile when nothing names one, and refuses any other a first word or MAX_PROFILE names", () => {
+    withConfig(JSON.stringify({ defaultProfile: "personal", profiles: {} }))
+    const lock = { MAX_PROFILE_LOCK: "agent" }
+
+    expect(settings({}, lock)).toMatchObject({ profile: "agent", sources: { profile: "MAX_PROFILE_LOCK" } })
+    expect(settings({ profile: "agent" }, lock).profile).toBe("agent")
+    expect(() => settings({ profile: "work" }, lock)).toThrow("locked to profile agent")
+    expect(() => settings({}, { ...lock, MAX_PROFILE: "work" })).toThrow("locked to profile agent")
+  })
+})
+
 describe("the configuration file", () => {
   it("**is not required** — an unconfigured machine is not a broken one", () => {
     expect(settings().profile).toBe("default")

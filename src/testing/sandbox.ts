@@ -31,6 +31,7 @@ process.env.MAX_CACHE_DIR = join(sandbox, "cache")
 process.env.TMPDIR = sandbox
 // Read before the keyring, so a token exported in the shell would log the suite in to the real account.
 delete process.env.MAX_TOKEN
+delete process.env.MAX_PROFILE_LOCK
 process.env.MAX_TEST_SANDBOX = "1"
 // A terminal running the suite must not make it ask npm; the tests that want the check pass their own env.
 process.env.MAX_NO_UPDATE_CHECK = "1"

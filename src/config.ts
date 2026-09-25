@@ -165,6 +165,7 @@ export type Source =
   | "first word"
   | "flag"
   | "MAX_PROFILE"
+  | "MAX_PROFILE_LOCK"
   | "MAX_TIMEOUT"
   | "config file"
   | "config defaults"
@@ -184,6 +185,27 @@ export type SourcedSetting =
   | "sendsPerHour"
   | "updateCheck"
   | "transcribeModel"
+
+/**
+ * `MAX_PROFILE_LOCK` pins a process to one profile: the owner sets it where an agent runs, and a
+ * first word or `MAX_PROFILE` naming any other profile is refused rather than obeyed. What the
+ * agent could otherwise do is pick the profile with fewer guards.
+ */
+const locked = (
+  profile: { value: string; from: Source },
+  lock: string | undefined,
+): { value: string; from: Source } => {
+  if (lock === undefined) return profile
+  usableProfileName(lock)
+  if (profile.value === lock) return profile
+  if (profile.from === "first word" || profile.from === "MAX_PROFILE") {
+    throw new CliError(
+      "permission_error",
+      `this process is locked to profile ${lock} (MAX_PROFILE_LOCK) — profile ${profile.value} is refused`,
+    )
+  }
+  return { value: lock, from: "MAX_PROFILE_LOCK" }
+}
 
 /** The first given value wins, and says which it was. */
 const first = <T>(candidates: [Source, T | undefined][], fallback: T): { value: T; from: Source } => {
@@ -216,13 +238,16 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
   const configPath = configFilePath(configDir ?? paths.config)
   const config = readConfig(configPath)
 
-  const profile = first(
-    [
-      ["first word", flags.profile],
-      ["MAX_PROFILE", given(env.MAX_PROFILE)],
-      ["config file", config.defaultProfile],
-    ],
-    DEFAULT_PROFILE,
+  const profile = locked(
+    first(
+      [
+        ["first word", flags.profile],
+        ["MAX_PROFILE", given(env.MAX_PROFILE)],
+        ["config file", config.defaultProfile],
+      ],
+      DEFAULT_PROFILE,
+    ),
+    given(env.MAX_PROFILE_LOCK),
   )
   const configured = config.profiles[usableProfileName(profile.value)] ?? {}
   const shared = config.defaults ?? {}

@@ -148,6 +148,24 @@ describe("sending", () => {
   })
 })
 
+describe("a process locked to one profile", () => {
+  it("refuses a send from another profile, by first word or by config --defaults, before connecting", async () => {
+    const { environment, sends } = messenger()
+    process.env.MAX_PROFILE_LOCK = "agent"
+    try {
+      const sent = await runWith(["work", "messages", "send", "111", TEXT, "--json"], environment)
+      const widened = await runWith(["config", "set", "sendsPerHour", "1000", "--defaults"])
+
+      expect(sent.code).toBe(5)
+      expect(sent.stderr).toContain("locked to profile agent")
+      expect(widened.code).toBe(5)
+      expect(sends()).toEqual([])
+    } finally {
+      delete process.env.MAX_PROFILE_LOCK
+    }
+  })
+})
+
 describe("reacting", () => {
   const MESSAGE = "116762160362694583"
 
