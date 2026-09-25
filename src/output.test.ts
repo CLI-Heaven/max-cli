@@ -77,3 +77,27 @@ describe("without --quiet", () => {
     expect(JSON.parse(streams.stdout.join(""))).toEqual([])
   })
 })
+
+describe("a table of names and titles other people chose", () => {
+  const forged = "Работа\n999  Настоящая работа"
+
+  it("keeps each title in its row, and a message's text on its lines", () => {
+    const streams = captureStreams()
+    const { renderer } = resolveOutput({ streams, tty: true, color: false })
+    renderer.stream([
+      { id: "1", title: forged },
+      { id: "2", title: "Дом" },
+    ])
+    renderer.result({ id: "1", title: forged, text: "раз\nдва" })
+    const [table, card] = streams.stdout
+    expect(table?.split("\n")).toHaveLength(3)
+    expect(card).toContain("Работа\\x0a999")
+    expect(card).toContain("раз\nдва")
+  })
+
+  it("leaves machine output as it came", () => {
+    const streams = captureStreams()
+    resolveOutput({ streams, json: true }).renderer.result({ title: forged })
+    expect(JSON.parse(streams.stdout.join(""))).toEqual({ title: forged })
+  })
+})

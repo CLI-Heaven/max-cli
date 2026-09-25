@@ -1,4 +1,11 @@
-import { createRenderer, processStreams, type Renderer, type RenderFormat, type Streams } from "@leemour/cli-core"
+import {
+  createRenderer,
+  processStreams,
+  type Renderer,
+  type RenderFormat,
+  type Streams,
+  singleLine,
+} from "@leemour/cli-core"
 
 export interface OutputOptions {
   json?: boolean
@@ -22,9 +29,32 @@ export const resolveOutput = ({ json, jsonl, quiet, streams = processStreams, tt
   const interactive = tty ?? process.stdout.isTTY === true
   const format: RenderFormat = jsonl ? "jsonl" : json || !interactive ? "json" : "pretty"
   const painted = color ?? (format === "pretty" && process.env.NO_COLOR === undefined)
-  const renderer = createRenderer({ format, color: painted, streams })
+  const created = createRenderer({ format, color: painted, streams })
+  const renderer = format === "pretty" ? oneLineFields(created) : created
 
   return { format, color: painted, streams, renderer: quiet ? silence(renderer) : renderer }
+}
+
+/** Fields a person writes in paragraphs; every other string is a name, a title, an id or a path. */
+const MULTI_LINE = new Set(["text", "description"])
+
+/**
+ * The pretty renderer keeps a newline inside a cell, which is right for a message and wrong for a
+ * title: somebody else's chat title would print a row of its own. Machine output is left alone.
+ */
+const oneLineFields = (renderer: Renderer): Renderer => ({
+  ...renderer,
+  result: (value) => renderer.result(oneLine(value)),
+  stream: (items) => renderer.stream([...items].map((item) => oneLine(item))),
+})
+
+const oneLine = (value: unknown, key?: string): unknown => {
+  if (typeof value === "string") return key !== undefined && MULTI_LINE.has(key) ? value : singleLine(value)
+  if (Array.isArray(value)) return value.map((item) => oneLine(item, key))
+  if (value !== null && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(Object.entries(value).map(([field, item]) => [field, oneLine(item, field)]))
+  }
+  return value
 }
 
 /**
