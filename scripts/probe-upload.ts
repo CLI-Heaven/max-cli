@@ -156,7 +156,6 @@ try {
       itemType: "REGULAR",
       getChat: false,
       getMessages: true,
-      interactive: false,
     }),
   )
   console.log("\nread back:")

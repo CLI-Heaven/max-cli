@@ -58,7 +58,6 @@ try {
       itemType: "REGULAR",
       getChat: false,
       getMessages: true,
-      interactive: false,
     }),
   )
 

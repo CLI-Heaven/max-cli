@@ -333,7 +333,7 @@ describe("MaxClient", () => {
     await client.close()
 
     expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.CHAT_MARK)
-    expect(max.sent.find((call) => call.opcode === Opcode.CHAT_HISTORY)?.payload.interactive).toBe(false)
+    expect(max.sent.find((call) => call.opcode === Opcode.CHAT_HISTORY)?.payload).not.toHaveProperty("interactive")
   })
 
   it("sends no telemetry from a one-shot command, as a hidden tab closed within 20 s sends none", async () => {
@@ -424,7 +424,8 @@ describe("MaxClient", () => {
       await client.close()
 
       const asked = max.sent.find((call) => call.opcode === Opcode.CHAT_HISTORY)?.payload
-      expect(asked).toMatchObject({ from: 1789776000000, backward: 2, forward: 1, interactive: false })
+      expect(asked).toMatchObject({ from: 1789776000000, backward: 2, forward: 1 })
+      expect(asked).not.toHaveProperty("interactive")
       expect(found.map((m) => m.text)).toEqual(["before", "the one", "after"])
       expect(found.filter((m) => m.anchor).map((m) => m.text)).toEqual(["the one"])
       expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.CHAT_MARK)

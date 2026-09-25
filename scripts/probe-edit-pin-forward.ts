@@ -101,7 +101,6 @@ const readBack = async (ids: string[]): Promise<Map<string, Json>> => {
       itemType: "REGULAR",
       getChat: false,
       getMessages: true,
-      interactive: false,
     }),
   )
   const found = new Map<string, Json>()

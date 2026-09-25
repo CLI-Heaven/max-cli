@@ -114,12 +114,8 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   `interactive: false` too; `true` goes only in pings, while its window has focus. Left: whether
   opening a chat with unread messages marks it read without opcode 50 — see `RES-10`.
   Correction 2026-09-25 (`RES-10`, captured): the tab marks a chat read with an explicit opcode 50
-  after opening it, not with 49. Left: confirm that 49 alone moves nothing — `RES-11`.
-- **RES-11** · P3 · Drop `interactive: false` from our history request (49): the web client sends
-  5 fields and never it, and marks a chat read with an explicit `CHAT_MARK` 50 after opening it, not
-  with 49 (captured 2026-09-25, `docs_ai/captures/2026-09-25-res-10.jsonl`). One check first:
-  `max messages list` on a chat with unread messages, without the field, and see that `unread`
-  does not move.
+  after opening it, not with 49; and 49 without `interactive` moves nothing (measured, `RES-11`). Left:
+  whether LOGIN itself moves presence — needs a second device watching.
 - **RES-7** · P3 · What a real client sends as opcode 36's payload. `{}`, `{marker}` are refused and
   `{marker, count}` closes the connection (`pnpm probe:contacts`), so only a capture answers it. It
   is the only route to contacts who share no chat. Closes `PROTO-1`.

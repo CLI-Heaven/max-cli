@@ -96,7 +96,6 @@ const history = async (chatId: string): Promise<Record<string, unknown>[]> => {
       itemType: "REGULAR",
       getChat: false,
       getMessages: true,
-      interactive: false,
     }),
   )
   return (Array.isArray(answer.messages) ? answer.messages : []).map(record).filter((m) => m !== undefined)

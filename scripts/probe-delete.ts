@@ -62,7 +62,6 @@ const stillThere = async (id: string): Promise<boolean> => {
     itemType: "REGULAR",
     getChat: false,
     getMessages: true,
-    interactive: false,
   })
   return (Array.isArray(history.messages) ? history.messages : []).some((message) => asId(record(message).id) === id)
 }
