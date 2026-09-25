@@ -13,6 +13,7 @@ export const attachmentsFile = defineOperation({
     fileId: id(),
   }),
   response: v.looseObject({ url: v.optional(v.string()), unsafe: v.optional(v.boolean()) }),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: ["measured against MAX 2026-09-23 (`pnpm probe:download`)", "tsmax getFileById", "PyMax get_file_by_id"],
@@ -32,6 +33,7 @@ export const attachmentsVideo = defineOperation({
     videoId: id(),
   }),
   response: v.looseObject({}),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: ["measured against MAX 2026-09-23 (`pnpm probe:download`)", "tsmax getVideoById", "PyMax get_video_by_id"],

@@ -1,20 +1,25 @@
-import { existsSync, statSync, writeFileSync } from "node:fs"
+import { chmodSync, existsSync, mkdirSync, statSync, writeFileSync } from "node:fs"
 import { createServer, type Server } from "node:net"
+import { dirname } from "node:path"
 import { captureStreams, memoryKeyring } from "@leemour/cli-core"
 import { decode, ExtData } from "@msgpack/msgpack"
 import { afterEach, describe, expect, it } from "vitest"
 import { MaxClient } from "../client.js"
+import { contextFor } from "../commands/context.js"
 import { Opcode } from "../generated/opcodes.generated.js"
 import { run } from "../program.js"
 import { Connection } from "../protocol/connection.js"
 import { decodeHeader, HEADER_BYTES } from "../protocol/frame.js"
 import { decompressBlock } from "../protocol/lz4.js"
+import { SendJournal, sendsPathFor } from "../sends/journal.js"
+import { RecipientList, recipientsPathFor } from "../sends/recipients.js"
 import { SessionStore } from "../session/store.js"
 import { mockMax } from "../testing/mock-max.js"
 import { VERSION } from "../version.js"
 import { fromLine, lineReader, toLine } from "./lines.js"
 import { MaxServer, type ServerEvent } from "./server.js"
 import { ServerConnection, serverStatus, stopServer } from "./server-connection.js"
+import { serverEnvironment } from "./start.js"
 import { subscribe } from "./subscribe.js"
 
 const ME = 10000001
@@ -90,6 +95,20 @@ const watching = (store: SessionStore) => {
   const stop = new AbortController()
   const listening = subscribe(store.socketPath(), store.profile, (event) => events.push(event), stop.signal)
   return { events, stop: () => stop.abort(), listening }
+}
+
+/** One request straight to the socket, as any process of the owner's could write it. */
+const ask = async (store: SessionStore, request: Record<string, unknown>): Promise<Record<string, unknown>> => {
+  const socket = await import("node:net").then(({ connect }) => connect(store.socketPath()))
+  const answer = await new Promise<Record<string, unknown>>((resolve) => {
+    socket.on(
+      "data",
+      lineReader((line) => resolve(fromLine(line))),
+    )
+    socket.write(toLine(request))
+  })
+  socket.destroy()
+  return answer
 }
 
 const settle = (ms = 30) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -563,6 +582,15 @@ describe("a command through max serve", () => {
     expect(answer).not.toMatch(/"token"/)
   })
 
+  it("refuses an opcode no command sends, whoever asks the socket directly", async () => {
+    const { store, max } = await serve("c-raw-52")
+
+    const answer = await ask(store, { id: 1, opcode: 52, payload: { chatId: 111n } })
+
+    expect(answer.error).toMatchObject({ code: "not_allowed" })
+    expect(max.sent.map((call) => call.opcode)).not.toContain(52)
+  })
+
   it("a token being tried out goes to MAX itself, not to the server's login", async () => {
     const { store } = await serve("c-token")
     const { client, direct } = commandClient(store)
@@ -572,6 +600,188 @@ describe("a command through max serve", () => {
 
     expect(direct.sent.map((call) => call.opcode)).toEqual([Opcode.SESSION_INIT, Opcode.LOGIN])
     expect(direct.sent[1]?.payload).toMatchObject({ token: "a-new-token" })
+  })
+})
+
+describe("the send guard, in the server", () => {
+  const cli = async (argv: string[]) => {
+    const streams = captureStreams()
+    return run(argv, { streams, tty: false })
+  }
+
+  const journal = (profile: string) => new SendJournal(sendsPathFor(profile)).entries()
+
+  it("refuses a send over the socket on a read-only profile, before MAX, and journals the refusal", async () => {
+    await cli(["g-ro", "config", "set", "readOnly", "true"])
+    const { store, max } = await serve("g-ro")
+
+    const answer = await ask(store, {
+      id: 1,
+      opcode: Opcode.MSG_SEND,
+      payload: { chatId: 111n, message: { cid: 7, text: "hi", attaches: [] }, notify: true },
+    })
+
+    expect(answer.error).toMatchObject({ code: "permission_error", guard: true })
+    expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.MSG_SEND)
+    expect(journal("g-ro")).toMatchObject([{ chatId: "111", outcome: "refused", errorCode: "permission_error" }])
+  })
+
+  it("reads the configuration for every write, so read-only needs no restart", async () => {
+    const { store, max } = await serve("g-later")
+    const send = (cid: number) =>
+      ask(store, {
+        id: cid,
+        opcode: Opcode.MSG_SEND,
+        payload: { chatId: 111n, message: { cid, text: "hi", attaches: [] }, notify: true },
+      })
+
+    expect((await send(1)).error).toBeUndefined()
+    await cli(["g-later", "config", "set", "readOnly", "true"])
+    expect((await send(2)).error).toMatchObject({ code: "permission_error" })
+    expect(max.sent.filter((call) => call.opcode === Opcode.MSG_SEND)).toHaveLength(1)
+  })
+
+  it("refuses a delete to a chat that is not on the recipient list, and a send with no chat at all", async () => {
+    new RecipientList(recipientsPathFor("g-list")).add({ id: "222", title: "Other", addedAt: new Date().toISOString() })
+    const { store, max } = await serve("g-list")
+
+    const deleted = await ask(store, {
+      id: 1,
+      opcode: Opcode.MSG_DELETE,
+      payload: { chatId: 111n, messageIds: [116762160362694583n], forMe: false },
+    })
+    const unaddressed = await ask(store, {
+      id: 2,
+      opcode: Opcode.MSG_SEND,
+      payload: { message: { cid: 8, text: "hi", attaches: [] }, notify: true },
+    })
+
+    expect(deleted.error).toMatchObject({ code: "confirmation_required" })
+    expect(unaddressed.error).toMatchObject({ code: "validation_error" })
+    expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.MSG_DELETE)
+    expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.MSG_SEND)
+  })
+
+  it("a command's send through it leaves one journal line, written by the server", async () => {
+    const { store } = await serve("g-one")
+    const context = contextFor({ profile: "g-one" }, { store: () => store, streams: captureStreams() })
+    const client = context.createClient()
+
+    await client.messages.send("111", "sent")
+    await client.close()
+
+    expect(journal("g-one")).toMatchObject([
+      { chatId: "111", outcome: "sent", messageId: "116762160362694599", length: 4 },
+    ])
+  })
+
+  it("a refusal by the server reaches the command as the same error, with its exit code", async () => {
+    const { store } = await serve("g-exit")
+    const context = contextFor({ profile: "g-exit" }, { store: () => store, streams: captureStreams() })
+    const client = context.createClient()
+    await cli(["g-exit", "config", "set", "sendsPerHour", "1"])
+    await client.messages.send("111", "one")
+
+    await expect(client.messages.send("111", "two")).rejects.toMatchObject({ code: "rate_limited" })
+    await client.close()
+  })
+
+  it("a send retried with the same cid after no answer is one message: counted once toward the limit", async () => {
+    let sends = 0
+    const max = scripted({
+      [Opcode.MSG_SEND]: () => {
+        sends += 1
+        return sends === 1
+          ? undefined
+          : { message: { id: 116762160362694599n, time: 1789776001000, sender: ME, text: "sent" } }
+      },
+    })
+    const { store } = await serve("g-retry", max)
+    await cli(["g-retry", "config", "set", "sendsPerHour", "2"])
+    const context = contextFor({ profile: "g-retry" }, { store: () => store, streams: captureStreams() })
+    const client = context.createClient()
+
+    await client.messages.send("111", "sent")
+    await client.messages.send("111", "second")
+    await expect(client.messages.send("111", "third")).rejects.toMatchObject({ code: "rate_limited" })
+    await client.close()
+
+    const [unknown, sent] = journal("g-retry")
+    expect(unknown).toMatchObject({ outcome: "outcome_unknown" })
+    expect(sent).toMatchObject({ outcome: "sent", cid: unknown?.cid })
+    expect(sends).toBe(3)
+  })
+
+  it("counts a cid that was already sent as a new send, in its own chat or another", async () => {
+    const { store, max } = await serve("g-reuse")
+    await cli(["g-reuse", "config", "set", "sendsPerHour", "1"])
+    const context = contextFor({ profile: "g-reuse" }, { store: () => store, streams: captureStreams() })
+    const client = context.createClient()
+    await client.messages.send("111", "sent")
+    await client.close()
+    const cid = journal("g-reuse")[0]?.cid
+    const reuse = (chatId: bigint) =>
+      ask(store, {
+        id: 1,
+        opcode: Opcode.MSG_SEND,
+        payload: { chatId, message: { cid, text: "again", attaches: [] }, notify: true },
+      })
+
+    expect((await reuse(222n)).error).toMatchObject({ code: "rate_limited" })
+    expect((await reuse(111n)).error).toMatchObject({ code: "rate_limited" })
+    expect(max.sent.filter((call) => call.opcode === Opcode.MSG_SEND)).toHaveLength(1)
+    expect(journal("g-reuse").map((entry) => entry.outcome)).toEqual(["sent", "refused", "refused"])
+  })
+
+  it("refuses a request shape no command sends: a field the spec does not have, a control attachment in a message", async () => {
+    await cli(["g-shape", "config", "set", "allow", "send"])
+    const { store, max } = await serve("g-shape")
+
+    const extra = await ask(store, {
+      id: 1,
+      opcode: Opcode.MSG_SEND,
+      payload: { chatId: 111n, message: { cid: 9, text: "hi", attaches: [] }, notify: true, silent: true },
+    })
+    const control = await ask(store, {
+      id: 2,
+      opcode: Opcode.MSG_SEND,
+      payload: {
+        chatId: 111n,
+        message: { cid: 10, attaches: [{ _type: "CONTROL", event: "add", userIds: [3n] }] },
+        notify: true,
+      },
+    })
+
+    expect(extra.error).toMatchObject({ code: "validation_error" })
+    expect(control.error).toMatchObject({ code: "validation_error" })
+    expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.MSG_SEND)
+  })
+
+  it("drops a client whose line never ends", async () => {
+    const { store } = await serve("g-long")
+    const socket = await import("node:net").then(({ connect }) => connect(store.socketPath()))
+    const closed = new Promise((resolve) => socket.once("close", resolve))
+    socket.on("error", () => {})
+    socket.write("x".repeat(2 * 1024 * 1024))
+
+    await closed
+  })
+
+  it("keeps its socket's directory to the owner, even one that was there before", async () => {
+    const store = new SessionStore({ profile: "g-dir", keyring: memoryKeyring() })
+    mkdirSync(dirname(store.socketPath()), { recursive: true, mode: 0o755 })
+    chmodSync(dirname(store.socketPath()), 0o755)
+    await serve("g-dir")
+
+    expect(statSync(dirname(store.socketPath())).mode & 0o777).toBe(0o700)
+  })
+})
+
+describe("the background server's environment", () => {
+  it("carries the profile and not MAX_TOKEN, which it would keep long after the command", () => {
+    const env = serverEnvironment({ MAX_TOKEN: "a-token", PATH: "/bin" }, "work")
+
+    expect(env).toEqual({ PATH: "/bin", MAX_PROFILE: "work" })
   })
 })
 

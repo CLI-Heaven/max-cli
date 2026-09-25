@@ -1,5 +1,7 @@
 import * as v from "valibot"
+import type { ChatAction } from "../../sends/journal.js"
 import { defineOperation, reserveOpcode } from "../define.js"
+import { ambiguous, chatOf, countOf, messageOf } from "../guards.js"
 import { id } from "../scalars.js"
 
 export const chatsList = defineOperation({
@@ -13,6 +15,7 @@ export const chatsList = defineOperation({
     count: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1))),
   }),
   response: v.looseObject({ chats: v.optional(v.array(v.looseObject({}))) }),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: ["measured against MAX 2026-09-19", "max-api-docs/protocol/chats.md"],
@@ -41,6 +44,7 @@ export const chatsHistory = defineOperation({
     getMessages: v.boolean(),
   }),
   response: v.looseObject({ messages: v.optional(v.array(v.looseObject({}))) }),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: [
@@ -71,6 +75,7 @@ export const chatsMark = defineOperation({
     mark: v.number(),
   }),
   response: v.looseObject({ unread: v.optional(v.number()), mark: v.optional(v.number()) }),
+  guard: (request) => ({ chatId: chatOf(request), kind: "read", ...messageOf(request) }),
   provenance: {
     confidence: "measured",
     sources: [
@@ -92,6 +97,7 @@ export const chatsLinkInfo = defineOperation({
   auth: true,
   request: v.strictObject({ link: link() }),
   response: v.looseObject({ chat: v.optional(v.looseObject({})) }),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: ["measured against MAX 2026-09-24 (`pnpm probe:groups`)", "PyMax resolve_group_by_link"],
@@ -106,6 +112,7 @@ export const chatsJoin = defineOperation({
   auth: true,
   request: v.strictObject({ link: link() }),
   response: v.looseObject({ chat: v.optional(v.looseObject({})) }),
+  guard: () => ({ chatId: null, kind: "chat", action: "join" }),
   provenance: {
     confidence: "measured",
     sources: ["measured against MAX 2026-09-24 with a private group link (`pnpm probe:groups`)", "PyMax join_group"],
@@ -121,6 +128,7 @@ export const chatsLeave = defineOperation({
   auth: true,
   request: v.strictObject({ chatId: id() }),
   response: v.looseObject({ message: v.optional(v.looseObject({})) }),
+  guard: (request) => ({ chatId: chatOf(request), kind: "chat", action: "leave" }),
   provenance: {
     confidence: "measured",
     sources: ["measured against MAX 2026-09-24 (`pnpm probe:groups`)", "PyMax leave_group"],
@@ -143,6 +151,23 @@ export const chatsUpdate = defineOperation({
     v.strictObject({ chatId: id(), pinMessageId: id(), notifyPin: v.boolean() }),
   ]),
   response: v.looseObject({ chat: v.optional(v.looseObject({})) }),
+  guard: (request) => {
+    const chatId = chatOf(request)
+    const changes = [
+      "pinMessageId" in request,
+      "revokePrivateLink" in request,
+      "options" in request,
+      "theme" in request || "description" in request,
+    ]
+    if (changes.filter(Boolean).length !== 1) return ambiguous("chats.update")
+    if (changes[0]) {
+      const pinned = messageOf(request, "pinMessageId")
+      return { chatId, kind: "pin", ...(pinned.messageId === "0" ? {} : pinned) }
+    }
+    if (changes[1]) return { chatId, kind: "chat", action: "link.reset" }
+    if (changes[2]) return { chatId, kind: "chat", action: "settings" }
+    return { chatId, kind: "chat", action: "update" }
+  },
   provenance: {
     confidence: "measured",
     sources: [
@@ -170,12 +195,19 @@ export const chatsMembers = defineOperation({
     count: v.pipe(v.number(), v.integer(), v.minValue(1)),
   }),
   response: v.looseObject({ members: v.optional(v.array(v.looseObject({}))) }),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: ["measured against MAX 2026-09-24 with no requests (`pnpm probe:groups`)", "PyMax get_join_requests"],
     notes: "With no requests the answer is `{}` — no `members` at all. Each member is `{contact, presence}` in PyMax.",
   },
 })
+
+const MEMBER_ACTIONS: Record<string, readonly [ChatAction, ChatAction]> = {
+  MEMBER: ["members.add", "members.remove"],
+  ADMIN: ["admins.add", "admins.remove"],
+  JOIN_REQUEST: ["requests.accept", "requests.decline"],
+}
 
 export const chatsUpdateMembers = defineOperation({
   name: "chats.updateMembers",
@@ -195,6 +227,13 @@ export const chatsUpdateMembers = defineOperation({
     permissions: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
   }),
   response: v.looseObject({ chat: v.optional(v.looseObject({})) }),
+  guard: (request) => {
+    const actions = MEMBER_ACTIONS[String(request.type ?? "MEMBER")]
+    const action =
+      request.operation === "add" ? actions?.[0] : request.operation === "remove" ? actions?.[1] : undefined
+    if (!action) return ambiguous("chats.updateMembers")
+    return { chatId: chatOf(request), kind: "chat", action, people: countOf(request.userIds) }
+  },
   provenance: {
     confidence: "measured",
     sources: [

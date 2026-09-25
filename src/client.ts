@@ -890,7 +890,7 @@ export class MaxClient {
 
       // Before connecting: a refused send never opens a socket when the chat was given as an id.
       try {
-        this.#sends?.check(chatId)
+        this.#sends?.check(chatId, "message", undefined, 1, options.cid)
       } catch (error) {
         this.#sends?.record({ chatId, outcome: "refused", errorCode: asCliError(error).code })
         throw error

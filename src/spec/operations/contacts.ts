@@ -9,6 +9,7 @@ export const contactsInfo = defineOperation({
   auth: true,
   request: v.strictObject({ contactIds: v.array(id()) }),
   response: v.looseObject({ contacts: v.optional(v.array(v.looseObject({}))) }),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: ["measured against MAX 2026-09-19: asked for ten, got ten"],
@@ -25,6 +26,7 @@ export const contactsByPhone = defineOperation({
   auth: true,
   request: v.strictObject({ phone: v.pipe(v.string(), v.minLength(1)) }),
   response: v.looseObject({ contact: v.optional(v.looseObject({})) }),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: [
@@ -43,6 +45,11 @@ export const contactsUpdate = defineOperation({
   auth: true,
   request: v.strictObject({ contactId: id(), action: v.picklist(["ADD", "REMOVE"]) }),
   response: v.looseObject({ contact: v.optional(v.looseObject({})) }),
+  guard: (request) => ({
+    chatId: null,
+    kind: "account",
+    action: request.action === "REMOVE" ? "contact-remove" : "contact-add",
+  }),
   provenance: {
     confidence: "confirmed",
     sources: [webClient, "PyMax 53103f0 `add_contact`, `remove_contact`"],
@@ -61,6 +68,7 @@ export const contactsImport = defineOperation({
     contactList: v.record(v.string(), v.strictObject({ firstName: v.string() })),
   }),
   response: v.looseObject({ contacts: v.optional(v.array(v.looseObject({}))) }),
+  guard: () => ({ chatId: null, kind: "account", action: "contact-import" }),
   provenance: {
     confidence: "measured",
     sources: [

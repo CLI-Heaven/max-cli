@@ -7,9 +7,7 @@ import { type Closeable, withDeadline } from "../deadline.js"
 import { resolveOutput } from "../output.js"
 import { rootOf } from "../profile.js"
 import { recorded } from "../runs/recording.js"
-import { sendGuard } from "../sends/guard.js"
-import { SendJournal, sendsPathFor } from "../sends/journal.js"
-import { RecipientList, recipientsPathFor } from "../sends/recipients.js"
+import { guardFor, sharedJournal } from "../sends/guard.js"
 import { ServerConnection, stopServer } from "../server/server-connection.js"
 import { ensureServer } from "../server/start.js"
 import { type BrowserDoors, realBrowser } from "../session/browser.js"
@@ -127,7 +125,8 @@ export const contextFor = (
   const clients: Closeable[] = []
 
   // Only for the real thing: a test hands in its own store, and must never start a process.
-  const starts = !environment.store && !environment.connection && settings.serve
+  // A server does not take `MAX_TOKEN` along, so a token from there has no server to share.
+  const starts = !environment.store && !environment.connection && settings.serve && !process.env.MAX_TOKEN
 
   return {
     settings,
@@ -155,16 +154,7 @@ export const contextFor = (
         timeoutMs: settings.timeoutMs,
         warn: renderer.note,
         offline: flags.offline === true,
-        sends: sendGuard({
-          profile: settings.profile,
-          readOnly: settings.readOnly,
-          readOnlyFrom: settings.sources.readOnly,
-          ...(settings.allow ? { allow: settings.allow, allowFrom: settings.sources.allow } : {}),
-          sendsPerHour: settings.sendsPerHour,
-          journal: new SendJournal(sendsPathFor(settings.profile)),
-          recipients: new RecipientList(recipientsPathFor(settings.profile)),
-          warn: renderer.warn,
-        }),
+        sends: sharedJournal(guardFor(settings, renderer.warn), wire),
         ...(environment.connection ? { connection: environment.connection() } : wire ? { connection: wire } : {}),
         ...extra,
       })

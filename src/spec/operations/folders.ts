@@ -25,6 +25,7 @@ export const foldersList = defineOperation({
     foldersOrder: v.optional(v.array(v.unknown())),
     folderSync: v.optional(v.number()),
   }),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: [
@@ -42,6 +43,9 @@ export const foldersUpdate = defineOperation({
   auth: true,
   request: v.strictObject(Folder),
   response: v.looseObject({ folder: v.optional(v.looseObject({})), folderSync: v.optional(v.number()) }),
+  // A new folder and a changed one look the same on the wire — both carry an id — so the journal
+  // calls both an update; either needs the same permission.
+  guard: () => ({ chatId: null, kind: "account", action: "folder-update" }),
   provenance: {
     confidence: "measured",
     sources: [
@@ -61,6 +65,7 @@ export const foldersDelete = defineOperation({
   auth: true,
   request: v.strictObject({ folderIds: v.array(v.pipe(v.string(), v.minLength(1))) }),
   response: v.looseObject({}),
+  guard: () => ({ chatId: null, kind: "account", action: "folder-delete" }),
   provenance: {
     confidence: "measured",
     sources: ["measured against MAX 2026-09-24 (`pnpm probe:account`)", webClient, "PyMax 53103f0 `delete_folder`"],

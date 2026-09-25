@@ -152,6 +152,16 @@ message id** and **one** copy, also across two connections and logins — the ca
   (8) — all before the socket when the chat is an id. Every outcome, refusals included, goes to
   `<state>/sends/<profile>.jsonl` without the text; the limit counts that file. These stop a model
   talked into sending by what it read, not an agent that edits the configuration (`NEED-159`).
+- **`max serve` runs the same guard on every write it forwards, and journals it** (`NEED-269`):
+  anything of the owner's can write to its socket, not only a command that checked first. Every
+  request is first checked against the operation's strict schema, as `buildRequest` checks it in a
+  command, so a field the specification does not have is refused there too. It reads
+  the configuration again for each write, so `config set readOnly true` needs no restart. The
+  command still checks — a refusal before an upload — and journals only its own refusals; the
+  server writes the rest, with the outcome it saw — one line per attempt. A retry after no answer
+  repeats the `cid` in the same chat and leaves `outcome_unknown` then its outcome; the limit counts
+  the two once. The first line is not held back for the retry, so a crash cannot lose a message
+  that may have gone out. A `cid` that was sent, or reused in another chat, counts as a new send.
 - **A forward is a send** — `MSG_SEND` with a `FORWARD` link and no text — so it gets the same one
   retry with the same `cid` and counts against the hourly limit. **An edit and a pin are not
   retried**, like a reaction, and are not counted: they put no new message in anybody's chat
@@ -274,7 +284,11 @@ Every opcode and payload shape lives in `src/spec/`; its Valibot schemas **are**
 ### Adding one
 
 1. In `src/spec/operations/<subject>.ts`, `defineOperation`: dotted `name`, MAX's `constant`, the
-   opcode, a **strict** request shape, a **loose** response shape, and where the shape came from.
+   opcode, a **strict** request shape, a **loose** response shape, where the shape came from, and
+   its **`guard`** — `null` when nobody else sees it, otherwise what the send guard is asked, read
+   from the request as it goes on the wire. The field is required: `max serve` passes a write on
+   only through that declaration (`NEED-269`), and a request it cannot read — a send with no chat
+   that is not a new group, a chat update that is two changes — is refused, never guessed.
 2. `pnpm generate`. A duplicate opcode or name, or a name not `<group>.<method>`, stops it with a
    sentence naming both sides.
 3. Call it from `MaxClient`. The generated wrapper is typed and stays internal.

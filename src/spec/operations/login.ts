@@ -25,6 +25,7 @@ export const loginQrRequest = defineOperation({
     pollingInterval: v.number(),
     expiresAt: v.number(),
   }),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: ["measured against MAX 2026-09-24: `session start qr` logged in", PYMAX, DOCS],
@@ -40,6 +41,7 @@ export const loginQrStatus = defineOperation({
   response: v.looseObject({
     status: v.looseObject({ expiresAt: v.optional(v.number()), loginAvailable: v.optional(v.boolean()) }),
   }),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: ["measured against MAX 2026-09-24: `session start qr` logged in", PYMAX, DOCS],
@@ -55,6 +57,7 @@ export const loginByQr = defineOperation({
   auth: false,
   request: v.strictObject({ trackId: v.string() }),
   response: v.looseObject(Issued),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: ["measured against MAX 2026-09-24: `session start qr` logged in", PYMAX],
@@ -68,6 +71,7 @@ export const loginSmsRequest = defineOperation({
   auth: false,
   request: v.strictObject({ phone: v.string(), type: v.literal("START_AUTH"), language: v.string() }),
   response: v.looseObject({ token: v.string(), codeLength: v.optional(v.number()) }),
+  guard: null,
   provenance: {
     confidence: "confirmed",
     sources: [PYMAX, DOCS],
@@ -83,6 +87,7 @@ export const loginSmsCode = defineOperation({
   auth: false,
   request: v.strictObject({ token: v.string(), verifyCode: v.string(), authTokenType: v.literal("CHECK_CODE") }),
   response: v.looseObject(Issued),
+  guard: null,
   provenance: { confidence: "confirmed", sources: [PYMAX, DOCS] },
 })
 
@@ -93,6 +98,7 @@ export const loginPassword = defineOperation({
   auth: false,
   request: v.strictObject({ trackId: v.string(), password: v.string() }),
   response: v.looseObject({ tokenAttrs: Issued.tokenAttrs, error: v.optional(v.string()) }),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: ["measured against MAX 2026-09-24: `session start qr` on an account with a cloud password", PYMAX],

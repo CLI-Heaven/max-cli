@@ -15,6 +15,7 @@ export const uploadsPhoto = defineOperation({
   auth: true,
   request: uploadRequest,
   response: v.looseObject({ url: v.optional(v.string()) }),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: ["measured against MAX 2026-09-24 in Saved messages (`pnpm probe:upload`)", "PyMax upload_photo"],
@@ -30,6 +31,7 @@ export const uploadsFile = defineOperation({
   auth: true,
   request: uploadRequest,
   response: v.looseObject({ info: v.optional(v.array(v.looseObject({}))) }),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: ["measured against MAX 2026-09-24 in Saved messages (`pnpm probe:upload`)", "PyMax upload_file"],

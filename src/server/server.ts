@@ -2,15 +2,21 @@ import { chmodSync, mkdirSync, rmSync } from "node:fs"
 import { connect, createServer, type Server, type Socket } from "node:net"
 import { dirname } from "node:path"
 import { CliError } from "@leemour/cli-core"
+import * as v from "valibot"
 import type { CacheStore } from "../cache/store.js"
 import { MaxClient, type MaxClientOptions } from "../client.js"
+import { resolveSettings } from "../config.js"
 import type { MessageHit } from "../domain/models.js"
 import { Opcode } from "../generated/opcodes.generated.js"
 import { Connection, type ConnectionOptions, ProtocolError } from "../protocol/connection.js"
+import { asId, type Payload } from "../protocol/frame.js"
+import { guardFor, type SendGuard } from "../sends/guard.js"
 import type { SessionStore } from "../session/store.js"
+import type { Guarded } from "../spec/define.js"
+import { objectOf } from "../spec/guards.js"
 import { VERSION } from "../version.js"
 import { fromLine, lineReader, toLine } from "./lines.js"
-import { forwarded, stopServer } from "./server-connection.js"
+import { forwardedOperation, stopServer } from "./server-connection.js"
 
 export type ServerEvent =
   | { event: "message"; message: MessageHit }
@@ -41,6 +47,8 @@ export interface MaxServerOptions {
   idleMs?: number
   /** One event per request, for `--trace` and the run log — pings included. */
   events?: MaxClientOptions["events"]
+  /** Tests hand in their own; otherwise built from the profile's configuration for every write. */
+  guard?: () => SendGuard
 }
 
 /** The web client's keep-alive interval (web.max.ru bundle, 2026-09-24). A different one is a fingerprint. */
@@ -58,6 +66,9 @@ const CHAT_LIST_SHOWN_AFTER_MS = 500
 /** A message arrived — what MAX pushes, and what a send through this server is handed on as. */
 const NEW_MESSAGE = 128
 
+/** A request is a command's payload; a message with its markup is a few kilobytes. */
+const MAX_REQUEST_LENGTH = 1024 * 1024
+
 /** A login MAX counts; after one, the next background login waits at least this long. */
 const REFRESH_EVERY_MS = 60_000
 
@@ -72,8 +83,9 @@ const REFRESH_EVERY_MS = 60_000
  * The socket answers `{"subscribe": true}` with a stream of `ServerEvent` lines and
  * `{"status": true}` with one. For a command reusing the connection (`ServerConnection`) it answers
  * `{"id", "login": true}` with the login it holds, and `{"id", "opcode", "payload"}` by passing the
- * request to MAX — **reads only** (`NEED-185`). Anything that writes goes on the command's own
- * connection, through the send guards, which live in the client and nowhere else.
+ * request to MAX — sends included (`NEED-229`). **Every write goes through the send guard here**,
+ * and is journaled here (`NEED-269`): anything of the owner's can write to this socket, not only a
+ * command that checked first. An operation the specification does not declare is not passed on.
  */
 export class MaxServer {
   readonly #options: MaxServerOptions
@@ -304,6 +316,9 @@ export class MaxServer {
     // Nobody answers on it, so it is what a crashed server left behind.
     rmSync(path, { force: true })
     mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
+    // The socket is open to everyone between `listen` and its `chmod`; only the directory keeps
+    // others out then, and `mkdirSync` leaves an existing one as it found it.
+    chmodSync(dirname(path), 0o700)
 
     const listener = createServer((socket) => this.#serve(socket))
     await new Promise<void>((resolve, reject) => {
@@ -324,9 +339,12 @@ export class MaxServer {
     })
     socket.on(
       "data",
-      lineReader((line) => {
-        this.#request(socket, line).catch(() => socket.destroy())
-      }),
+      lineReader(
+        (line) => {
+          this.#request(socket, line).catch(() => socket.destroy())
+        },
+        { maxLength: MAX_REQUEST_LENGTH, onTooLong: () => socket.destroy() },
+      ),
     )
   }
 
@@ -387,14 +405,67 @@ export class MaxServer {
   async #forward(opcode: number, payload: unknown): Promise<Record<string, unknown>> {
     await this.#up
     const client = this.#client
-    if (!forwarded(opcode)) {
-      return {
-        error: { code: "not_allowed", message: `opcode ${opcode} is a login; the server does its own` },
-      }
+    const operation = forwardedOperation(opcode)
+    if (!operation) {
+      return { error: { code: "not_allowed", message: `opcode ${opcode} is not one the server passes on` } }
     }
     if (!client) return { error: { code: "unavailable", message: "not connected" } }
+    const request = (payload ?? {}) as Payload
+    // The shape the specification allows, checked here as `buildRequest` checks it in a command:
+    // an id crosses the socket as a `bigint`, and the schema reads the string it was built from.
+    if (!v.safeParse(operation.request, asStrings(request)).success) {
+      return refusal(new CliError("validation_error", `${operation.name}: not a request this version of max sends`))
+    }
+    if (!operation.guard) return this.#pass(client, opcode, request)
+
+    let entry: Guarded
+    let guard: SendGuard
     try {
-      const request = (payload ?? {}) as Record<string, unknown>
+      entry = operation.guard(request)
+      // Read again for every write, so `config set readOnly true` needs no restart.
+      guard =
+        this.#options.guard?.() ??
+        guardFor(resolveSettings({ profile: this.#options.store.profile }), this.#options.note)
+    } catch (error) {
+      return refusal(error)
+    }
+    try {
+      guard.check(entry.chatId, entry.kind, entry.action, entry.count, entry.cid)
+    } catch (error) {
+      guard.record({ ...entry, outcome: "refused", errorCode: asCliError(error).code })
+      return refusal(error)
+    }
+
+    return this.#sendJournaled(client, opcode, request, guard, entry)
+  }
+
+  async #sendJournaled(
+    client: MaxClient,
+    opcode: number,
+    request: Payload,
+    guard: SendGuard,
+    entry: Guarded,
+  ): Promise<Record<string, unknown>> {
+    const answer = await this.#pass(client, opcode, request)
+    const error = answer.error as { code?: string; message?: string } | undefined
+    if (!error) {
+      const reply = objectOf(answer.payload)
+      const messageId = asId(objectOf(reply.message).id)
+      const chatId = entry.chatId ?? asId(reply.chatId) ?? asId(objectOf(reply.chat).id) ?? null
+      guard.record({ ...entry, chatId, ...(messageId ? { messageId } : {}), outcome: "sent" })
+    } else if (error.code === "refused") {
+      // MAX's "not yet" while an upload is processed: the command asks again, and that is one message.
+      if (!error.message?.includes("attachment.not.ready")) {
+        guard.record({ ...entry, outcome: "failed", errorCode: "provider_error" })
+      }
+    } else {
+      guard.record({ ...entry, outcome: "outcome_unknown", errorCode: "timeout" })
+    }
+    return answer
+  }
+
+  async #pass(client: MaxClient, opcode: number, request: Payload): Promise<Record<string, unknown>> {
+    try {
       const answer = await client.live.forward(opcode, request)
       // MAX does not push a message back to the connection that sent it, and every send now comes
       // through this one — so `max watch` would never see what `max` itself sent. The answer
@@ -413,6 +484,26 @@ export class MaxServer {
       return { error: { code: "unavailable", message: error instanceof Error ? error.message : String(error) } }
     }
   }
+}
+
+const asStrings = (value: unknown): unknown => {
+  if (typeof value === "bigint") return value.toString()
+  if (Array.isArray(value)) return value.map(asStrings)
+  if (typeof value === "object" && value !== null) {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, asStrings(item)]))
+  }
+  return value
+}
+
+const asCliError = (error: unknown): CliError =>
+  error instanceof CliError
+    ? error
+    : new CliError("validation_error", error instanceof Error ? error.message : String(error))
+
+/** `guard` tells the command's `ServerConnection` to rethrow it as the same error, exit code included. */
+const refusal = (error: unknown): Record<string, unknown> => {
+  const { code, message, details } = asCliError(error)
+  return { error: { code, message, details, guard: true } }
 }
 
 /** 1 s, 2 s, 4 s … a minute at most — a server that hammers MAX after a drop looks like nothing MAX knows. */

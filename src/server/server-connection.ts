@@ -1,10 +1,11 @@
 import { connect, type Socket } from "node:net"
-import { CliError } from "@leemour/cli-core"
+import { CliError, errorCodes } from "@leemour/cli-core"
 import { Opcode } from "../generated/opcodes.generated.js"
 import { OPERATIONS } from "../generated/operations.generated.js"
 import { Connection, ProtocolError, type Wire, type WireEvent } from "../protocol/connection.js"
 import { asId, type Payload } from "../protocol/frame.js"
 import type { SessionStore } from "../session/store.js"
+import type { Operation } from "../spec/define.js"
 import { fromLine, lineReader, toLine } from "./lines.js"
 
 interface Pending {
@@ -18,8 +19,8 @@ interface Pending {
  *
  * One connection to MAX per profile, whoever asks — CLI commands, `max mcp`, `max watch`. INIT
  * and LOGIN are answered by the server's own login; **every other request goes over its
- * connection, sends included**. The send guards still apply: they run in the command's client,
- * before the request reaches this wire.
+ * connection, sends included**. The server runs the send guards on every write and journals it;
+ * the command's client checks too, so a refusal comes before an upload, and journals only that.
  *
  * No server answering: `ensure` starts one and waits for it. A connection of the command's own
  * is opened only when there is no `ensure` (the owner said `serve: false`) and no server, or for
@@ -61,6 +62,11 @@ export class ServerConnection implements Wire {
   }
 
   async open(): Promise<void> {}
+
+  /** Whether the server is the one answering — and so the one writing the send journal. */
+  get journals(): boolean {
+    return this.#login !== undefined && this.#own === undefined
+  }
 
   async invoke(opcode: number, payload: Payload = {}, watch?: (event: WireEvent) => void): Promise<Payload> {
     if (this.#own) return this.#own.invoke(opcode, payload, watch)
@@ -146,7 +152,14 @@ export class ServerConnection implements Wire {
       socket.write(toLine({ id, ...request }))
     })
 
-    const error = answer.error as { code?: string; message?: string; payload?: Payload } | undefined
+    const error = answer.error as
+      | { code?: string; message?: string; payload?: Payload; details?: Record<string, unknown>; guard?: boolean }
+      | undefined
+    // The server's send guard: the same refusal, and so the same exit code, as the command's own.
+    if (error?.guard === true) {
+      const code = errorCodes.find((known) => known === error.code) ?? "permission_error"
+      throw new CliError(code, error.message ?? "the server's send guard refused it", error.details)
+    }
     if (error?.code === "refused") {
       throw new ProtocolError(error.message ?? "MAX refused it", Number(request.opcode), error.payload ?? null)
     }
@@ -187,12 +200,12 @@ export class ServerConnection implements Wire {
 }
 
 /**
- * What the server does **not** pass on: logging in is the server's own business, and a login by
- * QR or SMS is `max session start` on a connection of its own. Everything else the specification
- * lets a client send goes through the one connection.
+ * The operation the server passes on for this opcode, or `undefined` for one it does not: logging
+ * in is the server's own business, a login by QR or SMS is `max session start` on a connection of
+ * its own, and a reserved number is never sent at all.
  */
-export const forwarded = (opcode: number): boolean =>
-  Object.values(OPERATIONS).some(
+export const forwardedOperation = (opcode: number): Operation | undefined =>
+  Object.values(OPERATIONS).find(
     (operation) =>
       operation.opcode === opcode && !operation.name.startsWith("session.") && !operation.name.startsWith("login."),
   )

@@ -15,6 +15,7 @@ export const accountUpdate = defineOperation({
     description: v.optional(v.string()),
   }),
   response: v.looseObject({ profile: v.optional(v.looseObject({})) }),
+  guard: () => ({ chatId: null, kind: "account", action: "profile" }),
   provenance: {
     confidence: "measured",
     sources: [
@@ -35,6 +36,7 @@ export const accountSessions = defineOperation({
   auth: true,
   request: v.strictObject({}),
   response: v.looseObject({ sessions: v.optional(v.array(v.looseObject({}))) }),
+  guard: null,
   provenance: {
     confidence: "measured",
     sources: [
@@ -58,6 +60,7 @@ export const accountCloseSessions = defineOperation({
      */
     token: v.optional(v.string()),
   }),
+  guard: () => ({ chatId: null, kind: "account", action: "sessions-end" }),
   provenance: {
     confidence: "confirmed",
     sources: [webClient, "PyMax 53103f0 `close_all_sessions`"],
