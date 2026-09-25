@@ -4,7 +4,7 @@ import { dirname } from "node:path"
 import { CliError } from "@leemour/cli-core"
 import * as v from "valibot"
 import type { CacheStore } from "../cache/store.js"
-import { FIRST_TAB_SYNC, MaxClient, type MaxClientOptions, type TabSync } from "../client.js"
+import { FIRST_TAB_SYNC, MaxClient, type MaxClientOptions, type ResumeFrom, type TabSync } from "../client.js"
 import { resolveSettings } from "../config.js"
 import type { MessageHit } from "../domain/models.js"
 import { Opcode } from "../generated/opcodes.generated.js"
@@ -111,6 +111,8 @@ export class MaxServer {
   #telemetry: ReturnType<typeof setTimeout> | undefined
   /** What the last reads after login answered, sent back on the next login as the tab does (`MAX-52`). */
   #tabSync: TabSync = FIRST_TAB_SYNC
+  /** The last connection's login, kept past a drop so the next login resumes it (`MAX-51`). */
+  #resume: ResumeFrom | undefined
   #finish: ((error?: Error) => void) | undefined
   /** Settles when the server stops — cleanly, or with the error that stopped it. */
   readonly done: Promise<void>
@@ -203,10 +205,12 @@ export class MaxServer {
       },
       onError: (error) => this.#options.note(`a pushed frame was dropped: ${error.message}`),
     })
+    const resume = this.#client?.live.resumeFrom() ?? this.#resume
     const client = new MaxClient({
       store,
       connection,
       fullLogin: true,
+      ...(resume ? { resume } : {}),
       warn: this.#options.note,
       ...(cache ? { cache } : {}),
       ...(events ? { events } : {}),
@@ -281,6 +285,7 @@ export class MaxServer {
   #lost(error: Error): void {
     clearInterval(this.#ping)
     const client = this.#client
+    this.#resume = client?.live.resumeFrom()
     this.#client = undefined
     this.#up = new Promise((resolve) => {
       this.#markUp = resolve

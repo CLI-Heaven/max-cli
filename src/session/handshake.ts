@@ -23,6 +23,18 @@ export interface SessionOptions {
    * `contactsSync` alone, small numbers in the other three. We send 0 there.
    */
   sync?: number
+  /**
+   * What a web tab sends when the same page logs in again (`MAX-51`, recorded 2026-09-25): the
+   * previous login's `time`, its `config.hash`, and in `chatsSync` the newest chat event it has
+   * seen. MAX then answers only the chats that changed. `max serve` alone logs in again.
+   */
+  resume?: Resume
+}
+
+export interface Resume {
+  lastLogin: number
+  chatsSync: number
+  configHash: string
 }
 
 /**
@@ -49,7 +61,7 @@ export const LOGIN_CHATS = 15
 
 export const startSession = async (
   invoke: Invoke,
-  { token, deviceId, chatsCount = LOGIN_CHATS, sync = 0 }: SessionOptions,
+  { token, deviceId, chatsCount = LOGIN_CHATS, sync = 0, resume }: SessionOptions,
 ): Promise<Payload> => {
   await invoke(sessionInit, { userAgent: WEB_USER_AGENT, deviceId })
 
@@ -58,10 +70,12 @@ export const startSession = async (
     // A script reading is not a person looking; see the specification for why this is never true.
     interactive: false,
     chatsCount,
-    chatsSync: 0,
+    ...(resume ? { lastLogin: resume.lastLogin } : {}),
+    chatsSync: resume?.chatsSync ?? 0,
     contactsSync: sync,
     // -1 as the tab sends it; presence pushes (132) follow, and nothing here answers them, as the tab does not.
     presenceSync: -1,
     draftsSync: 0,
+    ...(resume ? { configHash: resume.configHash } : {}),
   })
 }

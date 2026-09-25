@@ -129,6 +129,9 @@ export const sessionLogin = defineOperation({
     contactsSync: v.number(),
     presenceSync: v.number(),
     draftsSync: v.number(),
+    /** Only when the same connection's owner logs in again — `resume` in `src/session/handshake.ts` (`MAX-51`). */
+    lastLogin: v.optional(v.number()),
+    configHash: v.optional(v.string()),
   }),
   response: v.looseObject({
     profile: v.optional(v.looseObject({})),

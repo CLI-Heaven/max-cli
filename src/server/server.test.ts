@@ -432,6 +432,36 @@ describe("a command through max serve", () => {
     expect(opened()).toBe(0)
   })
 
+  it("logs in again after a drop as a web tab does, and still hands out every chat", async () => {
+    const chat = (id: number, lastEventTime: number) => ({ id, title: `chat ${id}`, type: "CHAT", lastEventTime })
+    const max = scripted({
+      [Opcode.LOGIN]: (request: Record<string, unknown>) => ({
+        profile: { contact: { id: ME, names: [{ name: "Test Person", type: "FULL_NAME" }] } },
+        chats: request.lastLogin
+          ? [chat(333, 1_789_777_000_000)]
+          : [chat(111, 1_789_776_000_000), chat(333, 1_789_700_000_000)],
+        contacts: [],
+        time: 1_789_776_500_000,
+        config: { hash: "a-hash" },
+      }),
+    })
+    const { store } = await serve("c-resume", max)
+    max.drop()
+    await settle(80)
+    const { client } = commandClient(store)
+    const chats = await client.chats.list()
+    await client.close()
+
+    const logins = max.sent.filter((call) => call.opcode === Opcode.LOGIN).map((call) => call.payload)
+    expect(logins[0]).not.toHaveProperty("lastLogin")
+    expect(logins[1]).toMatchObject({
+      lastLogin: 1_789_776_500_000,
+      chatsSync: 1_789_776_000_000,
+      configHash: "a-hash",
+    })
+    expect(chats.items.map((one) => one.id)).toEqual(["333", "111"])
+  })
+
   it("sends through the server too: one connection to MAX for everything", async () => {
     const { store, max } = await serve("c-send")
     const { client, opened } = commandClient(store)

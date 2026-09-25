@@ -48,7 +48,7 @@ import { isId, pickChat, pickPerson } from "./resolve.js"
 import { countsIn, type DiagnosticEvent, idsOf, maxErrorKey, type WarningCode } from "./runs/events.js"
 import type { SendGuard } from "./sends/guard.js"
 import type { AccountAction, ChatAction, SendKind } from "./sends/journal.js"
-import { LOGIN_CHATS, startSession } from "./session/handshake.js"
+import { LOGIN_CHATS, type Resume, startSession } from "./session/handshake.js"
 import { type QrLogin, tokenByQr } from "./session/login.js"
 import {
   loginPausedUntil,
@@ -73,6 +73,8 @@ export interface MaxClientOptions {
    * changed. `max serve` needs that: it hands its login to other commands as theirs.
    */
   fullLogin?: boolean
+  /** The previous connection's login, for logging in again as a web tab does (`MAX-51`). `max serve` only. */
+  resume?: ResumeFrom
   /**
    * Where a protocol note goes. Never stdout: in machine mode that stream carries one JSON value
    * and nothing else.
@@ -114,6 +116,7 @@ export class MaxClient {
   readonly #store: SessionStore
   readonly #connection: Wire
   readonly #fullLogin: boolean
+  readonly #resume: ResumeFrom | undefined
   readonly #warn: (message: string) => void
   readonly #cache: CacheStore | undefined
   readonly #offline: boolean
@@ -137,9 +140,11 @@ export class MaxClient {
     events,
     sends,
     fullLogin = false,
+    resume,
   }: MaxClientOptions) {
     this.#store = store
     this.#fullLogin = fullLogin
+    this.#resume = resume
     this.#connection = connection ?? new Connection(timeoutMs === undefined ? {} : { timeoutMs })
     this.#warn = warn ?? ((message) => process.stderr.write(`${message}\n`))
     this.#cache = cache
@@ -1414,6 +1419,19 @@ export class MaxClient {
     snapshot: (): Payload => this.#session(),
 
     /**
+     * What the next login on a new connection sends to pick up where this one is (`MAX-51`):
+     * `undefined` when this login lacks what that needs, and the next one is then a full login.
+     */
+    resumeFrom: (): ResumeFrom | undefined => {
+      const login = this.#login
+      const configHash = record(login?.config)?.hash
+      if (!login || typeof login.time !== "number" || typeof configHash !== "string") return undefined
+      const chats = asArray(login.chats).map((chat) => record(chat) ?? {})
+      const chatsSync = Math.max(0, ...chats.map(eventTime))
+      return { login: { lastLogin: login.time, chatsSync, configHash }, chats }
+    },
+
+    /**
      * Keeps the snapshot current from one push. **`false` means it can no longer be trusted** and
      * the server stops handing it out until it has logged in again. What web.max.ru does with each
      * push (bundle read 2026-09-24) is what is copied here:
@@ -1528,6 +1546,7 @@ export class MaxClient {
         token,
         deviceId: state.deviceId,
         ...(sync === undefined ? {} : { sync }),
+        ...(this.#resume ? { resume: this.#resume.login } : {}),
       })
     } catch (error) {
       const failure = asCliError(error)
@@ -1566,8 +1585,21 @@ export class MaxClient {
     // `max serve` hands this login to any process that asks its socket; none of them needs the token.
     const { token: _, ...withoutToken } = this.#login
     this.#login = withoutToken
-    await this.#readRestOfChats()
+    if (this.#resume) this.#mergeChanged(this.#resume.chats)
+    else await this.#readRestOfChats()
     this.#mergeLogin(viewerId)
+  }
+
+  /**
+   * A login with `chatsSync` answers only the chats that changed since it (measured 2026-09-20), so
+   * they go over the list the previous connection held: same id replaced, the rest kept, newest first.
+   */
+  #mergeChanged(before: Payload[]): void {
+    const session = this.#session()
+    const changed = asArray(session.chats)
+    const ids = new Set(changed.map((chat) => asId(record(chat)?.id)))
+    const kept = before.filter((chat) => !ids.has(asId(chat.id)))
+    session.chats = [...changed, ...kept].sort((a, b) => eventTime(b) - eventTime(a))
   }
 
   /**
@@ -2317,6 +2349,16 @@ export interface TabSync {
 export const FIRST_TAB_SYNC: TabSync = { folders: 0, calls: 0, assets: {} }
 
 const numberOr = (value: unknown, fallback: number): number => (typeof value === "number" ? value : fallback)
+
+export interface ResumeFrom {
+  login: Resume
+  chats: Payload[]
+}
+
+const eventTime = (chat: unknown): number => {
+  const time = record(chat)?.lastEventTime
+  return typeof time === "number" ? time : 0
+}
 
 /** MAX pushes this when a message arrives in any chat. PyMax calls it `NOTIF_MESSAGE`. */
 const NEW_MESSAGE = 128
