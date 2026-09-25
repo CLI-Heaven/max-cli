@@ -45,8 +45,8 @@ PyMax шлёт события `PERF` (`login`, `open_chat_to_render`) и моб�
 | `seq` с 0 на соединение | да | да ([`connection.ts:96`](../../../src/protocol/connection.ts)) | ✅ |
 | INIT: `appVersion 26.9.8`, `isPwa: false` | да | да ([`identity.ts:20`](../../../src/spec/identity.ts)) | ✅ |
 | INIT: `screen` | `1500x2400 1.3x` (у каждого свой) | `1080x1920 1.0x` | допустимо |
-| LOGIN: `chatsCount` | 15 | 40 ([`handshake.ts:45`](../../../src/session/handshake.ts)) | ❌ |
-| LOGIN: `presenceSync` | −1 | 0 ([`handshake.ts:60`](../../../src/session/handshake.ts)) | ❌ |
+| LOGIN: `chatsCount` | 15, остальное — один `53 {marker}` | 15 и один 53 ([`handshake.ts`](../../../src/session/handshake.ts), `#readRestOfChats` в [`client.ts`](../../../src/client.ts)); поправка 2026-09-25, `MAX-53` | ✅ |
+| LOGIN: `presenceSync` | −1 | −1 ([`handshake.ts`](../../../src/session/handshake.ts)); поправка 2026-09-25, `MAX-53` | ✅ |
 | Повторный LOGIN: `lastLogin`, `configHash` | есть | нет | ❌ (для `max serve`) |
 | Запросы после входа | 21 / 9 | 0 | ❌ |
 | Пинг раз в 30 с, `interactive: false` | да | да, в `max serve` ([`server.ts:46`](../../../src/server/server.ts)) | ✅ |
@@ -70,6 +70,9 @@ PyMax шлёт события `PERF` (`login`, `open_chat_to_render`) и моб�
 4. **`chatsCount: 15` и `presenceSync: -1` в LOGIN** (предложено). Скорее всего, 15 — это сколько
    чатов помещается в окне, а не константа. Сначала проверить, что `max chats list` не теряет
    чаты при 15: берутся ли остальные из кэша.
+   **Поправка 2026-09-25 (`MAX-53`, сделано):** остальные берутся не из кэша, а одним
+   `53 {marker}` от `lastEventTime` 15-го чата, как у вкладки. Живой вход того же дня: ответ — ровно
+   чаты 16…27; одна страница вместила 26.
 5. **Запросы после входа** — отдельный пункт бэклога, не MAX-8 (предложено). Какие из 21 безопасны
    (только чтение: 272, 302, 163, 27), а какие меняют состояние (22 — push-подписка) — решить по
    каждому.

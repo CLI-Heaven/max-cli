@@ -86,6 +86,64 @@ describe("MaxClient", () => {
     expect(max.sent.map((call) => call.opcode)).toEqual([Opcode.SESSION_INIT, Opcode.LOGIN])
   })
 
+  describe("the chats LOGIN leaves out (MAX-53)", () => {
+    const fifteen = Array.from({ length: 15 }, (_, index) => ({
+      id: 500 + index,
+      title: `chat ${index}`,
+      type: "CHAT",
+      lastEventTime: 1_789_776_000_000 - index * 1000,
+    }))
+    const older = { id: 900, title: "older", type: "CHAT", lastEventTime: 1_789_700_000_000 }
+
+    it("asks LOGIN for 15 and reads the rest with one CHATS_LIST from the oldest one's time", async () => {
+      const max = mockMax({
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.LOGIN]: { ...loginAnswer, chats: fifteen },
+          [Opcode.CHATS_LIST]: { chats: [fifteen[14], older], marker: 1 },
+        },
+      })
+      const { client } = clientWith(max)
+
+      const { items } = await client.chats.list()
+      await client.close()
+
+      expect(max.sent[1]?.payload).toMatchObject({ chatsCount: 15, presenceSync: -1 })
+      const lists = max.sent.filter((call) => call.opcode === Opcode.CHATS_LIST)
+      expect(lists.map((call) => call.payload)).toEqual([{ marker: 1_789_776_000_000 - 14_000 }])
+      expect(items).toHaveLength(16)
+    })
+
+    it("sends nothing more when LOGIN brought fewer than 15", async () => {
+      const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
+      const { client } = clientWith(max)
+
+      await client.chats.list()
+      await client.close()
+
+      expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.CHATS_LIST)
+    })
+
+    it("keeps the 15 and says so when CHATS_LIST is refused", async () => {
+      const max = mockMax({
+        answers: {
+          [Opcode.SESSION_INIT]: {},
+          [Opcode.LOGIN]: { ...loginAnswer, chats: fifteen },
+          [Opcode.CHATS_LIST]: () => {
+            throw Object.assign(new Error("refused"), { payload: { error: "proto.payload" } })
+          },
+        },
+      })
+      const { client, notes } = clientWith(max)
+
+      const { items } = await client.chats.list()
+      await client.close()
+
+      expect(items).toHaveLength(15)
+      expect(notes.join("\n")).toContain("only the newest 15 chats")
+    })
+  })
+
   it("**refuses a token belonging to another account**, and says how to switch on purpose", async () => {
     const max = mockMax({ answers: { [Opcode.SESSION_INIT]: {}, [Opcode.LOGIN]: loginAnswer } })
     const { client, store } = clientWith(max)
@@ -973,7 +1031,7 @@ describe("with a cache", () => {
       expect(markerOf(second)).toMatchObject({
         chatsSync: 0,
         contactsSync: 1_789_776_000_000,
-        presenceSync: 0,
+        presenceSync: -1,
         draftsSync: 0,
       })
     })
