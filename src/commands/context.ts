@@ -4,6 +4,7 @@ import type { Command } from "commander"
 import { MaxClient, type MaxClientOptions } from "../client.js"
 import { type GlobalFlags, resolveSettings, type Settings } from "../config.js"
 import { type Closeable, withDeadline } from "../deadline.js"
+import { publicOnly, type Reach } from "../download.js"
 import { resolveOutput } from "../output.js"
 import { rootOf } from "../profile.js"
 import { recorded } from "../runs/recording.js"
@@ -27,6 +28,8 @@ export interface Environment {
   /** A fresh connection per client — to a scripted MAX in a test. */
   connection?: () => NonNullable<MaxClientOptions["connection"]>
   browser?: BrowserDoors
+  /** Where a download may go; a test serving files from this machine allows it. */
+  reach?: Reach
   ask?: Ask
   interactive?: boolean
   columns?: number
@@ -82,6 +85,7 @@ export interface CommandContext {
   /** Anything else holding the process open — a browser, a local page — for `--timeout` to shut too. */
   track: (closeable: Closeable) => void
   browser: BrowserDoors
+  reach: Reach
   ask: Ask
   /** Whether a person is there to scan a code or type one: both stdin and stderr are a terminal. */
   interactive: boolean
@@ -165,6 +169,7 @@ export const contextFor = (
       clients.push(closeable)
     },
     browser: environment.browser ?? realBrowser,
+    reach: environment.reach ?? publicOnly,
     ask: environment.ask ?? ((prompt, { secret = false } = {}) => readSecret(prompt, { echo: !secret })),
     interactive: environment.interactive ?? (process.stdin.isTTY === true && process.stderr.isTTY === true),
     columns: environment.columns ?? process.stderr.columns,

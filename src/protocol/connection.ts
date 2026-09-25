@@ -4,6 +4,7 @@ import {
   decodeFrame,
   decodeHeader,
   encodeFrame,
+  HEADER_BYTES,
   type InboundFrame,
   type Payload,
   SEQ_MODULO,
@@ -108,7 +109,15 @@ export class Connection {
     this.#onError = options.onError
     this.#live = options.live ?? false
     this.#onClose = options.onClose
-    this.#createSocket = options.createSocket ?? ((url, origin) => new WebSocket(url, { headers: { Origin: origin } }))
+    this.#createSocket =
+      options.createSocket ??
+      ((url, origin) =>
+        new WebSocket(url, {
+          headers: { Origin: origin },
+          // A frame's body is at most 16 MiB by its header; `ws` would take 100 MiB.
+          maxPayload: HEADER_BYTES + 0xff_ffff,
+          handshakeTimeout: this.#timeoutMs,
+        }))
   }
 
   async open(): Promise<void> {

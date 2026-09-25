@@ -28,6 +28,11 @@ export const readUpload = async (path: string): Promise<Buffer> => {
   }
 }
 
+/** The whole upload, not a stall: `fetch` reports no progress on a body it sends. */
+const UPLOAD_MS = 15 * 60_000
+
+const uploadDeadline = () => AbortSignal.timeout(UPLOAD_MS)
+
 const refused = (kind: string, status: number) =>
   new CliError("network_error", `the ${kind} could not be uploaded: HTTP ${status} — nothing was sent`)
 
@@ -37,7 +42,7 @@ export const uploadPhoto = async (url: string, path: string, bytes: Buffer): Pro
   const type = IMAGE_TYPES[extname(path).toLowerCase()] ?? "application/octet-stream"
   form.append("file", new Blob([bytes], { type }), `image${extname(path).toLowerCase()}`)
 
-  const response = await fetch(url, { method: "POST", headers: HEADERS, body: form })
+  const response = await fetch(url, { method: "POST", headers: HEADERS, body: form, signal: uploadDeadline() })
   if (!response.ok) throw refused("photo", response.status)
   const answer = (await response.json().catch(() => ({}))) as { photos?: Record<string, { token?: unknown }> }
   const token = Object.values(answer.photos ?? {})[0]?.token
@@ -60,6 +65,7 @@ export const uploadFile = async (url: string, path: string, bytes: Buffer): Prom
       "Content-Type": "application/octet-stream",
     },
     body: bytes,
+    signal: uploadDeadline(),
   })
   await response.body?.cancel()
   if (!response.ok) throw refused("file", response.status)

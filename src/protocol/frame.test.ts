@@ -189,6 +189,19 @@ describe("decodeFrame", () => {
   })
 })
 
+describe("a frame that would decompress past the cap", () => {
+  it("is refused, whatever its header allows", () => {
+    // One literal, then 150 000 matches of 273 bytes each: about 41 MB, under the header's 76 MB.
+    const matches = 150_000
+    const block = new Uint8Array(4 + matches * 4)
+    block.set([0x10, 0x00, 0x01, 0x00])
+    for (let k = 0; k < matches; k++) block.set([0x0f, 0x01, 0x00, 0xfe], 4 + k * 4)
+    const frame = serverFrame(1, 64, block, Command.RESPONSE, 0x7f)
+
+    expect(() => decodeFrame(frame)).toThrow(/larger than its frame allows/)
+  })
+})
+
 describe("asId", () => {
   it("turns every id the wire can carry into the same string form", () => {
     expect(asId(7268926)).toBe("7268926")

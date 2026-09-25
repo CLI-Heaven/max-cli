@@ -165,7 +165,7 @@ export const messagesCommand = (): Command => {
           const saved: Saved[] = []
           for (const [index, attachment] of links.entries()) {
             if (attachment.unsafe) renderer.note(`MAX marks ${attachment.name ?? "this file"} as possibly unsafe`)
-            saved.push(await save(attachment, output, `${id}-${index + 1}`))
+            saved.push(await save(attachment, output, `${id}-${index + 1}`, context.reach))
           }
 
           if (format === "pretty") streams.data(`${saved.map((file) => file.path).join("\n")}\n`)

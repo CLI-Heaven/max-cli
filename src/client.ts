@@ -1428,6 +1428,8 @@ export class MaxClient {
         if (!changed || id === undefined) return false
         const at = chats.findIndex((candidate) => asId(candidate.id) === id)
         if (at >= 0) chats[at] = changed
+        // Past this, a new login rebuilds the list rather than pushes growing it without end.
+        else if (chats.length >= LIVE_CHATS) return false
         else chats.push(changed)
         this.#session().chats = chats
         return true
@@ -2192,6 +2194,9 @@ export const ADMIN_RIGHTS: Record<AdminRight, number> = {
 }
 
 /** PyMax asks for this many; paging join requests is not known. */
+/** The most chats `max serve` holds from pushes before it logs in again instead. */
+const LIVE_CHATS = 10_000
+
 const JOIN_REQUESTS = 100
 
 /**

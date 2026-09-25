@@ -106,12 +106,15 @@ export const decodeFrame = (bytes: Uint8Array): InboundFrame => {
 
   if (flags === ZSTD) throw new FrameError("a zstd-compressed frame, which the web client was never seen receiving")
   if (flags > MAX_LZ4_FLAGS) throw new FrameError(`a frame with compression flags ${flags}`)
-  if (flags > 0) body = decompressBlock(body, flags * length)
+  if (flags > 0) body = decompressBlock(body, Math.min(flags * length, MAX_DECOMPRESSED))
 
   if (body.length === 0) return { ...header, payload: null }
   const value = decodeBody(body)
   return { ...header, payload: isRecord(value) ? value : null }
 }
+
+/** What one frame may grow to. The header's own bound, `flags × length`, is about 2 GB of memory. */
+export const MAX_DECOMPRESSED = 32 * 1024 * 1024
 
 export class FrameError extends Error {
   constructor(what: string) {
