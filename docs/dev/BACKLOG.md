@@ -25,6 +25,21 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
 
 ## Features
 
+- **MAX-56** · P1 · **Before announcing a public release:** run every writing command once over the
+  binary protocol, in Saved messages, with the owner's yes (`NEED-150`): send, reply, forward, edit,
+  pin, react, delete, a photo and a file, scheduled send, `chats read` (`CHAT_MARK` 50 — never
+  measured, on JSON or binary), profile update, a folder, a group with a member. Only reading was run
+  live after `MAX-40` (login, chats, history, through `max serve`); 0.9.0 is already on npm. The
+  codec changed how ids (extension 1) and times (int64) go out, so a refusal would show as
+  `proto.payload`. One script, one login, a line per operation.
+- **MAX-55** · P1 · **Before announcing a public release:** INIT built from this machine, as
+  web.max.ru builds it from the browser. Today `src/spec/identity.ts` holds the owner's browser, so
+  every install would present Europe/Madrid and Linux Chrome. The web client takes `timezone` from
+  `Intl`, `headerUserAgent` from `navigator.userAgent`, `screen` as `height×width` plus pixel ratio,
+  and `deviceLocale` from the browser language (web.max.ru code, read 2026-09-25,
+  `docs/dev/capture/2026-09-25-web-tab.md`). Take timezone and language from the system, pick the
+  user agent and `osVersion` for the host OS with a current Chrome version, and store them with the
+  device id so they do not change per run (HANDOFF bite 8).
 - **MAX-50** · P2 · When the keyring does not answer, say so instead of "no session — run `max session
   start`". Measured 2026-09-25 from cron on Linux: no `XDG_RUNTIME_DIR`, the keyring is unreachable,
   and `max` tells the owner to log in again although the profile's state file holds a `viewerId`
@@ -89,12 +104,14 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   The plan weighs it against the smaller option: numbered `.sql` files and a ~30-line runner on
   the `user_version` we already keep. Either way: the FTS5 tables and triggers are hand-written
   SQL, and the migration files have to ship inside the npm package. Starts at `src/cache/schema.ts`.
-- **MAX-51** · P2 · Chats since the last login again. Over JSON the stored marker went in all four
-  `*Sync` fields of LOGIN and MAX answered only the chats that changed; since `MAX-40` it goes in
-  `contactsSync` only (`src/session/handshake.ts`), as web.max.ru sends it, so every login brings the
-  whole chat list (27 chats, ~25 KB, measured 2026-09-25). The refusal that led there was a float64
-  on the wire, not the field (`FIND-163`) — putting the marker back in `chatsSync` may well work.
-  One login to measure. Also from the MAX-40 plan: history pages of 30, as the web client asks.
+- **MAX-51** · P2 · The `chatsSync` marker, as the tab uses it. Captured 2026-09-25
+  (`docs/dev/capture/2026-09-25-web-tab.md`): a fresh tab sends `chatsSync: 0`; only a re-login on the
+  same page sends a marker, and that marker is **not** the previous login's time — that goes in a new
+  field, `lastLogin`, beside `configHash`. So: `0` on a fresh connection (every one-shot command,
+  and `max serve`'s first login), a marker only when `max serve` logs in again. What the marker is
+  remains open: have the recorder keep the LOGIN answer's `time` and `chatMarker` (as `t0+N`) and
+  match them in the next capture. Over JSON the stored marker went in all four fields and MAX
+  answered only changed chats; the refusal after `MAX-40` was a float64, not the field (`FIND-163`).
 - **MAX-34** · P3 · Live events: a long-running `max listen` that prints new messages, edits,
   reactions and typing as they arrive (PyMax's `on_message`, `on_message_edit`,
   `on_reaction_update`…). Conflicts with one-shot commands (`CLAUDE.md` constraint 4), so it needs
@@ -118,14 +135,20 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   request: the read-only ones (272 folders, 302 banners, 163 call history, 27) could be copied; 22
   subscribes to push and changes state. Captured 2026-09-25, `docs/dev/capture/2026-09-25-web-tab.md`.
 - **MAX-53** · P2 · LOGIN as the tab sends it: `chatsCount: 15` (we send 40) and `presenceSync: -1`
-  (we send 0). Check first that `max chats list` loses nothing with 15. Same capture.
-- **MAX-54** · P3 · Does MAX close `max serve`'s socket every ~4 minutes, as it did the hidden tab's
-  (code 1000, then a re-login with `lastLogin` and `configHash`)? Run `max serve` for 10 minutes. If
-  it does, the re-login should carry those two fields. Same capture.
+  (we send 0). **Tied to opcode 208:** the tab asks LOGIN for 15 chats and pages the rest with
+  `208 {cursor, count: 15}`. Changing only the number would lose chats in `max chats list`.
+  Same capture.
 
 - **RES-5** · 🟡 P2 · Does `LOGIN` move presence or read state? Reading history does not (no
-  `CHAT_MARK`, tested). The login flag `interactive` is unexplained (`ARCHITECTURE.md` §4). Needs a
-  second device watching.
+  `CHAT_MARK`, tested). Partly answered by the capture of 2026-09-25: the tab's own LOGIN sends
+  `interactive: false` too; `true` goes only in pings, while its window has focus. Left: whether
+  opening a chat with unread messages marks it read without opcode 50 — see `RES-10`.
+- **RES-10** · P2 · Record the tab opening **one unread chat** (`docs/dev/capture/recording.md`),
+  with the owner's yes: it will be marked read, as the owner opening it would. Answers three things
+  at once: the real shape of `CHAT_MARK` 50 (`CLI-33` sends PyMax's), whether a history request
+  without `interactive` marks the chat read (`RES-5`; we add `interactive: false` to opcode 49, which
+  the tab never sends — a difference on the most common read), and whether the tab sends 75
+  (subscribe to the chat) or 50 on its own.
 - **RES-7** · P3 · What a real client sends as opcode 36's payload. `{}`, `{marker}` are refused and
   `{marker, count}` closes the connection (`pnpm probe:contacts`), so only a capture answers it. It
   is the only route to contacts who share no chat. Closes `PROTO-1`.
@@ -151,10 +174,12 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   logging in again. Nothing retries a login today, but a scheduled `max inbox --new` logs in on
   every run, and in PyMax a login retried after the limit error kept the account locked out
   ([#106](https://github.com/MaxApiTeam/PyMax/issues/106), open since 2026-09-14). Research: G1 §3.11.
-- **MAX-39** · P2 · Notice when the client version we present goes stale. `appVersion` is fixed at
-  `26.5.5` (`src/spec/identity.ts:20`); PyMax broke when MAX began refusing an old one
-  ([#86](https://github.com/MaxApiTeam/PyMax/issues/86)). A probe reads the version web.max.ru
-  currently sends, and `max doctor` says when ours is behind. Research: G1 §3.15.
+- **MAX-39** · P2 · Notice when the client version we present goes stale. `appVersion` is
+  `26.9.8`, read from the web client on 2026-09-25 (`src/spec/identity.ts`); PyMax broke when MAX
+  began refusing an old one ([#86](https://github.com/MaxApiTeam/PyMax/issues/86)). The recorder
+  (`scripts/capture/web-recorder.js`) now reads the current one from a tab; `max doctor` could say
+  when ours is behind. The Chrome version in `headerUserAgent` ages the same way (`MAX-55`).
+  Correction 2026-09-25: this line said `26.5.5`, which `MAX-40` replaced.
 - **CORE-10** · P3 · Plugins from npm, **only from an allow-list** kept in the CLI itself — package
   names with pinned versions and integrity hashes — never an arbitrary package: a plugin runs inside
   a program holding the token of a personal account. oclif's `plugin-plugins` is the model.

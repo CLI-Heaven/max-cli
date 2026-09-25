@@ -233,7 +233,7 @@
         const answers = header.cmd !== 0 ? cap.sent.get(header.seq) : undefined
         if (answers !== undefined) frame.answers = answers
         if (answers === 5 || answers === 1) frame.payload = clean(payload)
-        else if (answers === 6) frame.payload = shape(payload)
+        else if (answers === 6 || answers === 19) frame.payload = shape(payload)
       }
       cap.frames.push(frame)
     } catch (error) {
