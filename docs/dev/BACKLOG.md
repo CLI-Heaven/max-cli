@@ -112,6 +112,9 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   Names by PyMax (53103f0): 22 `CONFIG`, 27 `ASSETS_UPDATE`, 28 `ASSETS_GET_BY_IDS`, 32
   `CONTACT_INFO`, 35 `CONTACT_PRESENCE`, 48 `CHAT_INFO`, 53 `CHATS_LIST`, 208/209 stories, 272
   `FOLDERS_GET`, 302 `BANNERS_GET`; 163 is not in its list. Only `max serve` will send them.
+  2026-09-25: the recording kept 27's `type` only as `"string"`, and no answer bodies, so what 27
+  asks for and which sync value each re-login sends back are unknown. The recorder now keeps both;
+  the code waits on the next recording (with `MAX-51`).
 
 - **RES-5** · 🟡 P2 · Does `LOGIN` move presence or read state? Reading history does not (no
   `CHAT_MARK`, tested). Partly answered by the capture of 2026-09-25: the tab's own LOGIN sends
