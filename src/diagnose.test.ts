@@ -47,6 +47,14 @@ describe("what a command depends on", () => {
     expect(report.session.lastLoginAt).toBe("2026-09-23T10:00:00.000Z")
   })
 
+  it("reports the web client version we present, fresh until 60 days after it was read", async () => {
+    const readOn = Date.parse((await look()).client.readOn)
+    const daysLater = (days: number) => () => new Date(readOn + days * 86_400_000)
+
+    expect((await look({ now: daysLater(60) })).client).toMatchObject({ ageDays: 60, stale: false })
+    expect((await look({ now: daysLater(61) })).client).toMatchObject({ ageDays: 61, stale: true })
+  })
+
   it("treats a state file that is not JSON as no session, rather than throwing", async () => {
     mkdirSync(at("state", "profiles"), { recursive: true })
     writeFileSync(at("state", "profiles", "default.json"), "{ not json")

@@ -3,6 +3,7 @@ import { join } from "node:path"
 import { pathsAreOverridden, resolvePaths } from "@leemour/cli-core"
 import { openCache } from "./cache/open.js"
 import { SCHEMA_VERSION } from "./cache/schema.js"
+import { CLIENT } from "./spec/identity.js"
 
 export interface DiagnoseOptions {
   profile: string
@@ -13,6 +14,7 @@ export interface DiagnoseOptions {
   /** Injected so a test needs no SQLite file and no keyring. */
   readSchemaVersion?: (file: string) => Promise<number | undefined>
   hasKeyringToken?: (profile: string) => boolean
+  now?: () => Date
 }
 
 export type TokenSource = "environment" | "keyring" | "none"
@@ -47,7 +49,12 @@ export interface Diagnosis {
     readable: boolean
   }
   runs: { directory: string; kept: number }
+  /** The web client we present, and how old that reading is. Past `STALE_AFTER_DAYS` MAX may refuse it. */
+  client: { appVersion: string; chrome: string; readOn: string; ageDays: number; stale: boolean }
 }
+
+/** Owner's ruling, NEED-264: the web client releases more often than that, and breaks later. */
+export const STALE_AFTER_DAYS = 60
 
 /**
  * Everything a command depends on, read from disk and **never from MAX**.
@@ -71,6 +78,7 @@ export const diagnose = async ({
   cacheDir,
   readSchemaVersion = schemaVersionOf,
   hasKeyringToken = () => false,
+  now = () => new Date(),
 }: DiagnoseOptions): Promise<Diagnosis> => {
   const paths = resolvePaths({ appName: "max-cli", prefix: "MAX", env })
   const state = stateDir ?? paths.state
@@ -112,6 +120,7 @@ export const diagnose = async ({
       readable: !cacheExists || (schemaVersion !== undefined && schemaVersion <= SCHEMA_VERSION),
     },
     runs: { directory: runsDirectory, kept: countEntries(runsDirectory) },
+    client: clientAge(now()),
   }
 }
 
@@ -168,4 +177,11 @@ const schemaVersionOf = async (file: string): Promise<number | undefined> => {
   } catch {
     return undefined
   }
+}
+
+const DAY_MS = 86_400_000
+
+const clientAge = (today: Date) => {
+  const ageDays = Math.floor((today.getTime() - Date.parse(CLIENT.readOn)) / DAY_MS)
+  return { ...CLIENT, ageDays, stale: ageDays > STALE_AFTER_DAYS }
 }

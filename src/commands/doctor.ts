@@ -48,6 +48,13 @@ export const doctorCommand = (): Command => {
         )
       }
 
+      if (report.client.stale) {
+        renderer.note(
+          `the web client version max presents (${report.client.appVersion}) was read ${report.client.ageDays} days ago — ` +
+            "MAX may refuse it; update max, or report it if this is the latest",
+        )
+      }
+
       if (!report.cache.readable) {
         renderer.note(
           `the local copy was written by a newer max (schema ${report.cache.schemaVersion}, this one speaks ` +
@@ -75,6 +82,7 @@ const forPerson = (report: Awaited<ReturnType<typeof diagnose>>, profile: string
     ? `${report.session.logins ?? 0} time(s)${report.session.lastLoginAt ? `, last ${report.session.lastLoginAt}` : ""}`
     : "never on this machine",
   "account known": report.session.viewerId,
+  "presents as": `web client ${report.client.appVersion}, ${report.client.chrome}, read ${report.client.readOn} (${report.client.ageDays} days ago)`,
   "profiles logged in": report.loggedInProfiles.length === 0 ? "none" : report.loggedInProfiles.join(", "),
   "local copy": report.cache.exists
     ? `schema ${report.cache.schemaVersion ?? "unreadable"}, this max speaks ${report.cache.speaks}`
