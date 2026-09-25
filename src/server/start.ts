@@ -17,7 +17,7 @@ const REFUSED_PAUSE_MS = 10 * 60_000
  * session expires would start a server that fails the same way — one more refused login each.
  * `max session start` removes it.
  */
-export const refusedPath = (store: SessionStore): string => `${store.socketPath()}.refused`
+export const refusedPath = (store: SessionStore): string => store.serverFile(".sock.refused")
 
 /** A start that has not listened by now crashed; the next command may try again. */
 const START_GRACE_MS = 30_000
@@ -30,7 +30,7 @@ const START_GRACE_MS = 30_000
  * terminal for it, and that file is where a login that failed says so.
  */
 /** Where a background server writes what it would have said on a terminal. */
-export const logPath = (store: SessionStore): string => `${store.socketPath().replace(/\.sock$/, "")}.serve.log`
+export const logPath = (store: SessionStore): string => store.serverFile(".serve.log")
 
 export const startInBackground = (
   store: SessionStore,

@@ -23,7 +23,8 @@ import { afterAll } from "vitest"
  * its directories with `mkdtempSync(join(tmpdir(), …))`, and by 2026-09-23 that had left some
  * fifteen thousand of them in `/tmp` (`DEBT-3`). `os.tmpdir()` reads `TMPDIR` on every call.
  */
-const sandbox = mkdtempSync(join(tmpdir(), "max-test-"))
+// macOS's own temporary directory is long enough to push a socket path past its 104 bytes.
+const sandbox = mkdtempSync(join(process.platform === "darwin" ? "/tmp" : tmpdir(), "max-test-"))
 
 process.env.MAX_CONFIG_DIR = join(sandbox, "config")
 process.env.MAX_STATE_DIR = join(sandbox, "state")

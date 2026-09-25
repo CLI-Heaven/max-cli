@@ -21,7 +21,8 @@ describe("opening a profile's record", () => {
     store?.close()
   })
 
-  it("keeps the file to itself, since it holds message text", async () => {
+  // Windows has no owner-only mode bits.
+  it.skipIf(process.platform === "win32")("keeps the file to itself, since it holds message text", async () => {
     const env = freshHome()
     const store = await openProfileCache("default", { env })
     const file = join(env.MAX_CACHE_DIR, "default.db")
@@ -33,19 +34,22 @@ describe("opening a profile's record", () => {
     store?.close()
   })
 
-  it("puts right a directory and files an older version left open to others", async () => {
-    const env = freshHome()
-    const file = join(env.MAX_CACHE_DIR, "default.db")
-    ;(await openProfileCache("default", { env }))?.close()
-    chmodSync(env.MAX_CACHE_DIR, 0o755)
-    chmodSync(file, 0o644)
+  it.skipIf(process.platform === "win32")(
+    "puts right a directory and files an older version left open to others",
+    async () => {
+      const env = freshHome()
+      const file = join(env.MAX_CACHE_DIR, "default.db")
+      ;(await openProfileCache("default", { env }))?.close()
+      chmodSync(env.MAX_CACHE_DIR, 0o755)
+      chmodSync(file, 0o644)
 
-    const store = await openProfileCache("default", { env })
+      const store = await openProfileCache("default", { env })
 
-    expect(statSync(file).mode & 0o777).toBe(0o600)
-    expect(statSync(env.MAX_CACHE_DIR).mode & 0o777).toBe(0o700)
-    store?.close()
-  })
+      expect(statSync(file).mode & 0o777).toBe(0o600)
+      expect(statSync(env.MAX_CACHE_DIR).mode & 0o777).toBe(0o700)
+      store?.close()
+    },
+  )
 
   it("**says so when it cannot open**, rather than being off in silence", async () => {
     const problems: string[] = []

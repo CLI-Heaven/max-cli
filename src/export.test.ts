@@ -170,7 +170,8 @@ describe("max export messages", () => {
 
     expect(exported.code).toBe(0)
     expect(readFileSync(file, "utf8")).toBe(`${listed.stdout}\n`)
-    expect(statSync(file).mode & 0o777).toBe(0o600)
+    // Windows has no owner-only mode bits.
+    if (process.platform !== "win32") expect(statSync(file).mode & 0o777).toBe(0o600)
     expect(JSON.parse(exported.stdout)).toMatchObject({ count: 2, unread: [{ from: null }, {}, {}] })
     expect(connected()).toBe(false)
   })

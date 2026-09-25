@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import {
@@ -145,9 +145,21 @@ export class SessionStore {
     return had
   }
 
-  /** Where `max serve` listens for this profile. Beside the state file, so a sandbox moves both. */
+  /**
+   * Where `max serve` listens for this profile. Beside the state file, so a sandbox moves both. On
+   * Windows a socket cannot be a file, so it is a named pipe named after the state directory.
+   */
   socketPath(): string {
-    return join(this.#stateDir, "profiles", `${this.profile}.sock`)
+    if (process.platform === "win32") {
+      const directory = createHash("sha256").update(this.#stateDir).digest("hex").slice(0, 16)
+      return `\\\\.\\pipe\\max-cli-${directory}-${this.profile}`
+    }
+    return this.serverFile(".sock")
+  }
+
+  /** A file of the server's beside the state file: `<profile>.sock.refused`, `<profile>.serve.log`. */
+  serverFile(suffix: string): string {
+    return join(this.#stateDir, "profiles", `${this.profile}${suffix}`)
   }
 
   #statePath(): string {

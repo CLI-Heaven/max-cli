@@ -227,6 +227,8 @@ for (const file of files) {
 execFileSync("pnpm", ["exec", "biome", "check", "--write", "--no-errors-on-unmatched", ...files.map((f) => f.path)], {
   cwd: root,
   stdio: "ignore",
+  // pnpm is a .cmd script on Windows, which only a shell starts.
+  shell: process.platform === "win32",
 })
 
 console.log(`generated ${files.length} files from ${rows.length} entries`)

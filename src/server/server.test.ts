@@ -17,7 +17,7 @@ import { SessionStore } from "../session/store.js"
 import { mockMax } from "../testing/mock-max.js"
 import { VERSION } from "../version.js"
 import { fromLine, lineReader, toLine } from "./lines.js"
-import { MaxServer, type ServerEvent } from "./server.js"
+import { answers, MaxServer, type ServerEvent } from "./server.js"
 import { ServerConnection, serverStatus, stopServer } from "./server-connection.js"
 import { serverEnvironment } from "./start.js"
 import { subscribe } from "./subscribe.js"
@@ -122,7 +122,8 @@ describe("max serve", () => {
     const { store, max } = await serve("s-start")
 
     expect(max.sent.filter((call) => call.opcode === Opcode.LOGIN)).toHaveLength(1)
-    expect(statSync(store.socketPath()).mode & 0o777).toBe(0o600)
+    // A named pipe on Windows is not a file with mode bits.
+    if (process.platform !== "win32") expect(statSync(store.socketPath()).mode & 0o777).toBe(0o600)
   })
 
   it("hands a new message to every watcher in the shape `messages list` prints, and acknowledges it", async () => {
@@ -310,11 +311,14 @@ describe("max serve", () => {
     await expect(serve("s-twice")).rejects.toThrow("already running")
     await expect(serve("s-twice", scripted(), { startedByCommand: true })).rejects.toThrow("already running")
 
-    const stale = new SessionStore({ profile: "s-stale", keyring: memoryKeyring() })
-    writeFileSync(stale.socketPath(), "")
-    const { server } = await serve("s-stale")
-    expect(server.connected).toBe(true)
-    expect(existsSync(store.socketPath())).toBe(true)
+    // A named pipe on Windows leaves no file behind to take over.
+    if (process.platform !== "win32") {
+      const stale = new SessionStore({ profile: "s-stale", keyring: memoryKeyring() })
+      writeFileSync(stale.socketPath(), "")
+      const { server } = await serve("s-stale")
+      expect(server.connected).toBe(true)
+    }
+    expect(await answers(store.socketPath())).toBe(true)
   })
 
   it("closes the socket to MAX when the login is refused, so the process can exit", async () => {
@@ -328,7 +332,7 @@ describe("max serve", () => {
     const { server, store } = await serve("s-idle", scripted(), { idleMs: 40 })
 
     await expect(server.done).resolves.toBeUndefined()
-    expect(existsSync(store.socketPath())).toBe(false)
+    expect(await answers(store.socketPath())).toBe(false)
   })
 
   it("stays up while a watcher listens, however long it is idle", async () => {
@@ -386,7 +390,7 @@ describe("max serve", () => {
     await server.stop()
 
     await expect(server.done).resolves.toBeUndefined()
-    expect(existsSync(store.socketPath())).toBe(false)
+    expect(await answers(store.socketPath())).toBe(false)
   })
 
   it("`max watch` without a server names the command that starts one", async () => {
@@ -856,14 +860,17 @@ describe("the send guard, in the server", () => {
     await closed
   })
 
-  it("keeps its socket's directory to the owner, even one that was there before", async () => {
-    const store = new SessionStore({ profile: "g-dir", keyring: memoryKeyring() })
-    mkdirSync(dirname(store.socketPath()), { recursive: true, mode: 0o755 })
-    chmodSync(dirname(store.socketPath()), 0o755)
-    await serve("g-dir")
+  it.skipIf(process.platform === "win32")(
+    "keeps its socket's directory to the owner, even one that was there before",
+    async () => {
+      const store = new SessionStore({ profile: "g-dir", keyring: memoryKeyring() })
+      mkdirSync(dirname(store.socketPath()), { recursive: true, mode: 0o755 })
+      chmodSync(dirname(store.socketPath()), 0o755)
+      await serve("g-dir")
 
-    expect(statSync(dirname(store.socketPath())).mode & 0o777).toBe(0o700)
-  })
+      expect(statSync(dirname(store.socketPath())).mode & 0o777).toBe(0o700)
+    },
+  )
 })
 
 describe("the background server's environment", () => {
@@ -977,6 +984,6 @@ describe("starting a server in the background", () => {
     writeFileSync(refusedPath(store), "")
 
     expect(startInBackground(store, { entry: "/nonexistent/max.js" })).toBeUndefined()
-    expect(existsSync(`${store.socketPath()}.starting`)).toBe(false)
+    expect(existsSync(store.serverFile(".sock.starting"))).toBe(false)
   })
 })
