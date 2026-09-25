@@ -155,8 +155,6 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   a program holding the token of a personal account. oclif's `plugin-plugins` is the model.
 - **CORE-11** · P3 · Installers and standalone archives per platform (oclif's `pack`), after a
   single-file build (G4 §3.9: Bun only). Lowest priority.
-- **CORE-5** · ⏸️ P3 · Move `braze-cli` onto `@leemour/cli-core` instead of its own copy. Deferred by
-  the owner.
 
 ## Later — each reopens a ruling
 
