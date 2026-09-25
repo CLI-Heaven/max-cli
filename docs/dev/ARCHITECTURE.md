@@ -343,6 +343,14 @@ file. Either, both, or (default) neither. What it looks like and how to use it:
 starts, whole days by directory name. Rules not stated there:
 
 - **Off unless asked** (`NEED-49`, `NEED-52`): `--record`, `--no-record`, else the config file.
+  **Correction 2026-09-25 (`NEED-268`, `OPS-14`):** a run that fails is kept anyway —
+  `recorded()` holds the newest 500 events in memory and opens the directory only on a failure,
+  with `keptBecauseFailed: true`. Recording turned off by name (`--no-record`, `"record": false`)
+  keeps nothing (`keepFailedRuns` in `src/config.ts`).
+- **Beyond requests**: `warning` events carry a code from a closed list (`WarningCode`), never
+  the sentence; a crash adds a `crash` event with the class and up to ten `function file:line`
+  frames, never the message; `maxError` is MAX's refusal key when it is shaped like one
+  (`maxErrorKey`, `src/runs/events.ts`). `run.json` carries `runtime`, `platform`, `arch`.
 - `run.json` is written atomically. `finish` runs on every path and **awaits the logger**: Pino
   appends via a plain stream, and a process that exits first loses the tail — the part somebody
   wanted.

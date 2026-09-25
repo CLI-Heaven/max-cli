@@ -28,7 +28,29 @@ export interface RequestEvent {
   outcome?: "ok" | "error"
   /** `cli-core`'s code — `timeout`, `provider_error`. Never the message: MAX quotes our payload. */
   errorCode?: string
+  /** MAX's own key for a refusal — `login.token`, `proto.payload` — and only if it is shaped like one (`maxErrorKey`). */
+  maxError?: string
 }
+
+/**
+ * Something the client noticed and went on without — reactions it could not read, a response of an
+ * unexpected shape. **A code, never the sentence**: the sentence quotes MAX, and MAX quotes us.
+ */
+export interface WarningEvent {
+  event: "warning"
+  code: WarningCode
+  operation?: string
+  /** Only for `response_shape`: field paths and types, built without the values (`src/spec/check.ts`). */
+  detail?: string
+}
+
+export type WarningCode =
+  | "chats_partial"
+  | "token_not_saved"
+  | "cache_not_written"
+  | "reactions_unread"
+  | "names_unread"
+  | "response_shape"
 
 /**
  * A read that never reached MAX.
@@ -63,7 +85,15 @@ export type CacheReason =
   | "history"
 
 /** What either sink is handed. One object, two sinks — see `RequestEvent`. */
-export type DiagnosticEvent = RequestEvent | CacheEvent
+export type DiagnosticEvent = RequestEvent | CacheEvent | WarningEvent
+
+/**
+ * MAX's refusal as a key, or nothing. Every refusal seen so far is a dotted key — `proto.payload`,
+ * `login.token`, `folder.validation.title.too-long` — and a key carries no content. Anything else,
+ * a sentence or a quote, is dropped rather than trimmed.
+ */
+export const maxErrorKey = (value: unknown): string | undefined =>
+  typeof value === "string" && /^[a-z][a-z0-9._-]{0,63}$/.test(value) ? value : undefined
 
 /**
  * The ids a request named, by name, from a list of fields that is written out here.
@@ -118,6 +148,11 @@ export const countsIn = (payload: Payload): Record<string, number> | undefined =
  * ```
  */
 export const renderEvent = (event: DiagnosticEvent): string => {
+  if (event.event === "warning") {
+    return [`${MARK.warning} ${(event.operation ?? "").padEnd(16)} ${event.code}`, event.detail]
+      .filter(Boolean)
+      .join("  ")
+  }
   const parts: string[] = []
 
   if (event.event === "cache") {
@@ -136,11 +171,12 @@ export const renderEvent = (event: DiagnosticEvent): string => {
 
   if (event.counts) for (const [field, count] of Object.entries(event.counts)) parts.push(`${count} ${field}`)
   if (event.event !== "cache" && event.errorCode) parts.push(event.errorCode)
+  if (event.event !== "cache" && event.maxError) parts.push(event.maxError)
 
   return `${MARK[event.event]} ${event.operation.padEnd(16)} ${parts.join("  ")}`
 }
 
-const MARK = { request: "\u2192", response: "\u2190", cache: "\u2022" } as const
+const MARK = { request: "\u2192", response: "\u2190", cache: "\u2022", warning: "!" } as const
 
 const age = (ms: number): string => (ms < 1000 ? `${ms}ms` : `${Math.round(ms / 1000)}s`)
 

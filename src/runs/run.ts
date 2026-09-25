@@ -22,7 +22,15 @@ export interface RunMetadata {
   requests?: number
   durationMs?: number
   cliVersion: string
+  /** `node 24.1.0` or `bun 1.3.14`, and where: what a problem report is asked for first. */
+  runtime?: string
+  platform?: string
+  arch?: string
   errorCode?: string
+  /** MAX's key for the refusal that ended it, when there was one (`maxErrorKey`). */
+  maxError?: string
+  /** Written only because it failed: recording was not asked for (`NEED-268`). */
+  keptBecauseFailed?: boolean
 }
 
 export interface StartRunOptions {
@@ -34,6 +42,8 @@ export interface StartRunOptions {
   keepDays?: number
   runId?: string
   now?: () => Date
+  /** When the command began, if that was before the run was opened — a failure kept after the fact. */
+  startedAt?: Date
   /** The log file could not be opened or written; the run goes on unrecorded from here. */
   onError?: (error: Error) => void
 }
@@ -74,7 +84,7 @@ export const runsDirFor = (env: NodeJS.ProcessEnv = process.env): string =>
  */
 export const startRun = (options: StartRunOptions): Run => {
   const now = options.now ?? (() => new Date())
-  const startedAt = now()
+  const startedAt = options.startedAt ?? now()
   const id = options.runId ?? runId(startedAt, options.command)
   const dir = join(options.runsDir, day(startedAt), id)
 
@@ -103,6 +113,9 @@ export const startRun = (options: StartRunOptions): Run => {
     startedAt: startedAt.toISOString(),
     status: "running",
     cliVersion: options.cliVersion,
+    runtime: runtime(),
+    platform: process.platform,
+    arch: process.arch,
   }
   writeRunFile(dir, metadata)
 
@@ -130,6 +143,11 @@ export const startRun = (options: StartRunOptions): Run => {
       await logger.close()
     },
   }
+}
+
+const runtime = (): string => {
+  const bun = (process.versions as Record<string, string | undefined>).bun
+  return bun ? `bun ${bun}` : `node ${process.versions.node}`
 }
 
 /** `20260920T084431Z-chats-list-a81f2c` — sortable, and readable without opening it. */

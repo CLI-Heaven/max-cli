@@ -253,6 +253,15 @@ describe("where each setting came from", () => {
   })
 })
 
+describe("keeping a failed run", () => {
+  it("is on unless recording was turned off by name, by flag or in the file", () => {
+    expect(settings().keepFailedRuns).toBe(true)
+    expect(settings({ record: false }).keepFailedRuns).toBe(false)
+    withConfig(JSON.stringify({ profiles: { default: { record: false } } }))
+    expect(settings().keepFailedRuns).toBe(false)
+  })
+})
+
 describe("defaults shared by every profile", () => {
   it("sit between the profile's own setting and the built-in one", () => {
     withConfig(JSON.stringify({ defaults: { limit: 50, record: true }, profiles: { work: { limit: 5 } } }))
