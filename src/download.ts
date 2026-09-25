@@ -44,14 +44,13 @@ const safeName = (name: string | undefined): string | undefined => {
 export type Reach = (url: URL) => Promise<void>
 
 /**
- * **Out to the internet only.** A link comes from MAX, and one pointing at this machine or its
- * network would make `max` a way to read what only this machine can reach. Checked again after
- * every redirect. `http:` stays allowed: what scheme MAX's audio, file and video links use was
- * never recorded, and refusing it could break downloads that work today.
+ * **Out to the internet only, over https** (`NEED-278`). A link comes from MAX, and one pointing at
+ * this machine or its network would make `max` a way to read what only this machine can reach.
+ * Checked again after every redirect.
  */
 export const publicOnly: Reach = async (url) => {
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
-    throw new CliError("validation_error", `a ${url.protocol} link is not downloaded — only http and https`)
+  if (url.protocol !== "https:") {
+    throw new CliError("validation_error", `a ${url.protocol} link is not downloaded — only https`)
   }
   const host = url.hostname.replace(/^\[|\]$/g, "")
   const family = isIP(host)

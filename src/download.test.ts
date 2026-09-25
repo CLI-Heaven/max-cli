@@ -121,7 +121,7 @@ describe("max messages download", () => {
     expect(await readdir(directory)).toEqual([])
   })
 
-  it("refuses a link into this machine, before asking it anything", async () => {
+  it("refuses a plain http link, before asking anything", async () => {
     const directory = await mkdtemp(join(process.env.TMPDIR ?? "/tmp", "download-"))
     let asked = 0
     server.once("request", () => {
@@ -130,7 +130,7 @@ describe("max messages download", () => {
     const { code, stderr } = await download(directory, { reach: publicOnly })
 
     expect(code).not.toBe(0)
-    expect(stderr).toContain("points into this machine")
+    expect(stderr).toContain("only https")
     expect(asked).toBe(0)
     expect(await readdir(directory)).toEqual([])
   })
@@ -172,17 +172,17 @@ describe("fetchBytes, for a voice message", () => {
 
 describe("publicOnly", () => {
   it.each([
-    "http://127.0.0.1/",
-    "http://[::1]/",
-    "http://169.254.169.254/latest",
-    "http://10.1.2.3/",
-    "http://[::ffff:127.0.0.1]/",
+    "https://127.0.0.1/",
+    "https://[::1]/",
+    "https://169.254.169.254/latest",
+    "https://10.1.2.3/",
+    "https://[::ffff:127.0.0.1]/",
   ])("refuses %s", async (url) => {
-    await expect(publicOnly(new URL(url))).rejects.toMatchObject({ code: "validation_error" })
+    await expect(publicOnly(new URL(url))).rejects.toThrow(/points into this machine/)
   })
 
-  it("refuses a scheme other than http and https", async () => {
-    await expect(publicOnly(new URL("file:///etc/passwd"))).rejects.toThrow(/only http and https/)
+  it.each(["http://93.184.215.14/", "file:///etc/passwd"])("refuses %s: only https", async (url) => {
+    await expect(publicOnly(new URL(url))).rejects.toThrow(/only https/)
   })
 
   it("lets a public address through", async () => {
