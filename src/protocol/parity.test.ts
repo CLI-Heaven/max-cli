@@ -4,6 +4,8 @@ import { join } from "node:path"
 import { memoryKeyring } from "@leemour/cli-core"
 import { decode, ExtData } from "@msgpack/msgpack"
 import { describe, expect, it } from "vitest"
+import { openCache } from "../cache/open.js"
+import { openStore } from "../cache/store.js"
 import { MaxClient } from "../client.js"
 import { Opcode } from "../generated/opcodes.generated.js"
 import { SessionStore } from "../session/store.js"
@@ -63,21 +65,38 @@ const ours = (bytes: Uint8Array): Shape => {
 }
 
 describe("our requests beside web.max.ru's", async () => {
-  const max = mockMax({
-    answers: {
-      [Opcode.SESSION_INIT]: {},
-      [Opcode.LOGIN]: { profile: { contact: { id: 10000001 } }, chats: [{ id: 111, type: "DIALOG" }], contacts: [] },
-      [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
-      [Opcode.CHAT_HISTORY]: { messages: [] },
-    },
-  })
+  const scripted = () =>
+    mockMax({
+      answers: {
+        [Opcode.SESSION_INIT]: {},
+        [Opcode.LOGIN]: {
+          profile: { contact: { id: 10000001 } },
+          chats: [{ id: 111, type: "DIALOG" }],
+          contacts: [],
+          time: 1_790_328_205_681,
+        },
+        [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
+        [Opcode.CHAT_HISTORY]: { messages: [] },
+      },
+    })
   const dir = mkdtempSync(join(tmpdir(), "max-cli-"))
   const store = new SessionStore({ keyring: memoryKeyring(), configDir: dir, stateDir: join(dir, "state"), env: {} })
   store.writeToken("a-token")
-  const client = new MaxClient({ store, connection: new Connection({ createSocket: max.createSocket, timeoutMs: 50 }) })
-  await client.connect()
-  await client.messages.list("111", { limit: 30 })
-  await client.close()
+  const cache = openStore({ database: await openCache(join(dir, "cache.db")) })
+  // Twice, so the second login carries the time the first one returned — the request MAX refused
+  // while that time went out as a float.
+  let max = scripted()
+  for (let run = 0; run < 2; run++) {
+    max = scripted()
+    const client = new MaxClient({
+      store,
+      cache,
+      connection: new Connection({ createSocket: max.createSocket, timeoutMs: 50 }),
+    })
+    await client.connect()
+    await client.messages.list("111", { limit: 30 })
+    await client.close()
+  }
 
   const sent = (opcode: number) => {
     const index = max.sent.findIndex((call) => call.opcode === opcode)
@@ -95,7 +114,7 @@ describe("our requests beside web.max.ru's", async () => {
       chatsCount: "int",
       interactive: "bool",
       chatsSync: "int",
-      contactsSync: "int",
+      contactsSync: "int64",
       presenceSync: "int",
       draftsSync: "int",
     }
