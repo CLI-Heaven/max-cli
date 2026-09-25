@@ -26,6 +26,7 @@ import { recipientsCommand } from "./commands/recipients.js"
 import { runsCommand } from "./commands/runs.js"
 import { sendsCommand } from "./commands/sends.js"
 import { serveCommand } from "./commands/serve.js"
+import { serverCommand } from "./commands/server.js"
 import { sessionCommand } from "./commands/session.js"
 import { skillCommand } from "./commands/skill.js"
 import { selfUpdateCommand } from "./commands/update.js"
@@ -98,6 +99,7 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
   program.addCommand(sendsCommand())
   program.addCommand(inboxCommand())
   program.addCommand(serveCommand())
+  program.addCommand(serverCommand())
   program.addCommand(watchCommand())
   program.addCommand(configCommand())
   program.addCommand(doctorCommand())

@@ -1,10 +1,11 @@
 import { existsSync, statSync, writeFileSync } from "node:fs"
 import { createServer, type Server } from "node:net"
-import { memoryKeyring } from "@leemour/cli-core"
+import { captureStreams, memoryKeyring } from "@leemour/cli-core"
 import { decode, ExtData } from "@msgpack/msgpack"
 import { afterEach, describe, expect, it } from "vitest"
 import { MaxClient } from "../client.js"
 import { Opcode } from "../generated/opcodes.generated.js"
+import { run } from "../program.js"
 import { Connection } from "../protocol/connection.js"
 import { decodeHeader, HEADER_BYTES } from "../protocol/frame.js"
 import { decompressBlock } from "../protocol/lz4.js"
@@ -445,6 +446,70 @@ describe("a command through max serve", () => {
 
     expect(direct.sent.map((call) => call.opcode)).toEqual([Opcode.SESSION_INIT, Opcode.LOGIN])
     expect(direct.sent[1]?.payload).toMatchObject({ token: "a-new-token" })
+  })
+})
+
+describe("max server", () => {
+  const max = async (argv: string[]) => {
+    const streams = captureStreams()
+    const code = await run(argv, { streams, tty: false })
+    return { code, out: streams.stdout.join(""), err: streams.stderr.join("") }
+  }
+
+  it("status: says nothing runs, as a result a script can read, and exits 0", async () => {
+    const { code, out } = await max(["x-none", "server", "status", "--json"])
+    expect(code).toBe(0)
+    expect(JSON.parse(out)).toEqual({ profile: "x-none", running: false })
+  })
+
+  it("status: pid, start time, version and whether MAX is connected", async () => {
+    await serve("x-status")
+    const { code, out, err } = await max(["x-status", "server", "status", "--json"])
+
+    expect(code).toBe(0)
+    expect(JSON.parse(out)).toMatchObject({
+      profile: "x-status",
+      running: true,
+      connected: true,
+      pid: process.pid,
+      byHand: true,
+      version: VERSION,
+      cliVersion: VERSION,
+    })
+    expect(Date.parse(JSON.parse(out).startedAt)).toBeLessThanOrEqual(Date.now())
+    expect(err).toBe("")
+  })
+
+  it("status: names a server left from another version, and the command that replaces it", async () => {
+    const store = new SessionStore({ profile: "x-old", keyring: memoryKeyring() })
+    const old = createServer((socket) =>
+      socket.on(
+        "data",
+        lineReader(() => socket.write(toLine({ event: "status", connected: true, byHand: false, version: "0.8.0" }))),
+      ),
+    )
+    await new Promise<void>((resolve) => old.listen(store.socketPath(), resolve))
+
+    const { out, err } = await max(["x-old", "server", "status", "--json"])
+    old.close()
+
+    expect(JSON.parse(out)).toMatchObject({ running: true, version: "0.8.0", cliVersion: VERSION })
+    expect(err).toContain("max server restart")
+  })
+
+  it("stop: stops one started by hand, and says so", async () => {
+    const { server } = await serve("x-stop")
+    const { code, out } = await max(["x-stop", "server", "stop", "--json"])
+
+    expect(code).toBe(0)
+    expect(JSON.parse(out)).toEqual({ profile: "x-stop", stopped: true })
+    await expect(server.done).resolves.toBeUndefined()
+  })
+
+  it("stop: with nothing running, stopped is false and a note says why", async () => {
+    const { out, err } = await max(["x-idle", "server", "stop", "--json"])
+    expect(JSON.parse(out)).toEqual({ profile: "x-idle", stopped: false })
+    expect(err).toContain("no server is running")
   })
 })
 
