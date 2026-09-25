@@ -17,7 +17,7 @@ import type { Permission } from "../sends/permissions.js"
 import { transcribe } from "../transcribe/index.js"
 import { modelsDirectory } from "../transcribe/install.js"
 import { DEFAULT_MODEL, speechModel } from "../transcribe/models.js"
-import { confirmer, type SendArgs, sendOptions } from "./confirm.js"
+import { confirmer, sendOptions } from "./confirm.js"
 import type { MaxSession } from "./session.js"
 
 const chat = v.pipe(v.string(), v.minLength(1), v.description("chat id, or part of a chat name"))
@@ -448,11 +448,14 @@ export const registerTools = (
       },
       async (args: Record<string, unknown>, ctx: ServerContext) => {
         try {
-          const result = await session.use(name.replace(/^max_/, "mcp ").replaceAll("_", " "), (client, release) =>
-            confirmed && name === "max_messages_send"
-              ? confirmed(client, args as unknown as SendArgs, ctx)
-              : definition.answer(client, args, { limit: defaultLimit, profile, transcribeModel, release }),
-          )
+          const result = await session.use(name.replace(/^max_/, "mcp ").replaceAll("_", " "), (client, release) => {
+            const defaults = { limit: defaultLimit, profile, transcribeModel, release }
+            return confirmed && name in offered
+              ? confirmed({ name, title: definition.title }, client, args, ctx, (resolved) =>
+                  definition.answer(client, resolved, defaults),
+                )
+              : definition.answer(client, args, defaults)
+          })
           return isInputRequiredResult(result) ? result : answered(result)
         } catch (error) {
           return failed(error)

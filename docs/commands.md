@@ -1002,7 +1002,7 @@ max mcp [options]
 | Опция | Что делает |
 |---|---|
 | `--allow-send` | offer the send tool; without it the server can only read |
-| `--confirm-send` | show the owner each send in a form from the server — the chat it resolved to and the text |
+| `--confirm-send` | show the owner every send, edit, forward, pin, mark-read and delete in a form from the server first |
 | `--allow-mark-read` | offer the tool that marks a chat read; the other person sees it |
 | `--allow-delete` | offer the tool that deletes messages for you only; it cannot be undone |
 

@@ -8,7 +8,7 @@ export const mcpCommand = (): Command =>
     .option("--allow-send", "offer the send tool; without it the server can only read")
     .option(
       "--confirm-send",
-      "show the owner each send in a form from the server — the chat it resolved to and the text",
+      "show the owner every send, edit, forward, pin, mark-read and delete in a form from the server first",
     )
     .option("--allow-mark-read", "offer the tool that marks a chat read; the other person sees it")
     .option("--allow-delete", "offer the tool that deletes messages for you only; it cannot be undone")
@@ -19,10 +19,10 @@ export const mcpCommand = (): Command =>
         allowMarkRead?: boolean
         allowDelete?: boolean
       }>()
-      if (confirmSend && !allowSend) {
+      if (confirmSend && !allowSend && !allowMarkRead && !allowDelete) {
         throw new CliError(
           "validation_error",
-          "`--confirm-send` confirms sends, and without `--allow-send` there are none",
+          "`--confirm-send` confirms writes, and without `--allow-send`, `--allow-mark-read` or `--allow-delete` there are none",
         )
       }
       // Loaded here, not at the top: every other command would otherwise pay for the SDK and zod.
