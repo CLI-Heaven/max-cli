@@ -895,8 +895,12 @@ max config unset <setting> [options]
 
 the state this installation is in, without contacting MAX
 
+### `max doctor report`
+
+what a problem report holds and where it goes; writes nothing
+
 ```sh
-max doctor
+max doctor report
 ```
 
 ## `max cache`
