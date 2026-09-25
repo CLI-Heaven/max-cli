@@ -2324,9 +2324,15 @@ export const wirePhone = (typed: string): string => {
 }
 
 /** 21 characters were refused as too long and 15 were taken (measured 2026-09-24); MAX draws the line. */
+/** Measured 2026-09-25 (`MAX-57`, ASCII): 20 characters taken, 21 refused with `folder.validation.title.too-long`. */
+const FOLDER_TITLE_MAX = 20
+
 const folderTitle = (title: string): string => {
   const trimmed = title.trim()
   if (trimmed === "") throw new CliError("validation_error", "a folder needs a title")
+  if ([...trimmed].length > FOLDER_TITLE_MAX) {
+    throw new CliError("validation_error", `a folder title is at most ${FOLDER_TITLE_MAX} characters in MAX`)
+  }
   return trimmed
 }
 

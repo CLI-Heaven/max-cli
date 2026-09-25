@@ -25,10 +25,6 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
 
 ## Features
 
-- **MAX-57** · 🚧 `max-57-folder-title` · P2 · Refuse a folder title longer than MAX takes, before
-  sending: **20 characters accepted, 21 refused** (`folder.validation.title.too-long`, opcode 274),
-  measured 2026-09-25 with `pnpm probe:pre-release`. Check in `folderTitle` (`src/client.ts`).
-
 - **CLI-34** · P2 · `max backup messages <chat> --since <date> | --last
   <n>`: without `--run` only the estimate (what the cache holds, what is missing, requests and
   minutes); with `--run` it fills the gaps within limits and stops on any error. One chat per call
