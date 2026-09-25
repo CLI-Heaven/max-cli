@@ -1,6 +1,6 @@
 import * as v from "valibot"
 import { defineOperation } from "../define.js"
-import { ambiguous, chatOf, countOf, messageOf, objectOf } from "../guards.js"
+import { ambiguous, chatOf, countOf, messageOf, objectOf, peopleOf } from "../guards.js"
 import { id } from "../scalars.js"
 
 export const messagesSend = defineOperation({
@@ -65,7 +65,14 @@ export const messagesSend = defineOperation({
     const cid = typeof message.cid === "number" ? { cid: message.cid } : {}
     const [control] = Array.isArray(message.attaches) ? message.attaches.map(objectOf) : []
     if (request.chatId === undefined && control?._type === "CONTROL" && control.event === "new") {
-      return { chatId: null, kind: "chat", action: "create", people: countOf(control.userIds), ...cid }
+      return {
+        chatId: null,
+        kind: "chat",
+        action: "create",
+        people: countOf(control.userIds),
+        personIds: peopleOf(control.userIds),
+        ...cid,
+      }
     }
     const chatId = chatOf(request)
     // A control attachment changes a chat; in a message it would pass as a plain send.

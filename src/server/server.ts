@@ -452,7 +452,7 @@ export class MaxServer {
       return refusal(error)
     }
     try {
-      guard.check(entry.chatId, entry.kind, entry.action, entry.count, entry.cid)
+      guard.check(entry)
     } catch (error) {
       guard.record({ ...entry, outcome: "refused", errorCode: asCliError(error).code })
       return refusal(error)

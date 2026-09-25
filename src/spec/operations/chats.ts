@@ -1,7 +1,7 @@
 import * as v from "valibot"
 import type { ChatAction } from "../../sends/journal.js"
 import { defineOperation, reserveOpcode } from "../define.js"
-import { ambiguous, chatOf, countOf, messageOf } from "../guards.js"
+import { ambiguous, chatOf, countOf, messageOf, peopleOf } from "../guards.js"
 import { id } from "../scalars.js"
 
 export const chatsList = defineOperation({
@@ -162,7 +162,7 @@ export const chatsUpdate = defineOperation({
     if (changes.filter(Boolean).length !== 1) return ambiguous("chats.update")
     if (changes[0]) {
       const pinned = messageOf(request, "pinMessageId")
-      return { chatId, kind: "pin", ...(pinned.messageId === "0" ? {} : pinned) }
+      return { chatId, kind: "pin", notify: request.notifyPin === true, ...(pinned.messageId === "0" ? {} : pinned) }
     }
     if (changes[1]) return { chatId, kind: "chat", action: "link.reset" }
     if (changes[2]) return { chatId, kind: "chat", action: "settings" }
@@ -232,7 +232,13 @@ export const chatsUpdateMembers = defineOperation({
     const action =
       request.operation === "add" ? actions?.[0] : request.operation === "remove" ? actions?.[1] : undefined
     if (!action) return ambiguous("chats.updateMembers")
-    return { chatId: chatOf(request), kind: "chat", action, people: countOf(request.userIds) }
+    return {
+      chatId: chatOf(request),
+      kind: "chat",
+      action,
+      people: countOf(request.userIds),
+      ...(action === "members.add" ? { personIds: peopleOf(request.userIds) } : {}),
+    }
   },
   provenance: {
     confidence: "measured",

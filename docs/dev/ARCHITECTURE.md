@@ -150,7 +150,10 @@ message id** and **one** copy, also across two connections and logins — the ca
 - **Every send passes a guard first** (`src/sends/guard.ts`, handed to `MaxClient` by
   `createClient`): a read-only profile (code 5), an optional recipient list (7), an hourly limit
   (8) — all before the socket when the chat is an id. Every outcome, refusals included, goes to
-  `<state>/sends/<profile>.jsonl` without the text; the limit counts that file. These stop a model
+  `<state>/sends/<profile>.jsonl` without the text; the limit counts that file. **Correction
+  2026-09-25 (PR #158):** a write that counts first holds a `reserved` line, written under a lock
+  file (`wx`, so Windows too), and its outcome settles it; reading folds settled ones away, so two
+  processes at the limit cannot both pass. Over `max serve` only the server reserves. These stop a model
   talked into sending by what it read, not an agent that edits the configuration (`NEED-159`).
 - **`max serve` runs the same guard on every write it forwards, and journals it** (`NEED-269`):
   anything of the owner's can write to its socket, not only a command that checked first. Every
@@ -164,8 +167,9 @@ message id** and **one** copy, also across two connections and logins — the ca
   that may have gone out. A `cid` that was sent, or reused in another chat, counts as a new send.
 - **A forward is a send** — `MSG_SEND` with a `FORWARD` link and no text — so it gets the same one
   retry with the same `cid` and counts against the hourly limit. **An edit and a pin are not
-  retried**, like a reaction, and are not counted: they put no new message in anybody's chat
-  (`NEED-168`). The guard's other two checks apply to all of them.
+  retried**, like a reaction. **Correction 2026-09-25 (`NEED-282`):** this said neither counts;
+  now an edit and a pin that notifies do, and so does each person added to a group; a scheduled
+  message counts in the hour it goes out. The guard's other two checks apply to all of them.
 - **A deletion is guarded like a send, and each deleted message counts toward the hourly limit**
   (`MAX-47`): it wakes nobody, but many at once is what MAX bans for. At most 10 per call, and
   `--allow-dangerous` on every one. Not retried. `max serve` logs in again after one, since MAX does

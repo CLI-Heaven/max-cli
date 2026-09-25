@@ -43,7 +43,9 @@ export const completeCommand = (): Command =>
       // The last word is still being typed, so it is never taken for a profile: `mess` is on its way to `messages`.
       const { profile, rest } =
         words.length > 1 ? liftProfile(words, commandWords(root)) : { profile: undefined, rest: words }
-      const cache = await readableCache(profile ?? process.env.MAX_PROFILE ?? DEFAULT_PROFILE)
+      const cache = await readableCache(
+        profile ?? process.env.MAX_PROFILE_LOCK ?? process.env.MAX_PROFILE ?? DEFAULT_PROFILE,
+      )
       try {
         const suggestions = suggest({
           commands: describeProgram(root),
@@ -57,8 +59,10 @@ export const completeCommand = (): Command =>
       }
     })
 
-/** A half-typed or odd first word gets no names rather than an error: a shell shows whatever it is given. */
+/** A half-typed or odd first word, or another profile than a locked one, gets no names rather than an error. */
 const readableCache = async (profile: string): Promise<CacheStore | undefined> => {
+  const lock = process.env.MAX_PROFILE_LOCK
+  if (lock && profile !== lock) return undefined
   try {
     usableProfileName(profile)
   } catch {

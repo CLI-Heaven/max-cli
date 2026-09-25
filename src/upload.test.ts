@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, symlink, writeFile } from "node:fs/promises"
 import { createServer, type Server } from "node:http"
 import type { AddressInfo } from "node:net"
 import { join } from "node:path"
@@ -103,6 +103,35 @@ describe("sending files", () => {
     expect(code).not.toBe(0)
     expect(sends).toEqual([])
     expect(stderr).toContain("nothing was sent")
+  })
+
+  it("refuses a key from a hidden folder and max's own files, unless told any file may go", async () => {
+    await mkdir(join(directory, ".ssh"), { recursive: true })
+    await writeFile(join(directory, ".ssh", "id_ed25519"), "a private key")
+    const state = process.env.MAX_STATE_DIR ?? ""
+    await mkdir(state, { recursive: true })
+    await writeFile(join(state, "kept.json"), "{}")
+
+    for (const path of [join(directory, ".ssh", "id_ed25519"), join(state, "kept.json")]) {
+      const { code, sends, stderr } = await send(["--file", path])
+      expect(code).not.toBe(0)
+      expect(sends).toEqual([])
+      expect(stderr).toContain("--allow-any-file")
+    }
+
+    const { code } = await send(["--file", join(directory, ".ssh", "id_ed25519"), "--allow-any-file"])
+    expect(code).toBe(0)
+  })
+
+  // Windows needs a privilege to make a link.
+  it.skipIf(process.platform === "win32")("refuses a link that points into a hidden folder", async () => {
+    await mkdir(join(directory, ".ssh"), { recursive: true })
+    await writeFile(join(directory, ".ssh", "id_rsa"), "a private key")
+    await symlink(join(directory, ".ssh", "id_rsa"), join(directory, "notes.txt"))
+
+    const { code, sends } = await send(["--file", join(directory, "notes.txt")])
+    expect(code).not.toBe(0)
+    expect(sends).toEqual([])
   })
 
   it("refuses a file that is not there before connecting", async () => {

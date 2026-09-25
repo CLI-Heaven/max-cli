@@ -504,6 +504,7 @@ max messages send <chat> [text] [options]
 | `--silent` | deliver without a notification |
 | `--reply-to <message>` | answer this message id in the same chat |
 | `--file <path>` | attach a file; .jpg .png .webp .gif go as a photo. Repeat it for more than one |
+| `--allow-any-file` | send a --file even from a hidden folder, ~/.ssh or max's own folders |
 | `--md, --markdown` | read **bold**, _italic_, ~~struck~~ and `code` in the text; \ keeps a mark literal |
 | `--at <time>` | let MAX send it later, even with this machine off: 2026-09-25T09:00 (local time), or 30m, 2h, 1d from now |
 
@@ -1002,7 +1003,7 @@ max mcp [options]
 | Опция | Что делает |
 |---|---|
 | `--allow-send` | offer the send tool; without it the server can only read |
-| `--confirm-send` | show the owner each send in a form from the server — the chat it resolved to and the text |
+| `--confirm-send` | show the owner every send, edit, forward, pin, mark-read and delete in a form from the server first |
 | `--allow-mark-read` | offer the tool that marks a chat read; the other person sees it |
 | `--allow-delete` | offer the tool that deletes messages for you only; it cannot be undone |
 

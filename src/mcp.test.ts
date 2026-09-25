@@ -386,7 +386,7 @@ describe("the MCP server", () => {
         const { isError } = await call(client, "max_messages_send", { chat: "Alpha", text: "hello" })
 
         expect(isError).toBe(false)
-        expect(forms).toEqual(['Send to "Team Alpha" (111)?\n\nhello'])
+        expect(forms).toEqual(['Send a message?\n\nchat: "Team Alpha" (111)\n\nhello'])
         expect(sends(max)).toBe(1)
       },
     )
@@ -429,7 +429,28 @@ describe("the MCP server", () => {
         | { message: { delayedAttributes: { timeToFire: number } } }
         | undefined
       const fire = payload?.message.delayedAttributes.timeToFire ?? 0
-      expect(forms).toEqual([`Send to "Team Alpha" (111) at ${new Date(fire).toISOString()}?\n\nhello`])
+      expect(forms).toEqual([
+        `Send a message?\n\nchat: "Team Alpha" (111)\nat: ${new Date(fire).toISOString()}\n\nhello`,
+      ])
+    })
+
+    it("asks before a forward too, and forwards nothing on a no", async () => {
+      const { client, max, forms } = await connect(
+        { allowSend: true, confirmSend: true },
+        { answers: sendAnswer, form: () => ({ action: "decline" }) },
+      )
+
+      const { isError } = await call(client, "max_messages_forward", {
+        chat: "111",
+        message: "116762160362694590",
+        to: "Alpha",
+      })
+
+      expect(isError).toBe(true)
+      expect(forms).toEqual([
+        'Forward a message?\n\nchat: "Team Alpha" (111)\nto: "Team Alpha" (111)\nmessage: "116762160362694590"',
+      ])
+      expect(sends(max)).toBe(0)
     })
 
     it("sends without a form when the flag is off", async () => {

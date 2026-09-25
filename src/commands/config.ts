@@ -1,6 +1,6 @@
 import { existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
-import { pathsAreOverridden, resolvePaths } from "@leemour/cli-core"
+import { CliError, pathsAreOverridden, resolvePaths } from "@leemour/cli-core"
 import { Command } from "commander"
 import { ALL_SETTINGS, changeSetting, type SourcedSetting } from "../config.js"
 import { forCommand } from "./context.js"
@@ -72,6 +72,13 @@ export const configCommand = (): Command => {
       const value = action === "set" ? String(given) : undefined
       const { settings, renderer } = forCommand(this)
       const defaults = this.opts<{ defaults?: boolean }>().defaults === true
+      if (defaults && process.env.MAX_PROFILE_LOCK) {
+        // The defaults are every other profile's settings too.
+        throw new CliError(
+          "permission_error",
+          `this process is locked to profile ${settings.profile} (MAX_PROFILE_LOCK) — --defaults changes every profile`,
+        )
+      }
       const saved = changeSetting(settings.configPath, {
         profile: defaults ? undefined : settings.profile,
         setting,

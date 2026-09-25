@@ -47,8 +47,8 @@ import { Connection, ProtocolError, type Wire } from "./protocol/connection.js"
 import { asId, type Payload } from "./protocol/frame.js"
 import { isId, pickChat, pickPerson } from "./resolve.js"
 import { countsIn, type DiagnosticEvent, idsOf, maxErrorKey, type WarningCode } from "./runs/events.js"
-import type { SendGuard } from "./sends/guard.js"
-import type { AccountAction, ChatAction, SendKind } from "./sends/journal.js"
+import type { GuardRequest, SendGuard } from "./sends/guard.js"
+import type { AccountAction, ChatAction } from "./sends/journal.js"
 import { LOGIN_CHATS, type Resume, startSession } from "./session/handshake.js"
 import { type QrLogin, tokenByQr } from "./session/login.js"
 import {
@@ -314,6 +314,13 @@ export class MaxClient {
       return { ...chat, members: chat.kind === "channel" || !cache ? null : cache.chats.members(chat.id) }
     },
 
+    /** The other person in a one-to-one chat, by the chat's participants; `undefined` for anything else. */
+    partner: async (chatId: Id): Promise<Id | undefined> => {
+      await this.#connectOnce()
+      const raw = asArray(this.#session().chats).find((chat) => asId(chat.id) === chatId)
+      return raw ? this.#partnerOf(raw) : undefined
+    },
+
     /** What a link leads to, without joining it. */
     inspect: async (link: string): Promise<GroupCard> => {
       if (this.#offline)
@@ -339,7 +346,7 @@ export class MaxClient {
     markRead: async (chatId: Id, messageId?: Id): Promise<ReadMark> => {
       if (this.#offline)
         throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot mark a chat read")
-      this.#guard(chatId, "read", messageId)
+      this.#guard({ chatId, kind: "read" }, messageId)
 
       try {
         await this.#connectOnce()
@@ -371,22 +378,29 @@ export class MaxClient {
      * Not retried, unlike a message: a second attempt with a new `cid` is a second group, and
      * whether MAX deduplicates a creation by `cid` is not measured.
      */
-    create: (title: string, people: string[] = []): Promise<GroupCard> =>
-      this.#changeChat(null, "create", async () => {
-        const userIds = await this.#personIds(people)
-        const answer = await this.#wire.messages.send({
-          message: {
-            cid: this.#nextCid(),
-            attaches: [{ _type: "CONTROL", event: "new", chatType: "CHAT", title, userIds }],
-          },
-          notify: true,
-        })
-        const chat = toGroupCard(record(answer.chat) ?? {})
-        return { chatId: chat.id, result: chat, people: userIds.length }
-      }),
+    create: async (title: string, people: string[] = []): Promise<GroupCard> => {
+      const userIds = await this.#personIds(people)
+      return this.#changeChat(
+        null,
+        "create",
+        async () => {
+          const answer = await this.#wire.messages.send({
+            message: {
+              cid: this.#nextCid(),
+              attaches: [{ _type: "CONTROL", event: "new", chatType: "CHAT", title, userIds }],
+            },
+            notify: true,
+          })
+          const chat = toGroupCard(record(answer.chat) ?? {})
+          return { chatId: chat.id, result: chat, people: userIds.length }
+        },
+        userIds,
+      )
+    },
 
     members: {
-      add: (reference: string, people: string[], { history = true }: { history?: boolean } = {}) =>
+      /** No history unless asked (`NEED-272`): what was said before somebody joined is not theirs by default. */
+      add: (reference: string, people: string[], { history = false }: { history?: boolean } = {}) =>
         this.#updateMembers(reference, people, "members.add", { operation: "add", showHistory: history }),
       remove: (reference: string, people: string[]) =>
         this.#updateMembers(reference, people, "members.remove", { operation: "remove", cleanMsgPeriod: 0 }),
@@ -884,7 +898,15 @@ export class MaxClient {
     send: async (
       chatId: Id,
       text: string,
-      options: { cid?: number; notify?: boolean; replyTo?: Id; markdown?: boolean; files?: string[]; at?: number } = {},
+      options: {
+        cid?: number
+        notify?: boolean
+        replyTo?: Id
+        markdown?: boolean
+        files?: string[]
+        anyFile?: boolean
+        at?: number
+      } = {},
     ): Promise<Message> => {
       if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot send")
       if (options.at !== undefined && options.notify === false) {
@@ -901,18 +923,15 @@ export class MaxClient {
         )
       }
 
-      // Before connecting: a refused send never opens a socket when the chat was given as an id.
-      try {
-        this.#sends?.check(chatId, "message", undefined, 1, options.cid)
-      } catch (error) {
-        this.#sends?.record({ chatId, outcome: "refused", errorCode: asCliError(error).code })
-        throw error
-      }
-
-      const cid = options.cid ?? this.#nextCid()
+      // Read before the guard holds a place under the limit: a file that is refused sends nothing.
       const files = await Promise.all(
-        (options.files ?? []).map(async (path) => ({ path, bytes: await readUpload(path), photo: isImage(path) })),
+        (options.files ?? []).map(async (path) => ({
+          path,
+          bytes: await readUpload(path, { anyFile: options.anyFile === true }),
+          photo: isImage(path),
+        })),
       )
+
       // Measured 2026-09-24: photos share a message, but a file with anything beside it is refused `proto.payload`.
       if (files.some((file) => !file.photo) && files.length > 1) {
         throw new CliError(
@@ -920,6 +939,21 @@ export class MaxClient {
           "a file goes in a message of its own — photos can share one; send them apart",
         )
       }
+
+      // Before connecting: a refused send never opens a socket when the chat was given as an id.
+      try {
+        this.#sends?.check({
+          chatId,
+          kind: "message",
+          ...(options.cid === undefined ? {} : { cid: options.cid }),
+          ...(options.at === undefined ? {} : { scheduledFor: new Date(options.at).toISOString() }),
+        })
+      } catch (error) {
+        this.#sends?.record({ chatId, outcome: "refused", errorCode: asCliError(error).code })
+        throw error
+      }
+
+      const cid = options.cid ?? this.#nextCid()
       const attachments = files.map(({ bytes, photo }) => ({
         kind: photo ? ("photo" as const) : ("file" as const),
         bytes: bytes.length,
@@ -967,7 +1001,7 @@ export class MaxClient {
      */
     edit: async (chatId: Id, messageId: Id, text: string, { markdown = false } = {}): Promise<Message> => {
       if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot edit")
-      this.#guard(chatId, "edit", messageId)
+      this.#guard({ chatId, kind: "edit" }, messageId)
 
       try {
         await this.#connectOnce()
@@ -1019,7 +1053,7 @@ export class MaxClient {
     ): Promise<Message> => {
       if (this.#offline)
         throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot forward")
-      this.#guard(toChatId, "forward")
+      this.#guard({ chatId: toChatId, kind: "forward" })
 
       const cid = options.cid ?? this.#nextCid()
       try {
@@ -1059,7 +1093,7 @@ export class MaxClient {
         )
       }
       const count = messageIds.length
-      this.#guard(chatId, "delete", undefined, count)
+      this.#guard({ chatId, kind: "delete", count })
 
       try {
         await this.#connectOnce()
@@ -1090,7 +1124,7 @@ export class MaxClient {
      */
     pin: async (chatId: Id, messageId: Id | null, { notify = false } = {}): Promise<Pin> => {
       if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot pin")
-      this.#guard(chatId, "pin", messageId ?? undefined)
+      this.#guard({ chatId, kind: "pin", notify }, messageId ?? undefined)
 
       try {
         await this.#connectOnce()
@@ -1102,10 +1136,10 @@ export class MaxClient {
           )
         }
         await this.#wire.chats.update({ chatId, pinMessageId: messageId ?? "0", notifyPin: notify })
-        this.#sends?.record({ chatId, kind: "pin", outcome: "sent", ...(messageId ? { messageId } : {}) })
+        this.#sends?.record({ chatId, kind: "pin", notify, outcome: "sent", ...(messageId ? { messageId } : {}) })
         return { chatId, pinned: messageId }
       } catch (error) {
-        this.#sends?.record({ chatId, kind: "pin", outcome: "failed", errorCode: asCliError(error).code })
+        this.#sends?.record({ chatId, kind: "pin", notify, outcome: "failed", errorCode: asCliError(error).code })
         throw error
       }
     },
@@ -1240,7 +1274,7 @@ export class MaxClient {
     if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot react")
 
     try {
-      this.#sends?.check(chatId, "reaction")
+      this.#sends?.check({ chatId, kind: "reaction" })
     } catch (error) {
       this.#sends?.record({ chatId, kind: "reaction", outcome: "refused", errorCode: asCliError(error).code })
       throw error
@@ -1258,13 +1292,15 @@ export class MaxClient {
   }
 
   /** Asks the send guard, and writes a refusal to the send journal before passing it on. */
-  #guard(chatId: Id, kind: SendKind, messageId?: Id, count?: number): void {
+  #guard(request: GuardRequest & { chatId: Id }, messageId?: Id): void {
+    const { chatId, kind, notify } = request
     try {
-      this.#sends?.check(chatId, kind, undefined, count)
+      this.#sends?.check(request)
     } catch (error) {
       this.#sends?.record({
         chatId,
-        kind,
+        ...(kind ? { kind } : {}),
+        ...(notify === undefined ? {} : { notify }),
         outcome: "refused",
         ...(messageId ? { messageId } : {}),
         errorCode: asCliError(error).code,
@@ -2029,12 +2065,13 @@ export class MaxClient {
     chatId: Id | null,
     action: ChatAction,
     act: () => Promise<{ chatId: Id; result: T; people?: number }>,
+    personIds?: Id[],
   ): Promise<T> {
     if (this.#offline)
       throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot change a chat")
 
     try {
-      this.#sends?.check(chatId, "chat", action)
+      this.#sends?.check({ chatId, kind: "chat", action, ...(personIds ? { personIds } : {}) })
     } catch (error) {
       this.#sends?.record({ chatId, kind: "chat", action, outcome: "refused", errorCode: asCliError(error).code })
       throw error
@@ -2071,16 +2108,21 @@ export class MaxClient {
     change: Omit<RequestOf<typeof chatsUpdateMembers>, "chatId" | "userIds">,
   ): Promise<ChatChange> {
     const chatId = await this.chats.resolve(reference)
-    return this.#changeChat(chatId, action, async () => {
-      const userIds = await this.#personIds(people)
-      const answer = await this.#wire.chats.updateMembers({ chatId, userIds, ...change })
-      const chat = record(answer.chat)
-      return {
-        chatId,
-        people: userIds.length,
-        result: { chatId, action, people: userIds, chat: chat ? toGroupCard(chat) : null },
-      }
-    })
+    const userIds = await this.#personIds(people)
+    return this.#changeChat(
+      chatId,
+      action,
+      async () => {
+        const answer = await this.#wire.chats.updateMembers({ chatId, userIds, ...change })
+        const chat = record(answer.chat)
+        return {
+          chatId,
+          people: userIds.length,
+          result: { chatId, action, people: userIds, chat: chat ? toGroupCard(chat) : null },
+        }
+      },
+      action === "members.add" ? userIds : undefined,
+    )
   }
 
   /** An id goes as given; a name is looked up in the store, and an ambiguous one is refused. */
@@ -2175,7 +2217,7 @@ export class MaxClient {
       throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot change the account")
 
     try {
-      this.#sends?.check(null, "account", action)
+      this.#sends?.check({ chatId: null, kind: "account", action })
     } catch (error) {
       this.#sends?.record({
         chatId: null,
