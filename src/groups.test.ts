@@ -174,6 +174,23 @@ describe("changing a group", () => {
     expect(sent(Opcode.CHAT_MEMBERS_UPDATE)).toHaveLength(1)
   })
 
+  it("learns who a one-to-one chat is with when it is added to the list, and fills that in for an older entry", async () => {
+    const dialog = { id: 555, type: "DIALOG", participants: { 10000001: 1, 20000002: 1 } }
+    const { environment, sent } = messenger({
+      [Opcode.LOGIN]: { profile: { contact: { id: 10000001 } }, chats: [GROUP, dialog] },
+      [Opcode.CONTACT_INFO]: { contacts: [{ id: 20000002, names: [{ name: "Боря", type: "FULL_NAME" }] }] },
+    })
+    const list = new RecipientList(recipientsPathFor("gr-partner"))
+    list.add({ id: "-70000000000001", title: "Team", addedAt: new Date().toISOString() })
+    list.add({ id: "555", title: null, addedAt: new Date().toISOString() })
+
+    expect((await runWith(["gr-partner", "chats", "members", "add", "Team", "20000002"], environment)).code).toBe(7)
+    expect((await runWith(["gr-partner", "recipients", "add", "555"], environment)).code).toBe(0)
+    expect(list.read()?.find((chat) => chat.id === "555")?.partnerId).toBe("20000002")
+    expect((await runWith(["gr-partner", "chats", "members", "add", "Team", "20000002"], environment)).code).toBe(0)
+    expect(sent(Opcode.CHAT_MEMBERS_UPDATE)).toHaveLength(1)
+  })
+
   it("adds without history unless asked, and removes without erasing anyone's messages", async () => {
     const { environment, sent } = messenger()
     await runWith(["gr-members", "chats", "members", "add", "Team", "20000002"], environment)
