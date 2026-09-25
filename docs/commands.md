@@ -504,6 +504,7 @@ max messages send <chat> [text] [options]
 | `--silent` | deliver without a notification |
 | `--reply-to <message>` | answer this message id in the same chat |
 | `--file <path>` | attach a file; .jpg .png .webp .gif go as a photo. Repeat it for more than one |
+| `--allow-any-file` | send a --file even from a hidden folder, ~/.ssh or max's own folders |
 | `--md, --markdown` | read **bold**, _italic_, ~~struck~~ and `code` in the text; \ keeps a mark literal |
 | `--at <time>` | let MAX send it later, even with this machine off: 2026-09-25T09:00 (local time), or 30m, 2h, 1d from now |
 

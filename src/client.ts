@@ -898,7 +898,15 @@ export class MaxClient {
     send: async (
       chatId: Id,
       text: string,
-      options: { cid?: number; notify?: boolean; replyTo?: Id; markdown?: boolean; files?: string[]; at?: number } = {},
+      options: {
+        cid?: number
+        notify?: boolean
+        replyTo?: Id
+        markdown?: boolean
+        files?: string[]
+        anyFile?: boolean
+        at?: number
+      } = {},
     ): Promise<Message> => {
       if (this.#offline) throw new CliError("validation_error", "`--offline` reads what was recorded; it cannot send")
       if (options.at !== undefined && options.notify === false) {
@@ -912,6 +920,23 @@ export class MaxClient {
         throw new CliError(
           "validation_error",
           `--cid repeats an ambiguous send, which is not safe for a scheduled one — \`max messages scheduled ${chatId}\` shows whether it is queued`,
+        )
+      }
+
+      // Read before the guard holds a place under the limit: a file that is refused sends nothing.
+      const files = await Promise.all(
+        (options.files ?? []).map(async (path) => ({
+          path,
+          bytes: await readUpload(path, { anyFile: options.anyFile === true }),
+          photo: isImage(path),
+        })),
+      )
+
+      // Measured 2026-09-24: photos share a message, but a file with anything beside it is refused `proto.payload`.
+      if (files.some((file) => !file.photo) && files.length > 1) {
+        throw new CliError(
+          "validation_error",
+          "a file goes in a message of its own — photos can share one; send them apart",
         )
       }
 
@@ -929,16 +954,6 @@ export class MaxClient {
       }
 
       const cid = options.cid ?? this.#nextCid()
-      const files = await Promise.all(
-        (options.files ?? []).map(async (path) => ({ path, bytes: await readUpload(path), photo: isImage(path) })),
-      )
-      // Measured 2026-09-24: photos share a message, but a file with anything beside it is refused `proto.payload`.
-      if (files.some((file) => !file.photo) && files.length > 1) {
-        throw new CliError(
-          "validation_error",
-          "a file goes in a message of its own — photos can share one; send them apart",
-        )
-      }
       const attachments = files.map(({ bytes, photo }) => ({
         kind: photo ? ("photo" as const) : ("file" as const),
         bytes: bytes.length,

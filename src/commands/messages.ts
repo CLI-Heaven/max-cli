@@ -247,6 +247,7 @@ export const messagesCommand = (): Command => {
       "attach a file; .jpg .png .webp .gif go as a photo. Repeat it for more than one",
       (value: string, previous: string[] = []) => [...previous, value],
     )
+    .option("--allow-any-file", "send a --file even from a hidden folder, ~/.ssh or max's own folders")
     .option("--md, --markdown", "read **bold**, _italic_, ~~struck~~ and `code` in the text; \\ keeps a mark literal")
     .option(
       "--at <time>",
@@ -275,6 +276,7 @@ export const messagesCommand = (): Command => {
             ...(options.replyTo === undefined ? {} : { replyTo: String(options.replyTo).trim() }),
             ...(options.markdown === true ? { markdown: true } : {}),
             ...(files.length > 0 ? { files } : {}),
+            ...(options.allowAnyFile === true ? { anyFile: true } : {}),
             ...(at === undefined ? {} : { at }),
           })
           if (at !== undefined) {
