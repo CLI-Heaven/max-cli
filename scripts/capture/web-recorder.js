@@ -151,6 +151,8 @@
   const ID = /(^|_)id$|Id$|^mt_instanceid$/
   const KEPT_IDS = new Set(["action_id", "actionId", "sessionId"])
   const ENUM = /^[A-Za-z0-9_.:/ -]{1,40}$/
+  // The reads a tab sends right after LOGIN (MAX-51, MAX-52): their answers' key names and sync numbers.
+  const AFTER_LOGIN = new Set([27, 53, 163, 208, 209, 272, 302])
   const EPOCH_MS = (v) => typeof v === "number" && v > 1e12 && v < 1e13
 
   const placeholder = (v) => {
@@ -179,6 +181,7 @@
       Object.entries(v).map(([k, x]) => {
         if (typeof x === "boolean" && !SECRET.test(k)) return [k, x]
         if (typeof x === "number" && !SECRET.test(k) && !ID.test(k)) return [k, EPOCH_MS(x) ? relative(x) : x]
+        if (k === "type" && typeof x === "string" && ENUM.test(x)) return [k, x]
         return [k, Array.isArray(x) ? "array" : typeof x]
       }),
     )
@@ -233,7 +236,7 @@
         const answers = header.cmd !== 0 ? cap.sent.get(header.seq) : undefined
         if (answers !== undefined) frame.answers = answers
         if (answers === 5 || answers === 1) frame.payload = clean(payload)
-        else if (answers === 6 || answers === 19) frame.payload = shape(payload)
+        else if (answers === 6 || answers === 19 || AFTER_LOGIN.has(answers)) frame.payload = shape(payload)
       }
       cap.frames.push(frame)
     } catch (error) {
