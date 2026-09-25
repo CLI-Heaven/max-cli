@@ -138,8 +138,15 @@ const encodeBody = (payload: Payload): Uint8Array =>
 const decodeBody = (bytes: Uint8Array): unknown =>
   narrow(decode(bytes, { extensionCodec: wrapped, useBigInt64: true, mapKeyConverter: asKey }))
 
+/**
+ * ⚠ With `useBigInt64` the library writes every `number` past 32 bits as a **float64**, and MAX
+ * refuses a login whose time arrives as one (`proto.payload`, measured 2026-09-25). A whole number
+ * that wide goes out as a bare 64-bit integer instead, as the web client sends `from` and
+ * `contactsSync`; only a `bigint` — an id — is wrapped.
+ */
 const wrapBigints = (value: unknown): unknown => {
   if (typeof value === "bigint") return new ExtData(WRAPPED, encode(value, { useBigInt64: true }))
+  if (typeof value === "number" && Number.isSafeInteger(value) && Math.abs(value) > 0xffff_ffff) return BigInt(value)
   if (Array.isArray(value)) return value.map(wrapBigints)
   if (isRecord(value)) return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, wrapBigints(item)]))
   return value

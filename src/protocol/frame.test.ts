@@ -67,6 +67,15 @@ describe("encodeFrame", () => {
     expect(frame.payload).toEqual({ text: "hi" })
   })
 
+  it("sends a 13-digit time as a 64-bit integer, never as a float, and does not wrap it", () => {
+    const bytes = encodeFrame({ seq: 1, opcode: 19, payload: { contactsSync: 1_790_328_205_681 } })
+    const body = Buffer.from(bytes.subarray(HEADER_BYTES)).toString("hex")
+
+    expect(body).toContain("cf000001a0")
+    expect(body).not.toContain("cb")
+    expect(decodeFrame(bytes).payload).toEqual({ contactsSync: 1_790_328_205_681 })
+  })
+
   it("wraps the two-byte seq", () => {
     expect(headerOf(encodeFrame({ seq: 65_537, opcode: 1 }))?.slice(0, 11)).toBe("0a 00 00 01")
   })
