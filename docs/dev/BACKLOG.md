@@ -112,17 +112,16 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   (`src/commands/chats.ts:22` and every command that opens it).
 - **CLI-5** · P3 · `max raw <operation>` — a debug escape hatch, validated against the spec, never
   arbitrary frames (REQUIREMENTS §22).
-- **MAX-8** · 🚧 `max-8-telemetry` · P1 · Look like the official client beyond the user agent: the telemetry it sends and
-  the device details it reports (`NEED-16`). PyMax does both (`src/pymax/telemetry/`,
-  `src/pymax/fingerprint/`). Raised from P3 by the owner 2026-09-24 (`NEED-175`).
-  Correction 2026-09-24 (PyMax 2.4.1 code, web.max.ru bundle read the same day): PyMax's
-  fingerprint goes out only when it poses as the Android app (`deviceType` other than `WEB`), so it
-  does not apply to us. The telemetry does apply. The web client sends opcode 5 `{events}` in
-  batches of up to 100, at least every 20 s. Its first event is `NAV` `COLD_START` onto the chat
-  list, its `sessionId` is `Date.now()` of the connection, and `WARM_START` follows after 60 s
-  idle. PyMax's web mode sends the Android shape instead: `sessionId` 1–70, a `PERF login` with
-  mobile fields, and no `COLD_START`. It also waits 15–90 s before the first event, which a one-shot
-  command never reaches. The first step is a capture from a real tab, not a copy of PyMax.
+- **MAX-52** · P2 · The requests a real tab sends right after LOGIN: 21 on a fresh start
+  (`48 48 272 35 32 302 163 208 27×4 209 28 22 48 28 35 53 209 35`) and 9 after a re-login. `max`
+  sends none, which shows on every login — a stronger difference than telemetry. Decide per
+  request: the read-only ones (272 folders, 302 banners, 163 call history, 27) could be copied; 22
+  subscribes to push and changes state. Captured 2026-09-25, `docs/dev/capture/2026-09-25-web-tab.md`.
+- **MAX-53** · P2 · LOGIN as the tab sends it: `chatsCount: 15` (we send 40) and `presenceSync: -1`
+  (we send 0). Check first that `max chats list` loses nothing with 15. Same capture.
+- **MAX-54** · P3 · Does MAX close `max serve`'s socket every ~4 minutes, as it did the hidden tab's
+  (code 1000, then a re-login with `lastLogin` and `configHash`)? Run `max serve` for 10 minutes. If
+  it does, the re-login should carry those two fields. Same capture.
 
 - **RES-5** · 🟡 P2 · Does `LOGIN` move presence or read state? Reading history does not (no
   `CHAT_MARK`, tested). The login flag `interactive` is unexplained (`ARCHITECTURE.md` §4). Needs a
