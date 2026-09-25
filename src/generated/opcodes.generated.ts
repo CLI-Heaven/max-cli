@@ -19,6 +19,7 @@ export const Opcode = {
    */
   LOGOUT: 20,
   SYNC: 21,
+  ASSETS_UPDATE: 27,
   CONTACT_INFO: 32,
   CONTACT_UPDATE: 34,
   /**
@@ -53,6 +54,7 @@ export const Opcode = {
   SESSIONS_INFO: 96,
   SESSIONS_CLOSE: 97,
   AUTH_LOGIN_CHECK_PASSWORD: 115,
+  CALL_HISTORY: 163,
   MSG_REACTION: 178,
   MSG_CANCEL_REACTION: 179,
   MSG_GET_REACTIONS: 180,
@@ -67,6 +69,7 @@ export const Opcode = {
    */
   AUTH_QR_APPROVE: 290,
   LOGIN_BY_QR: 291,
+  BANNERS_GET: 302,
 } as const
 
 export type Opcode = (typeof Opcode)[keyof typeof Opcode]

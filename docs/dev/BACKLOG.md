@@ -97,7 +97,7 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   (`src/commands/chats.ts:22` and every command that opens it).
 - **CLI-5** · P3 · `max raw <operation>` — a debug escape hatch, validated against the spec, never
   arbitrary frames (REQUIREMENTS §22).
-- **MAX-52** · 🚧 `max-52-serve-reads` · P2 · The requests a real tab sends right after LOGIN: 21 on a fresh start
+- **MAX-52** · 🟡 P2 · The requests a real tab sends right after LOGIN: 21 on a fresh start
   (`48 48 272 35 32 302 163 208 27×4 209 28 22 48 28 35 53 209 35`) and 9 after a re-login. `max`
   sends none, which shows on every login — a stronger difference than telemetry. Decide per
   request: the read-only ones (272 folders, 302 banners, 163 call history, 27) could be copied; 22
@@ -109,6 +109,11 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
   asks for and which sync value each re-login sends back are unknown. The recorder now keeps both;
   the code waits on the next recording (with `MAX-51`).
 
+  Done 2026-09-25 from the second recording (`docs_ai/captures/2026-09-25-web-tab-2.jsonl`):
+  `max serve` sends 272, 302, 163 and 27 ×4 (`STICKER`, `FAVORITE_STICKER`, `REACTION`,
+  `ANIMOJI_SET`) after every login, each re-login with the sync its previous answer returned
+  (`src/client.ts`, `live.readLikeTab`). Left: 48 `{chatIds}`, 32 and 35 `{contactIds}`, 28, and
+  the stories 208/209. Never: 22, which subscribes to push.
 - **RES-5** · 🟡 P2 · Does `LOGIN` move presence or read state? Reading history does not (no
   `CHAT_MARK`, tested). Partly answered by the capture of 2026-09-25: the tab's own LOGIN sends
   `interactive: false` too; `true` goes only in pings, while its window has focus. Left: whether

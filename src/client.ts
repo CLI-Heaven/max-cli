@@ -59,6 +59,7 @@ import {
 } from "./session/store.js"
 import { WEB_USER_AGENT } from "./spec/identity.js"
 import { buildRequest, checkResponse, type Operation, type RequestOf } from "./spec/index.js"
+import { ASSET_TYPES } from "./spec/operations/assets.js"
 import type { chatsUpdateMembers } from "./spec/operations/chats.js"
 import { isImage, readUpload, uploadFile, uploadPhoto } from "./upload.js"
 
@@ -1366,6 +1367,28 @@ export class MaxClient {
      * What a hidden web tab reports once, 20 s after it opened: the chat list, shown at `at`.
      * `sessionId` is when the tab's connection began, and it survives the tab's reconnects.
      */
+    /**
+     * **The reads a web tab sends after every login** (`MAX-52`, recorded 2026-09-25), in its order
+     * and all at once, as it sends them: folders, banners, call history, then the four asset sets.
+     * Each carries the sync value its previous answer returned — 0 the first time — and the answers
+     * are kept only for those. `max serve` alone sends them; a one-shot command never did.
+     */
+    readLikeTab: async (sync: TabSync): Promise<TabSync> => {
+      await this.#connectOnce()
+      const folders = this.#wire.folders.list({ folderSync: sync.folders })
+      const banners = this.#wire.banners.list({ bannersSync: 0 })
+      const calls = this.#wire.calls.history({ callHistorySync: sync.calls })
+      const assets = ASSET_TYPES.map((type) => this.#wire.assets.update({ type, sync: sync.assets[type] ?? 0 }))
+      const [folderAnswer, , callAnswer, answers] = await Promise.all([folders, banners, calls, Promise.all(assets)])
+      return {
+        folders: numberOr(folderAnswer.folderSync, sync.folders),
+        calls: numberOr(callAnswer.callHistorySync, sync.calls),
+        assets: Object.fromEntries(
+          ASSET_TYPES.map((type, at) => [type, numberOr(answers[at]?.sync, sync.assets[type] ?? 0)]),
+        ),
+      }
+    },
+
     chatListShown: async ({ at, sessionId }: { at: number; sessionId: number }): Promise<void> => {
       const viewerId = this.#store.readState().viewerId
       if (!viewerId) return
@@ -2283,6 +2306,17 @@ export const timeOfMessageId = (id: Id): number | undefined => {
  * account rarely has that many chats change between two checks, and the rest are named, not lost.
  */
 const INBOX_CHATS = 20
+
+/** What `readLikeTab` sends back to MAX on the next login. */
+export interface TabSync {
+  folders: number
+  calls: number
+  assets: Partial<Record<(typeof ASSET_TYPES)[number], number>>
+}
+
+export const FIRST_TAB_SYNC: TabSync = { folders: 0, calls: 0, assets: {} }
+
+const numberOr = (value: unknown, fallback: number): number => (typeof value === "number" ? value : fallback)
 
 /** MAX pushes this when a message arrives in any chat. PyMax calls it `NOTIF_MESSAGE`. */
 const NEW_MESSAGE = 128

@@ -54,6 +54,10 @@ const scripted = (
       [Opcode.MSG_GET_REACTIONS]: { messagesReactions: {} },
       [Opcode.MSG_SEND]: { message: { id: 116762160362694599n, time: 1789776001000, sender: ME, text: "sent" } },
       [Opcode.MSG_DELETE]: {},
+      [Opcode.FOLDERS_GET]: { folders: [], folderSync: 1_789_000_000_000 },
+      [Opcode.BANNERS_GET]: { banners: [] },
+      [Opcode.CALL_HISTORY]: { callHistoryItems: [], callHistorySync: 1_788_000_000_000 },
+      [Opcode.ASSETS_UPDATE]: { sync: 1_789_776_000_000, sections: [] },
       ...overrides,
     },
   })
@@ -201,6 +205,32 @@ describe("max serve", () => {
     await settle(50)
 
     expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.LOG)
+  })
+
+  it("reads what a web tab reads after its login, and after the next one sends back the sync each answer gave", async () => {
+    const { max } = await serve("s-tab-reads")
+    await settle(60)
+    max.drop()
+    await settle(80)
+
+    const sentAs = (opcode: number) => max.sent.filter((call) => call.opcode === opcode).map((call) => call.payload)
+    expect(sentAs(Opcode.FOLDERS_GET)).toEqual([{ folderSync: 0 }, { folderSync: 1_789_000_000_000 }])
+    expect(sentAs(Opcode.BANNERS_GET)).toEqual([{ bannersSync: 0 }, { bannersSync: 0 }])
+    expect(sentAs(Opcode.CALL_HISTORY)).toEqual([{ callHistorySync: 0 }, { callHistorySync: 1_788_000_000_000 }])
+    const types = ["STICKER", "FAVORITE_STICKER", "REACTION", "ANIMOJI_SET"]
+    expect(sentAs(Opcode.ASSETS_UPDATE)).toEqual([
+      ...types.map((type) => ({ type, sync: 0 })),
+      ...types.map((type) => ({ type, sync: 1_789_776_000_000 })),
+    ])
+  })
+
+  it("keeps running when MAX refuses the reads after login", async () => {
+    const refusing = scripted({}, { [Opcode.ASSETS_UPDATE]: "some.error" })
+    const { server, notes } = await serve("s-tab-reads-refused", refusing)
+    await settle(60)
+
+    expect(notes.some((line) => line.startsWith("the reads after login were not all answered"))).toBe(true)
+    expect(server.connected).toBe(true)
   })
 
   it("logs in again when MAX drops it, and tells the watchers both ways", async () => {

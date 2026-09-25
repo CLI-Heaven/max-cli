@@ -4,7 +4,7 @@ import { dirname } from "node:path"
 import { CliError } from "@leemour/cli-core"
 import * as v from "valibot"
 import type { CacheStore } from "../cache/store.js"
-import { MaxClient, type MaxClientOptions } from "../client.js"
+import { FIRST_TAB_SYNC, MaxClient, type MaxClientOptions, type TabSync } from "../client.js"
 import { resolveSettings } from "../config.js"
 import type { MessageHit } from "../domain/models.js"
 import { Opcode } from "../generated/opcodes.generated.js"
@@ -109,6 +109,8 @@ export class MaxServer {
   readonly #startedAt = new Date().toISOString()
   #idle: ReturnType<typeof setInterval> | undefined
   #telemetry: ReturnType<typeof setTimeout> | undefined
+  /** What the last reads after login answered, sent back on the next login as the tab does (`MAX-52`). */
+  #tabSync: TabSync = FIRST_TAB_SYNC
   #finish: ((error?: Error) => void) | undefined
   /** Settles when the server stops — cleanly, or with the error that stopped it. */
   readonly done: Promise<void>
@@ -230,6 +232,12 @@ export class MaxServer {
     if (replaced) await replaced.close().catch(() => {})
     else this.#broadcast({ event: "status", connected: true, at: new Date().toISOString() })
     for (const [opcode, payload] of early) this.#pushed(client, opcode, payload)
+    client.live
+      .readLikeTab(this.#tabSync)
+      .then((next) => {
+        this.#tabSync = next
+      })
+      .catch((error: Error) => this.#options.note(`the reads after login were not all answered: ${error.message}`))
   }
 
   /** Once per server, never again after a reconnect: the tab it copies keeps its session too. */
