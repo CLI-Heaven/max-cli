@@ -69,26 +69,27 @@ const sourcesFrom = (cache: CacheStore | undefined, atTheStart: boolean): Comple
   }
 }
 
-/** Ids, with the title beside them: a title with a space in it would reach `max` as two words. */
+/**
+ * **Ids only, never a title or a name as the word.** bash's `compgen -W` expands `$(…)` in every
+ * word it is given, and a title is whatever somebody else typed — so the id is the word, and the
+ * title rides along as a description, on one line: bash splits the answer on newlines, so a
+ * newline in a title would become a word of its own.
+ */
 const chatSuggestions = (cache: CacheStore): Suggestion[] =>
-  cache.chats.page({ limit: 500, offset: 0 }).flatMap((chat) => {
-    const title = chat.title ?? ""
-    const shown = visibleControls(title)
-    // Offered as a word only when it is one, and only when nothing in it had to be made visible.
-    return [
-      { value: chat.id, description: shown },
-      ...(/^\S+$/.test(title) && shown === title ? [{ value: title, description: chat.id }] : []),
-    ]
-  })
+  cache.chats
+    .page({ limit: 500, offset: 0 })
+    .map((chat) => ({ value: chat.id, description: singleLine(chat.title ?? "") }))
 
 const personSuggestions = (cache: CacheStore): Suggestion[] =>
-  cache.people.page({ order: "name", limit: 500, offset: 0 }).flatMap((person) => {
-    const name = visibleControls(person.name ?? "")
-    const username = person.username && visibleControls(person.username) === person.username ? person.username : null
-    return [
-      { value: person.id, description: name },
-      ...(username ? [{ value: `@${username}`, description: name }] : []),
-    ]
+  cache.people
+    .page({ order: "name", limit: 500, offset: 0 })
+    .map((person) => ({ value: person.id, description: singleLine(person.name ?? "") }))
+
+// cli-core 0.7.0 exports the same function; this goes when max-cli moves to it.
+const singleLine = (text: string): string =>
+  visibleControls(text).replace(/[\t\n\u2028\u2029]/g, (c) => {
+    const code = c.charCodeAt(0)
+    return code > 0xff ? `\\u${code.toString(16)}` : `\\x${code.toString(16).padStart(2, "0")}`
   })
 
 const profileNames = (): string[] => {

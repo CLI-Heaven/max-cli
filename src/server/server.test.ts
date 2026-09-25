@@ -537,6 +537,32 @@ describe("a command through max serve", () => {
     expect(max.sent.filter((call) => call.opcode === Opcode.LOGIN)).toHaveLength(1)
   })
 
+  it("keeps a refreshed token in the keyring and hands no token to whoever asks the socket for its login", async () => {
+    const rotating = scripted({
+      [Opcode.LOGIN]: {
+        profile: { contact: { id: ME, names: [{ name: "Test Person", type: "FULL_NAME" }] } },
+        chats: [],
+        token: "the-rotated-one",
+      },
+    })
+    const { store } = await serve("c-no-token", rotating)
+    const socket = await import("node:net").then(({ connect }) => connect(store.socketPath()))
+    const answer = await new Promise<string>((resolve) => {
+      let text = ""
+      socket.on("data", (data) => {
+        text += String(data)
+        if (text.includes("\n")) resolve(text)
+      })
+      socket.write(`${JSON.stringify({ id: 1, login: true })}\n`)
+    })
+    socket.destroy()
+
+    expect(store.readToken()).toBe("the-rotated-one")
+    expect(answer).toContain("Test Person")
+    expect(answer).not.toContain("the-rotated-one")
+    expect(answer).not.toMatch(/"token"/)
+  })
+
   it("a token being tried out goes to MAX itself, not to the server's login", async () => {
     const { store } = await serve("c-token")
     const { client, direct } = commandClient(store)

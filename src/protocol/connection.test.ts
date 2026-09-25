@@ -168,6 +168,45 @@ describe("the connection", () => {
       expect(events).toEqual([130])
     })
 
+    it("survives a new message whose id is nested too deep to send back, and does not acknowledge it", async () => {
+      const max = mockMax({ answers: { 48: { ok: true } } })
+      const errors: string[] = []
+      const connection = new Connection({
+        createSocket: max.createSocket,
+        live: true,
+        onError: (error) => errors.push(error.message),
+      })
+      await connection.open()
+
+      max.pushBytes(pushOf(128, deepId(150)))
+      await settle()
+
+      expect(max.answered).toEqual([])
+      await expect(connection.invoke(48, {})).resolves.toMatchObject({ ok: true })
+      await connection.close()
+    })
+
+    it("reports a push its listener could not handle, and carries on", async () => {
+      const max = mockMax({ answers: { 48: { ok: true } } })
+      const errors: string[] = []
+      const connection = new Connection({
+        createSocket: max.createSocket,
+        live: true,
+        onEvent: () => {
+          throw new Error("listener broke")
+        },
+        onError: (error) => errors.push(error.message),
+      })
+      await connection.open()
+
+      max.push(130, {}, 1)
+      await settle()
+
+      expect(errors).toEqual(["listener broke"])
+      await expect(connection.invoke(48, {})).resolves.toMatchObject({ ok: true })
+      await connection.close()
+    })
+
     it("says when MAX drops it, and refuses the next request at once instead of timing out", async () => {
       const closes: string[] = []
       const { max, connection } = live((error) => closes.push(error.message))
@@ -182,3 +221,28 @@ describe("the connection", () => {
     })
   })
 })
+
+const str = (text: string) => [0xa0 | text.length, ...Buffer.from(text)]
+
+/** `{ chatId: 1, message: { id: [[…[1]…]] } }`, written by hand: our encoder refuses that depth. */
+const deepId = (depth: number): Uint8Array =>
+  Uint8Array.from([
+    0x82,
+    ...str("chatId"),
+    0x01,
+    ...str("message"),
+    0x81,
+    ...str("id"),
+    ...Array(depth).fill(0x91),
+    0x01,
+  ])
+
+const pushOf = (opcode: number, body: Uint8Array): Uint8Array => {
+  const header = new DataView(new ArrayBuffer(10))
+  header.setUint8(0, 10)
+  header.setUint8(1, 0)
+  header.setUint16(2, 1)
+  header.setUint16(4, opcode)
+  header.setUint32(6, body.length)
+  return Uint8Array.from([...new Uint8Array(header.buffer), ...body])
+}
