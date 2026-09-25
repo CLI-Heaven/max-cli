@@ -43,6 +43,8 @@ export interface ConnectionOptions {
   live?: boolean
   /** MAX closed the socket. Not called for our own `close()`. The connection is dead after it. */
   onClose?: (error: Error) => void
+  /** A push that could not be handled was dropped; the connection carries on. */
+  onError?: (error: Error) => void
   /** Injected in tests; defaults to the real `ws` client. */
   createSocket?: (url: string, origin: string) => WebSocket
 }
@@ -80,6 +82,7 @@ export class Connection {
   readonly #origin: string
   readonly #timeoutMs: number
   readonly #onEvent: ((frame: InboundFrame) => void) | undefined
+  readonly #onError: ((error: Error) => void) | undefined
   readonly #live: boolean
   readonly #onClose: ((error: Error) => void) | undefined
   readonly #createSocket: (url: string, origin: string) => WebSocket
@@ -102,6 +105,7 @@ export class Connection {
     this.#origin = options.origin ?? WEB_ORIGIN
     this.#timeoutMs = options.timeoutMs ?? 30_000
     this.#onEvent = options.onEvent
+    this.#onError = options.onError
     this.#live = options.live ?? false
     this.#onClose = options.onClose
     this.#createSocket = options.createSocket ?? ((url, origin) => new WebSocket(url, { headers: { Origin: origin } }))
@@ -232,7 +236,12 @@ export class Connection {
     // `cmd` tells an answer from a push — a lookup by `seq` alone once resolved a request with
     // somebody's incoming message.
     if (frame.cmd !== Command.RESPONSE && frame.cmd !== Command.ERROR) {
-      this.#pushed(frame)
+      // This runs inside the socket's listener, where a throw takes the whole process down.
+      try {
+        this.#pushed(frame)
+      } catch (error) {
+        this.#onError?.(error instanceof Error ? error : new Error(String(error)))
+      }
       return
     }
 
@@ -256,13 +265,21 @@ export class Connection {
         return
       }
       const message = frame.payload?.message
-      if (frame.opcode === NEW_MESSAGE && typeof message === "object" && message !== null && "id" in message) {
+      const chatId = frame.payload?.chatId
+      if (
+        frame.opcode === NEW_MESSAGE &&
+        typeof message === "object" &&
+        message !== null &&
+        "id" in message &&
+        isId(chatId) &&
+        isId(message.id)
+      ) {
         // As bigints, so they go back wrapped the way the web client wraps an id.
         this.#answer({
           cmd: Command.RESPONSE,
           seq: frame.seq,
           opcode: NEW_MESSAGE,
-          payload: { chatId: asWireId(frame.payload?.chatId), messageId: asWireId(message.id) },
+          payload: { chatId: asWireId(chatId), messageId: asWireId(message.id) },
         })
       }
     }
@@ -315,6 +332,9 @@ const isAfter = (seq: number, last: number): boolean => {
   const distance = (seq - last + SEQ_MODULO) % SEQ_MODULO
   return distance > 0 && distance < SEQ_MODULO / 2
 }
+
+const isId = (value: unknown): boolean =>
+  typeof value === "string" || typeof value === "number" || typeof value === "bigint"
 
 const asWireId = (value: unknown): unknown =>
   typeof value === "number" && Number.isSafeInteger(value) ? BigInt(value) : value

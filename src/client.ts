@@ -1532,6 +1532,9 @@ export class MaxClient {
     })
 
     this.#keepRotatedToken(token)
+    // `max serve` hands this login to any process that asks its socket; none of them needs the token.
+    const { token: _, ...withoutToken } = this.#login
+    this.#login = withoutToken
     await this.#readRestOfChats()
     this.#mergeLogin(viewerId)
   }

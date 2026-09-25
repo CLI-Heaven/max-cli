@@ -23,7 +23,7 @@ export interface MaxServerOptions {
   /** One line for a person, on stderr. */
   note: (line: string) => void
   /** Tests hand in a scripted MAX; the hooks must reach it. */
-  connection?: (hooks: Pick<ConnectionOptions, "onEvent" | "onClose">) => Connection
+  connection?: (hooks: Pick<ConnectionOptions, "onEvent" | "onClose" | "onError">) => Connection
   pingEveryMs?: number
   telemetryAfterMs?: number
   /** The least time between two background logins after the snapshot went stale. */
@@ -187,6 +187,7 @@ export class MaxServer {
       onClose: (error) => {
         if (mine && mine === this.#client) this.#lost(error)
       },
+      onError: (error) => this.#options.note(`a pushed frame was dropped: ${error.message}`),
     })
     const client = new MaxClient({
       store,
