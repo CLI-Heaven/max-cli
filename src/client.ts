@@ -45,7 +45,7 @@ import { asFirstWord } from "./profile.js"
 import { Connection, ProtocolError, type Wire } from "./protocol/connection.js"
 import { asId, type Payload } from "./protocol/frame.js"
 import { isId, pickChat, pickPerson } from "./resolve.js"
-import { countsIn, type DiagnosticEvent, idsOf } from "./runs/events.js"
+import { countsIn, type DiagnosticEvent, idsOf, maxErrorKey, type WarningCode } from "./runs/events.js"
 import type { SendGuard } from "./sends/guard.js"
 import type { AccountAction, ChatAction, SendKind } from "./sends/journal.js"
 import { LOGIN_CHATS, startSession } from "./session/handshake.js"
@@ -1559,7 +1559,7 @@ export class MaxClient {
       this.#chatsCut = rest.length >= CHATS_PAGE_SEEN
     } catch (error) {
       this.#chatsCut = true
-      this.#warn(`only the newest ${chats.length} chats were read: ${reasonOf(error)}`)
+      this.#warnAbout("chats_partial", `only the newest ${chats.length} chats were read: ${reasonOf(error)}`)
     }
   }
 
@@ -1591,7 +1591,10 @@ export class MaxClient {
     try {
       this.#store.writeToken(rotated)
     } catch (error) {
-      this.#warn(`the refreshed session could not be saved, so the previous one is still in use: ${reasonOf(error)}`)
+      this.#warnAbout(
+        "token_not_saved",
+        `the refreshed session could not be saved, so the previous one is still in use: ${reasonOf(error)}`,
+      )
     }
   }
 
@@ -1636,7 +1639,10 @@ export class MaxClient {
         marker,
       })
     } catch (error) {
-      this.#warn(`the local record did not take this login, so nothing was kept from it: ${reasonOf(error)}`)
+      this.#warnAbout(
+        "cache_not_written",
+        `the local record did not take this login, so nothing was kept from it: ${reasonOf(error)}`,
+      )
     }
   }
 
@@ -1719,7 +1725,7 @@ export class MaxClient {
         return { ...message, reactions: raw ? toReactions(raw) : { counts: [], mine: null, total: 0 } }
       })
     } catch (error) {
-      this.#warn(`reactions are not shown: they could not be read (${reasonOf(error)})`)
+      this.#warnAbout("reactions_unread", `reactions are not shown: they could not be read (${reasonOf(error)})`)
       return messages
     }
   }
@@ -1753,7 +1759,10 @@ export class MaxClient {
         }
       }
     } catch (error) {
-      this.#warn(`some senders are shown by id: their names could not be looked up (${reasonOf(error)})`)
+      this.#warnAbout(
+        "names_unread",
+        `some senders are shown by id: their names could not be looked up (${reasonOf(error)})`,
+      )
     }
     if (fetched.length > 0) this.#cache?.people.upsert(fetched, "info")
 
@@ -1821,6 +1830,7 @@ export class MaxClient {
         durationMs: Math.round(performance.now() - started),
         outcome: "error",
         errorCode: failure.code,
+        ...(typeof failure.details.maxError === "string" ? { maxError: failure.details.maxError } : {}),
       })
       throw failure
     }
@@ -1837,8 +1847,14 @@ export class MaxClient {
     })
 
     const note = checkResponse(operation, answer)
-    if (note) this.#warn(note)
+    if (note) this.#warnAbout("response_shape", note, { operation: operation.name, detail: note })
     return answer
+  }
+
+  /** The sentence to the person, and only the code to the log (`WarningEvent`). */
+  #warnAbout(code: WarningCode, message: string, extra: { operation?: string; detail?: string } = {}): void {
+    this.#warn(message)
+    this.#emit({ event: "warning", code, ...extra })
   }
 
   /** A diagnostic that breaks the command it was describing is worse than no diagnostic. */
@@ -2347,24 +2363,32 @@ const asCliError = (error: unknown): CliError => {
   if (error instanceof CliError) return error
 
   if (error instanceof ProtocolError) {
-    const text = error.message.toLowerCase()
-    // First: "too many auth attempts" is a limit, not a bad token. The words are claims —
-    // `error.limit.violate` from PyMax #106, `rate_limit_exceeded` from GREEN-API — never measured here.
-    if (LIMIT_WORDS.some((words) => text.includes(words))) {
-      return new CliError("rate_limited", error.message, { operation: String(error.opcode) })
-    }
-    if (text.includes("token") || text.includes("auth")) {
-      return new CliError(
-        "authentication_error",
-        `${error.message} — the session may have expired; run \`max session start\``,
-      )
-    }
-    return new CliError("provider_error", error.message, { operation: String(error.opcode) })
+    const key = maxErrorKey(record(error.payload)?.error)
+    const refused = asRefusal(error)
+    return key === undefined
+      ? refused
+      : new CliError(refused.code, refused.message, { ...refused.details, maxError: key })
   }
 
   const message = error instanceof Error ? error.message : String(error)
   if (message.includes("did not answer")) return new CliError("timeout", message)
   return new CliError("network_error", message)
+}
+
+const asRefusal = (error: ProtocolError): CliError => {
+  const text = error.message.toLowerCase()
+  // First: "too many auth attempts" is a limit, not a bad token. The words are claims —
+  // `error.limit.violate` from PyMax #106, `rate_limit_exceeded` from GREEN-API — never measured here.
+  if (LIMIT_WORDS.some((words) => text.includes(words))) {
+    return new CliError("rate_limited", error.message, { operation: String(error.opcode) })
+  }
+  if (text.includes("token") || text.includes("auth")) {
+    return new CliError(
+      "authentication_error",
+      `${error.message} — the session may have expired; run \`max session start\``,
+    )
+  }
+  return new CliError("provider_error", error.message, { operation: String(error.opcode) })
 }
 
 const LIMIT_WORDS = ["limit.violate", "rate_limit", "rate limit", "too many", "слишком много"]

@@ -31,7 +31,7 @@ export const serveCommand = (): Command =>
         stop: stopping = false,
         startedByCommand = false,
       } = this.opts<{ idle?: string; detach?: boolean; stop?: boolean; startedByCommand?: boolean }>()
-      const { renderer, settings, store, run } = forCommand(this)
+      const { renderer, settings, store, run, format, streams } = forCommand(this)
       const idleMs = idle === undefined ? undefined : parseDuration(idle, "--idle")
       if (detach && stopping)
         throw new CliError("validation_error", "--detach starts a server and --stop ends one; give one")
@@ -51,7 +51,11 @@ export const serveCommand = (): Command =>
       await run("serve", async (events) => {
         const server = new MaxServer({
           store,
-          note: (line) => renderer.note(line),
+          // Unwatched — a log file, systemd — each line says when, or "connecting again in 60s" means nothing.
+          note: (line) =>
+            format === "pretty"
+              ? renderer.note(line)
+              : streams.diagnostic(JSON.stringify({ time: new Date().toISOString(), note: line })),
           ...(events ? { events } : {}),
           ...(cache ? { cache } : {}),
           ...(settings.timeoutMs ? { timeoutMs: settings.timeoutMs } : {}),

@@ -184,7 +184,7 @@ export const contextFor = (
           {
             command,
             profile: settings.profile,
-            options: { record: settings.record, trace: settings.trace },
+            options: { record: settings.record, keepFailed: settings.keepFailedRuns, trace: settings.trace },
             format,
             streams,
             keepDays: settings.keepRunsForDays,

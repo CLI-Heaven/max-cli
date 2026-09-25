@@ -140,6 +140,8 @@ export interface Settings {
    */
   commandTimeoutMs: number | undefined
   record: boolean
+  /** A failed run is kept even unrecorded, unless recording was turned off by name (`NEED-268`). */
+  keepFailedRuns: boolean
   serve: boolean
   keepRunsForDays: number
   readOnly: boolean
@@ -330,6 +332,7 @@ export const resolveSettings = (flags: GlobalFlags = {}, { env = process.env, co
     timeoutMs: timeoutMs.value,
     commandTimeoutMs: durationMs(timeout.value, timeout.from),
     record: record.value,
+    keepFailedRuns: record.value || record.from === "default",
     serve: serve.value,
     keepRunsForDays: keepRunsForDays.value,
     readOnly: readOnly.value,
