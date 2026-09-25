@@ -68,6 +68,10 @@ export const messagesSend = defineOperation({
       return { chatId: null, kind: "chat", action: "create", people: countOf(control.userIds), ...cid }
     }
     const chatId = chatOf(request)
+    // A control attachment changes a chat; in a message it would pass as a plain send.
+    if (Array.isArray(message.attaches) && message.attaches.some((attach) => objectOf(attach)._type === "CONTROL")) {
+      return ambiguous("messages.send")
+    }
     const link = objectOf(message.link)
     const at = objectOf(message.delayedAttributes).timeToFire
     if (link.type === "FORWARD") {

@@ -153,7 +153,9 @@ message id** and **one** copy, also across two connections and logins — the ca
   `<state>/sends/<profile>.jsonl` without the text; the limit counts that file. These stop a model
   talked into sending by what it read, not an agent that edits the configuration (`NEED-159`).
 - **`max serve` runs the same guard on every write it forwards, and journals it** (`NEED-269`):
-  anything of the owner's can write to its socket, not only a command that checked first. It reads
+  anything of the owner's can write to its socket, not only a command that checked first. Every
+  request is first checked against the operation's strict schema, as `buildRequest` checks it in a
+  command, so a field the specification does not have is refused there too. It reads
   the configuration again for each write, so `config set readOnly true` needs no restart. The
   command still checks — a refusal before an upload — and journals only its own refusals; the
   server writes the rest, with the outcome it saw — one line per attempt. A retry after no answer

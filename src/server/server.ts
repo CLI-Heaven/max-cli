@@ -2,6 +2,7 @@ import { chmodSync, mkdirSync, rmSync } from "node:fs"
 import { connect, createServer, type Server, type Socket } from "node:net"
 import { dirname } from "node:path"
 import { CliError } from "@leemour/cli-core"
+import * as v from "valibot"
 import type { CacheStore } from "../cache/store.js"
 import { MaxClient, type MaxClientOptions } from "../client.js"
 import { resolveSettings } from "../config.js"
@@ -410,6 +411,11 @@ export class MaxServer {
     }
     if (!client) return { error: { code: "unavailable", message: "not connected" } }
     const request = (payload ?? {}) as Payload
+    // The shape the specification allows, checked here as `buildRequest` checks it in a command:
+    // an id crosses the socket as a `bigint`, and the schema reads the string it was built from.
+    if (!v.safeParse(operation.request, asStrings(request)).success) {
+      return refusal(new CliError("validation_error", `${operation.name}: not a request this version of max sends`))
+    }
     if (!operation.guard) return this.#pass(client, opcode, request)
 
     let entry: Guarded
@@ -478,6 +484,15 @@ export class MaxServer {
       return { error: { code: "unavailable", message: error instanceof Error ? error.message : String(error) } }
     }
   }
+}
+
+const asStrings = (value: unknown): unknown => {
+  if (typeof value === "bigint") return value.toString()
+  if (Array.isArray(value)) return value.map(asStrings)
+  if (typeof value === "object" && value !== null) {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, asStrings(item)]))
+  }
+  return value
 }
 
 const asCliError = (error: unknown): CliError =>

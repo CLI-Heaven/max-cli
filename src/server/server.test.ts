@@ -733,6 +733,30 @@ describe("the send guard, in the server", () => {
     expect(journal("g-reuse").map((entry) => entry.outcome)).toEqual(["sent", "refused", "refused"])
   })
 
+  it("refuses a request shape no command sends: a field the spec does not have, a control attachment in a message", async () => {
+    await cli(["g-shape", "config", "set", "allow", "send"])
+    const { store, max } = await serve("g-shape")
+
+    const extra = await ask(store, {
+      id: 1,
+      opcode: Opcode.MSG_SEND,
+      payload: { chatId: 111n, message: { cid: 9, text: "hi", attaches: [] }, notify: true, silent: true },
+    })
+    const control = await ask(store, {
+      id: 2,
+      opcode: Opcode.MSG_SEND,
+      payload: {
+        chatId: 111n,
+        message: { cid: 10, attaches: [{ _type: "CONTROL", event: "add", userIds: [3n] }] },
+        notify: true,
+      },
+    })
+
+    expect(extra.error).toMatchObject({ code: "validation_error" })
+    expect(control.error).toMatchObject({ code: "validation_error" })
+    expect(max.sent.map((call) => call.opcode)).not.toContain(Opcode.MSG_SEND)
+  })
+
   it("drops a client whose line never ends", async () => {
     const { store } = await serve("g-long")
     const socket = await import("node:net").then(({ connect }) => connect(store.socketPath()))
