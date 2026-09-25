@@ -21,8 +21,8 @@ export const serveCommand = (): Command =>
   new Command("serve")
     .description("stay connected to MAX and stream new messages to `max watch`, until Ctrl-C")
     .option("--idle <duration>", "stop after this long with nobody using it — 15m, 1h is 60m")
-    .option("--detach", "run in the background instead; still stopped only by `max serve --stop`")
-    .option("--stop", "stop this profile's server, however it was started")
+    .option("--detach", "run in the background instead — the same as `max server start`")
+    .option("--stop", "stop this profile's server — the same as `max server stop`")
     .addOption(new Option("--started-by-command").hideHelp())
     .action(async function (this: Command) {
       const {
@@ -89,7 +89,7 @@ const START_WAIT_MS = 15_000
  * Starts a server by hand, in the background, and returns once it answers. A server a command
  * started is replaced by it; one already started by hand is left as it is.
  */
-const detached = async (store: SessionStore, idle: string | undefined) => {
+export const detached = async (store: SessionStore, idle: string | undefined) => {
   const before = await serverStatus(store.socketPath())
   const about = { profile: store.profile, socket: store.socketPath(), log: logPath(store) }
   if (before?.byHand === true) return { ...about, pid: before.pid, started: false }

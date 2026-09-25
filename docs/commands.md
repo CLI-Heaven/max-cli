@@ -767,8 +767,52 @@ max serve [options]
 | Опция | Что делает |
 |---|---|
 | `--idle <duration>` | stop after this long with nobody using it — 15m, 1h is 60m |
-| `--detach` | run in the background instead; still stopped only by `max serve --stop` |
-| `--stop` | stop this profile's server, however it was started |
+| `--detach` | run in the background instead — the same as `max server start` |
+| `--stop` | stop this profile's server — the same as `max server stop` |
+
+## `max server`
+
+this profile's background server: start, stop, status, restart
+
+### `max server start`
+
+start it in the background; answers once it is connected
+
+```sh
+max server start [options]
+```
+
+| Опция | Что делает |
+|---|---|
+| `--idle <duration>` | stop after this long with nobody using it — 15m, 1h is 60m |
+
+### `max server stop`
+
+stop it, however it was started
+
+```sh
+max server stop
+```
+
+### `max server status`
+
+whether it runs, since when, which version, and whether it is connected to MAX
+
+```sh
+max server status
+```
+
+### `max server restart`
+
+stop it and start it again, in the background — one login
+
+```sh
+max server restart [options]
+```
+
+| Опция | Что делает |
+|---|---|
+| `--idle <duration>` | stop after this long with nobody using it — 15m, 1h is 60m |
 
 ## `max watch`
 

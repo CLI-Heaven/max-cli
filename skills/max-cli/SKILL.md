@@ -110,6 +110,7 @@ max chats list --unread --json                 # где есть непрочи�
 max inbox --json                               # непрочитанное во всех чатах
 max inbox --new --json                         # что пришло с прошлой проверки, один раз
 max watch --jsonl                              # новые сообщения по мере прихода, если запущен `max serve`
+max server status --json                       # работает ли фоновый сервер, какой версии, подключён ли
 max chats show -1000 --json                    # один чат и кто в нём
 max contacts show @ivan --json                 # один человек и общие чаты
 max messages list -1000 --limit 20 --json      # последние сообщения, от старых к новым

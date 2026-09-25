@@ -84,6 +84,7 @@ export class MaxServer {
   #refresh: ReturnType<typeof setTimeout> | undefined
   #lastRefresh = 0
   #lastUse = Date.now()
+  readonly #startedAt = new Date().toISOString()
   #idle: ReturnType<typeof setInterval> | undefined
   #finish: ((error?: Error) => void) | undefined
   /** Settles when the server stops — cleanly, or with the error that stopped it. */
@@ -317,6 +318,7 @@ export class MaxServer {
       byHand: !this.#options.startedByCommand,
       pid: process.pid,
       version: VERSION,
+      startedAt: this.#startedAt,
     }
     const { id } = request
     this.#lastUse = Date.now()
