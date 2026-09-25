@@ -3,6 +3,8 @@ import { serveStdio } from "@modelcontextprotocol/server/stdio"
 import type { CommandContext } from "../commands/context.js"
 import { VERSION } from "../version.js"
 import { instructions } from "./instructions.js"
+import { registerPrompts } from "./prompts.js"
+import { registerResources } from "./resources.js"
 import { MaxSession, type SessionOptions } from "./session.js"
 import { registerTools } from "./tools.js"
 
@@ -48,6 +50,8 @@ export const createMaxServer = (
       transcribeModel: context.settings.transcribeModel,
       permitted,
     })
+    registerPrompts(server)
+    registerResources(server, session, { profile: context.settings.profile, defaultLimit: context.settings.limit })
     return server
   }
   return { session, build }

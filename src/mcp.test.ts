@@ -698,3 +698,41 @@ describe("what the MCP server offers beyond the basics", () => {
     expect(text.length).toBeLessThanOrEqual(2048)
   })
 })
+
+describe("MCP prompts and resources", () => {
+  it("lists three prompts with their arguments, and builds one without asking MAX for anything", async () => {
+    const { client, max } = await connect()
+
+    const { prompts } = await client.listPrompts()
+    const reply = await client.getPrompt({ name: "reply", arguments: { chat: "Team Alpha" } })
+
+    expect(
+      prompts.map(({ name, arguments: args }) => [name, args?.map(({ name, required }) => [name, required])]),
+    ).toEqual([
+      ["catch-up", [["since", false]]],
+      ["reply", [["chat", true]]],
+      ["find", [["text", true]]],
+    ])
+    expect(reply.messages).toHaveLength(1)
+    expect(JSON.stringify(reply)).toContain('\\"Team Alpha\\"')
+    expect(max.sent).toEqual([])
+  })
+
+  it("lists chats from the local copy without logging in, and reads one over a single login", async () => {
+    const { client, logins } = await connect()
+
+    const before = await client.listResources()
+    await call(client, "max_chats_list")
+    const after = await client.listResources()
+    const read = await client.readResource({ uri: "max://chat/111" })
+
+    expect(before.resources).toEqual([])
+    expect(after.resources.map(({ uri, name }) => [uri, name])).toEqual([
+      ["max://chat/111", "Team Alpha"],
+      ["max://chat/222", "Team Beta"],
+    ])
+    const body = JSON.parse(String((read.contents[0] as { text: string }).text))
+    expect(body).toMatchObject({ chat: { id: "111", title: "Team Alpha" }, messages: [{ id: "116762160362694583" }] })
+    expect(logins()).toBe(1)
+  })
+})
