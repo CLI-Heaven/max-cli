@@ -137,6 +137,13 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
 
 ## Foundation and risks
 
+- **OPS-14** · 🚧 `ops-14-run-log` · P2 · What a run log misses: MAX's error key (`DEBT-6`), a crash's
+  stack (`DEBT-7`), the client's warnings (`DEBT-8`), a time on the server log's lines (`DEBT-9`), the
+  runtime and OS (`DEBT-10`); and a failed run is kept even without `--record` (`NEED-268`). Plan:
+  `docs_ai/plans/2026-09-25-logging-and-report.md`.
+- **CLI-39** · P2 · `max doctor report` explains, in Russian, what a problem report holds;
+  `max doctor report create` writes it, prints its path, a `mailto:` link to `reports@neirox.ai` and
+  what to do (`NEED-267`). Same plan. After `OPS-14`.
 - **CORE-10** · P3 · Plugins from npm, **only from an allow-list** kept in the CLI itself — package
   names with pinned versions and integrity hashes — never an arbitrary package: a plugin runs inside
   a program holding the token of a personal account. oclif's `plugin-plugins` is the model.
