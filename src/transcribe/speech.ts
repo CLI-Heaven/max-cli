@@ -65,6 +65,7 @@ interface Sherpa {
     front(): { samples: Float32Array }
     pop(): void
     flush(): void
+    reset(): void
     free(): void
   }
 }
@@ -113,6 +114,8 @@ export const openRecognizer = (model: SpeechModel, path: (name: string) => strin
 
   return {
     recognize: (pcm) => {
+      // One recognizer can hear several recordings in a row; nothing of the last may leak into this one.
+      vad.reset()
       const parts: string[] = []
       const drain = () => {
         while (!vad.isEmpty()) {

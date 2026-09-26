@@ -162,6 +162,32 @@ export interface Inbox {
   partial: boolean
 }
 
+/** A message in a review: a voice message carries its text when it has been heard. */
+export type ReviewMessage = Message & { transcript?: string }
+
+export interface ReviewChat extends Pick<Chat, "id" | "title" | "kind"> {
+  /** Both sides, oldest first, from `since` to `until`. */
+  messages: ReviewMessage[]
+  /** The chat had more in the window than one review reads; the oldest are here. */
+  more: boolean
+}
+
+/** `max review`: everything said since a point, for someone sorting out who owes what. */
+export interface Review {
+  /** ISO 8601. `until` is where the next review starts. */
+  since: string
+  until: string
+  /** Nothing skipped, cut short or left unheard: the review may move its boundary to `until`. */
+  complete: boolean
+  chats: ReviewChat[]
+  skipped: Pick<Chat, "id" | "title" | "lastMessageAt">[]
+  /** Voice messages with no text yet. */
+  unheard: { chatId: Id; messageId: Id }[]
+  /** Why `--transcribe` could not run, when it could not. */
+  transcribeProblem?: string
+  partial: boolean
+}
+
 export interface Contact {
   id: Id
   name: string | null

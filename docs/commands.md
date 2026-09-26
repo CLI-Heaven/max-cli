@@ -781,6 +781,19 @@ max inbox [options]
 | `--since <id-or-time>` | what arrived after this message id or ISO 8601 time; the saved point stays put |
 | `--limit <n>` | at most this many per chat, the newest |
 
+## `max review`
+
+every message, yours too, in chats that changed since a point — for reviewing who owes what
+
+```sh
+max review [options]
+```
+
+| Опция | Что делает |
+|---|---|
+| `--since <id-or-time>` | where the last review ended; 3 days ago if not given |
+| `--transcribe` | transcribe voice messages not heard yet; slow, and the model must be downloaded |
+
 ## `max serve`
 
 stay connected to MAX and stream new messages to `max watch`, until Ctrl-C
