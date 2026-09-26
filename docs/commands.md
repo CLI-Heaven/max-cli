@@ -898,7 +898,7 @@ max config unset <setting> [options]
 
 ## `max doctor`
 
-the state this installation is in, without contacting MAX
+the state this installation is in, without contacting MAX unless --online
 
 ### `max doctor report`
 
@@ -996,8 +996,12 @@ max update [options]
 
 serve this profile to an agent over MCP, on stdin and stdout — `claude mcp add max -- max mcp`
 
+### `max mcp config`
+
+print the mcpServers entry for Claude Desktop, Cursor and others, with full paths; writes nothing
+
 ```sh
-max mcp [options]
+max mcp config [options]
 ```
 
 | Опция | Что делает |

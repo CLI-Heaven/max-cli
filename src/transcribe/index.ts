@@ -4,7 +4,7 @@ import type { MaxClient } from "../client.js"
 import type { AttachmentLink, Id } from "../domain/models.js"
 import { fetchBytes, LARGEST_VOICE } from "../download.js"
 import { installedBytes, isInstalled, megabytes, modelPath, vadPath } from "./install.js"
-import { type SpeechModel, VAD } from "./models.js"
+import { MODELS, type SpeechModel, VAD } from "./models.js"
 import { decodeOgg, openRecognizer, type Recognizer, toModelRate } from "./speech.js"
 
 export interface Transcript {
@@ -30,9 +30,16 @@ export interface TranscribeOptions {
 export const notDownloaded = (model: SpeechModel): CliError =>
   new CliError(
     "not_found",
-    `the speech model ${model.id} is not downloaded — \`max models audio download ${model.id}\` fetches it ` +
-      `(${megabytes(installedBytes(model) + VAD.bytes)}, once)`,
+    [
+      `the speech model ${model.id} (${model.languages}) is not downloaded — ` +
+        `\`max models audio download ${model.id}\` fetches it (${sizeOf(model)}, once)`,
+      ...MODELS.filter((other) => other.id !== model.id).map(
+        (other) => `  or ${other.id}: ${other.languages}, ${sizeOf(other)}`,
+      ),
+    ].join("\n"),
   )
+
+const sizeOf = (model: SpeechModel): string => megabytes(installedBytes(model) + VAD.bytes)
 
 const openInstalled = (model: SpeechModel, directory: string): Recognizer =>
   openRecognizer(model, modelPath(directory, model), vadPath(directory))

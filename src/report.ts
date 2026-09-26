@@ -60,7 +60,8 @@ export const buildReport = ({
     platform: process.platform,
     arch: process.arch,
     profile,
-    doctor,
+    // The shell commands in `fix` quote the path in ways no spelling above matches; `binDir` says it.
+    doctor: { ...doctor, install: { ...doctor.install, fix: [] } },
     run: chosen ? { metadata: chosen.metadata, events: readEvents(chosen.dir).map(labelled) } : null,
     sends: sends.slice(-RECENT_SENDS).map((entry) => ({
       ...entry,
@@ -68,7 +69,20 @@ export const buildReport = ({
       ...(entry.messageId === undefined ? {} : { messageId: label(entry.messageId) }),
     })),
   }
-  return JSON.parse(JSON.stringify(report).replaceAll(home, "~")) as Report
+  return JSON.parse(hideHome(JSON.stringify(report), home)) as Report
+}
+
+/**
+ * Inside JSON a Windows home is spelled with doubled backslashes, and a PATH entry keeps whatever
+ * case it was typed in, so the match ignores case — hiding a little too much costs nothing here.
+ */
+const hideHome = (json: string, home: string): string => {
+  if (home === "") return json
+  const spellings = [JSON.stringify(home).slice(1, -1), home, home.replaceAll("\\", "/")]
+  return [...new Set(spellings)].reduce(
+    (text, spelling) => text.replace(new RegExp(spelling.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), "~"),
+    json,
+  )
 }
 
 /**

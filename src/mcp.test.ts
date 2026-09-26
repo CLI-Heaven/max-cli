@@ -622,7 +622,7 @@ describe("what the MCP server offers beyond the basics", () => {
     const { client } = await connect({}, { answers: withPhoto })
 
     const result = await client.callTool({
-      name: "max_messages_attachment",
+      name: "max_messages_photo",
       arguments: { chat: "111", message: "116762160362694583" },
     })
 
@@ -659,7 +659,7 @@ describe("what the MCP server offers beyond the basics", () => {
     )
 
     const result = await client.callTool({
-      name: "max_messages_attachment",
+      name: "max_messages_photo",
       arguments: { chat: "111", message: "116762160362694583", ...extra },
     })
 

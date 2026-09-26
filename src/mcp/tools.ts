@@ -284,7 +284,7 @@ const READ_TOOLS = {
       }
     },
   }),
-  max_messages_attachment: tool({
+  max_messages_photo: tool({
     title: "Look at a photo",
     description:
       `One photo from a message, as an image to look at. Up to ${PHOTO_LIMIT / 1024} KB; anything larger, and ` +

@@ -24,15 +24,38 @@ claude mcp add max -- max mcp
 claude mcp add max-work -- max work mcp
 ```
 
-**Claude Desktop, Cursor и другие** — в их файле настроек MCP:
+**Claude Desktop, Cursor и другие** — готовую запись для их файла настроек печатает сам `max`:
+
+```sh
+max mcp config                  # только чтение
+max work mcp config --allow-send
+```
 
 ```json
 {
   "mcpServers": {
-    "max": { "command": "max", "args": ["mcp"] }
+    "max": {
+      "type": "stdio",
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": ["C:\\Users\\you\\AppData\\Roaming\\npm\\node_modules\\@leemour\\max-cli\\dist\\bin\\max.js", "mcp"]
+    }
   }
 }
 ```
+
+Запись вставляется в `mcpServers` файла настроек клиента: у Claude Desktop это
+`%APPDATA%\Claude\claude_desktop_config.json` на Windows и
+`~/Library/Application Support/Claude/claude_desktop_config.json` на macOS, у Cursor —
+`~/.cursor/mcp.json`. Сама команда ничего не записывает.
+
+Пути в ней полные, потому что клиент, запущенный не из терминала, не видит `PATH` терминала, а на
+Windows `max` — это файл `max.cmd`, который клиент без оболочки запустить не может. Флаги
+`--allow-send` и другие переносятся в запись. Переменные `MAX_CONFIG_DIR`, `MAX_STATE_DIR` и
+`MAX_CACHE_DIR` попадают в неё, только если заданы; токен — никогда.
+
+Если Node поставлен через nvm, fnm или Volta, путь к нему относится к одной версии Node — после её
+смены запустите `max mcp config` снова. Из `npx` команда отказывается работать: кэш `npx`
+очищается, и путь перестанет существовать.
 
 ⚠ **Переменные `MAX_CONFIG_DIR`, `MAX_STATE_DIR`, `MAX_CACHE_DIR` меняют, где искать вход.** Если в
 терминале они заданы, а клиенту MCP — нет (или наоборот), сервер ответит «нет сессии», хотя `max` в
@@ -100,7 +123,7 @@ claude mcp add max -- max mcp --allow-send --confirm-send
 | `max_messages_list` | `max messages list` | сообщения чата; ничего не отмечает прочитанным |
 | `max_messages_search` | `max messages search` | поиск по уже прочитанному на этой машине |
 | `max_messages_context` | `max messages show`, `context` | одно сообщение и соседние |
-| `max_messages_attachment` | `max messages download` | фото из сообщения как картинка, до 512 КБ; файл, видео, голосовое или фото крупнее — отказ с командой, которая их сохранит. ссылку на фото этот инструмент не отдаёт |
+| `max_messages_photo` | `max messages download` | фото из сообщения как картинка, до 512 КБ; файл, видео, голосовое или фото крупнее — отказ с командой, которая их сохранит. ссылку на фото этот инструмент не отдаёт |
 | `max_messages_scheduled` | `max messages scheduled` | что ждёт отправки в чате, с `scheduledFor` |
 | `max_messages_transcribe` | `max messages transcribe` | текст голосового, распознанный на этой машине |
 | `max_messages_send` | `max messages send` | отправка, только с `--allow-send`; с `at` — позже, как `--at`; `reply_to` — ответ на сообщение, `markdown` — оформление |
