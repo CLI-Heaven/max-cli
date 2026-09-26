@@ -1,9 +1,10 @@
 import type { CacheStore } from "./cache/index.js"
 import type { MaxClient } from "./client.js"
 import type { Review } from "./domain/models.js"
-import { notDownloaded, transcribe } from "./transcribe/index.js"
+import { notDownloaded, openInstalled, transcribe } from "./transcribe/index.js"
 import { isInstalled, modelsDirectory } from "./transcribe/install.js"
-import { speechModel } from "./transcribe/models.js"
+import { type SpeechModel, speechModel } from "./transcribe/models.js"
+import type { Recognizer } from "./transcribe/speech.js"
 
 /** Owner's ruling: without a boundary, a review looks at the last three days. */
 export const REVIEW_DAYS = 3
@@ -30,25 +31,38 @@ export const review = async (client: MaxClient, { since, cache, transcribeWith }
   const directory = modelsDirectory()
   let transcribeProblem = model && !isInstalled(model, directory) ? notDownloaded(model).message : undefined
   const canTranscribe = model !== undefined && transcribeProblem === undefined
+  // Loading takes seconds and up to 1.3 GB, so one recognizer hears every voice message of the review.
+  let loaded: Recognizer | undefined
+  const shared = (speech: SpeechModel, at: string): Recognizer => {
+    loaded ??= openInstalled(speech, at)
+    const recognizer = loaded
+    return { recognize: (pcm) => recognizer.recognize(pcm), free: () => {} }
+  }
 
-  for (const chat of read.chats) {
-    for (const message of chat.messages) {
-      if (!message.attachments.some(({ kind }) => kind === "audio")) continue
-      const kept = cache?.messages.transcript(chat.id, message.id)
-      if (kept) {
-        message.transcript = kept.text
-        continue
-      }
-      if (canTranscribe) {
-        try {
-          message.transcript = (await transcribe(client, chat.id, message.id, { model, directory, cache })).text
+  try {
+    for (const chat of read.chats) {
+      for (const message of chat.messages) {
+        if (!message.attachments.some(({ kind }) => kind === "audio")) continue
+        const kept = cache?.messages.transcript(chat.id, message.id)
+        if (kept) {
+          message.transcript = kept.text
           continue
-        } catch (error) {
-          transcribeProblem ??= error instanceof Error ? error.message : String(error)
         }
+        if (canTranscribe) {
+          try {
+            message.transcript = (
+              await transcribe(client, chat.id, message.id, { model, directory, cache, open: shared })
+            ).text
+            continue
+          } catch (error) {
+            transcribeProblem ??= error instanceof Error ? error.message : String(error)
+          }
+        }
+        unheard.push({ chatId: chat.id, messageId: message.id })
       }
-      unheard.push({ chatId: chat.id, messageId: message.id })
     }
+  } finally {
+    loaded?.free()
   }
 
   const complete =

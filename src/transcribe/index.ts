@@ -41,7 +41,7 @@ export const notDownloaded = (model: SpeechModel): CliError =>
 
 const sizeOf = (model: SpeechModel): string => megabytes(installedBytes(model) + VAD.bytes)
 
-const openInstalled = (model: SpeechModel, directory: string): Recognizer =>
+export const openInstalled = (model: SpeechModel, directory: string): Recognizer =>
   openRecognizer(model, modelPath(directory, model), vadPath(directory))
 
 /**
