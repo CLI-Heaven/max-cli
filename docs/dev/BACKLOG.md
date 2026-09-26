@@ -136,6 +136,10 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
 - **SPEC-4** · P3 · A generated list of implemented operations (§8, §30). Deferred: listing what MAX
   has and we lack means maintaining MAX's whole surface (§10).
 
+- **CLI-42** · 🚧 `feat/action-review` · P2 · MCP prompt `review` and a skill section: what the owner owes,
+  what others owe, what needs clarifying, since the last review. Plan:
+  `docs_ai/plans/2026-09-26-action-review.md`.
+
 ## Foundation and risks
 
 - **CORE-10** · P3 · Plugins from npm, **only from an allow-list** kept in the CLI itself — package
