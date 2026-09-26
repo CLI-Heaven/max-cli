@@ -14,6 +14,7 @@ import { sendTime } from "../config.js"
 import { maskedProfile } from "../domain/map.js"
 import type { Page } from "../domain/models.js"
 import { fetchBytes, publicOnly } from "../download.js"
+import { REVIEW_DAYS, review, reviewStart } from "../review.js"
 import type { Permission } from "../sends/permissions.js"
 import { transcribe } from "../transcribe/index.js"
 import { modelsDirectory } from "../transcribe/install.js"
@@ -129,6 +130,43 @@ const READ_TOOLS = {
       return args.since === undefined
         ? client.inbox.unread({ limit })
         : client.inbox.since({ since: client.messages.moment(args.since, "since"), limit })
+    },
+  }),
+
+  max_review: tool({
+    title: "Review who owes what",
+    description:
+      "Every message — the owner's too — in each chat that changed since `since`, oldest first per chat, cut " +
+      "at one moment so the next review can start at `until` and miss nothing. For sorting out what the owner " +
+      "owes, what others owe and what is unclear; the sorting is yours. Voice messages carry `transcript` when " +
+      "heard; `unheard` lists the rest, and `transcribe: true` hears them on this machine (slow, up to a minute " +
+      "per five minutes of speech; never downloads a model). `complete: false` means something was skipped, cut " +
+      "short or unheard — then do not move the boundary. Marks nothing read. Returns { since, until, complete, " +
+      "chats: [{ id, title, kind, more, messages }], skipped, unheard, partial }.",
+    input: v.object({
+      since: v.optional(
+        v.pipe(
+          v.string(),
+          v.description(
+            `where the last review ended: a message id or an ISO 8601 time; ${REVIEW_DAYS} days ago if not given`,
+          ),
+        ),
+      ),
+      transcribe: v.optional(v.pipe(v.boolean(), v.description("hear voice messages that have no text yet"))),
+    }),
+    annotations: READ,
+    answer: async (client, args, { profile, transcribeModel }) => {
+      const since = args.since === undefined ? reviewStart() : client.messages.moment(args.since, "since")
+      const cache = await openProfileCache(profile)
+      try {
+        return await review(client, {
+          since,
+          cache,
+          ...(args.transcribe === true ? { transcribeWith: transcribeModel } : {}),
+        })
+      } finally {
+        cache?.close()
+      }
     },
   }),
 

@@ -37,6 +37,8 @@ import type {
   QuotedMessage,
   Reactions,
   ReadMark,
+  Review,
+  ReviewChat,
   WindowedMessage,
 } from "./domain/models.js"
 import { heldWindows } from "./export.js"
@@ -1204,7 +1206,7 @@ export class MaxClient {
     unread: async ({ limit }: { limit: number }): Promise<Inbox> => {
       const chats = (await this.chats.list()).items
       const waiting = byRecency(chats.filter((chat) => (chat.unreadCount ?? 0) > 0))
-      const { read, skipped } = capped(waiting)
+      const { read, skipped } = capped(waiting, INBOX_CHATS)
 
       const found: InboxChat[] = []
       for (const { id, title, kind, unreadCount } of read) {
@@ -1232,12 +1234,8 @@ export class MaxClient {
      * never show. Anything newer than the snapshot waits for the next run and shows once there.
      */
     since: async ({ since, limit }: { since: number; limit: number }): Promise<Inbox> => {
-      const chats = (await this.chats.list()).items
-      const changed = byRecency(
-        chats.filter((chat) => chat.lastMessageAt !== null && Date.parse(chat.lastMessageAt) > since),
-      )
-      const cut = Math.max(since, ...changed.map((chat) => Date.parse(chat.lastMessageAt ?? "")))
-      const { read, skipped } = capped(changed)
+      const { chats, changed, cut } = await this.#changedSince(since)
+      const { read, skipped } = capped(changed, INBOX_CHATS)
 
       let until = since
       const found: InboxChat[] = []
@@ -1263,6 +1261,56 @@ export class MaxClient {
         partial: !this.#cache && this.#chatsCut && changed.length === chats.length,
       }
     },
+
+    /**
+     * **Every message, both sides, in each chat that changed after `since`** — what a review of
+     * commitments reads, where `since` reads only other people's newest few. The same cut at the
+     * chat list's newest message, so the next review starting at `until` misses nothing. Pages
+     * forward from `since`; a chat with more than `REVIEW_PER_CHAT` in the window is cut short and
+     * says so.
+     */
+    review: async ({ since }: { since: number }): Promise<Omit<Review, "complete" | "unheard">> => {
+      const { chats, changed, cut } = await this.#changedSince(since)
+      const { read, skipped } = capped(changed, REVIEW_CHATS)
+
+      const found: ReviewChat[] = []
+      for (const { id, title, kind } of read) {
+        const messages: Message[] = []
+        let from = since
+        let more = false
+        while (true) {
+          const page = await this.messages.list(id, { after: from, limit: REVIEW_PAGE })
+          const inWindow = page.items.filter((message) => Date.parse(message.timestamp) <= cut)
+          messages.push(...inWindow)
+          const last = page.items.at(-1)
+          if (!page.hasMore || !last || inWindow.length < page.items.length) break
+          if (messages.length >= REVIEW_PER_CHAT) {
+            more = true
+            break
+          }
+          from = Date.parse(last.timestamp)
+        }
+        if (messages.length > 0) found.push({ id, title, kind, messages: messages.slice(0, REVIEW_PER_CHAT), more })
+      }
+
+      return {
+        since: new Date(since).toISOString(),
+        until: new Date(cut).toISOString(),
+        chats: found,
+        skipped,
+        partial: !this.#cache && this.#chatsCut && changed.length === chats.length,
+      }
+    },
+  }
+
+  /** Chats whose last message is after `since`, newest first, and that newest time: the snapshot to cut at. */
+  async #changedSince(since: number): Promise<{ chats: Chat[]; changed: Chat[]; cut: number }> {
+    const chats = (await this.chats.list()).items
+    const changed = byRecency(
+      chats.filter((chat) => chat.lastMessageAt !== null && Date.parse(chat.lastMessageAt) > since),
+    )
+    const cut = Math.max(since, ...changed.map((chat) => Date.parse(chat.lastMessageAt ?? "")))
+    return { chats, changed, cut }
   }
 
   /**
@@ -2410,6 +2458,10 @@ export const timeOfMessageId = (id: Id): number | undefined => {
  * account rarely has that many chats change between two checks, and the rest are named, not lost.
  */
 const INBOX_CHATS = 20
+/** A review reads every changed chat of a few days; past this many, the rest are named, not read. */
+const REVIEW_CHATS = 50
+const REVIEW_PAGE = 100
+const REVIEW_PER_CHAT = 500
 
 /** What `readLikeTab` sends back to MAX on the next login. */
 export interface TabSync {
@@ -2453,9 +2505,9 @@ const CHANGES_CHATS = new Set([140, 142])
 const byRecency = (chats: Chat[]): Chat[] =>
   chats.toSorted((a, b) => Date.parse(b.lastMessageAt ?? "") - Date.parse(a.lastMessageAt ?? ""))
 
-const capped = (chats: Chat[]) => ({
-  read: chats.slice(0, INBOX_CHATS),
-  skipped: chats.slice(INBOX_CHATS).map(({ id, title, lastMessageAt }) => ({ id, title, lastMessageAt })),
+const capped = (chats: Chat[], most: number) => ({
+  read: chats.slice(0, most),
+  skipped: chats.slice(most).map(({ id, title, lastMessageAt }) => ({ id, title, lastMessageAt })),
 })
 
 const isPresent = <T>(value: T | null | undefined): value is T => value !== null && value !== undefined

@@ -63,7 +63,9 @@ export const registerPrompts = (server: McpServer): void => {
         "reminders are drafts until the owner approves each one.",
       argsSchema: toStandardJsonSchema(
         v.object({
-          since: v.pipe(v.string(), v.description("where the last review ended: a message id or an ISO 8601 time")),
+          since: v.optional(
+            v.pipe(v.string(), v.description("where the last review ended: a message id or an ISO 8601 time")),
+          ),
           groups: v.optional(
             v.pipe(v.string(), v.description("group chats where work gets done, by name or id, comma-separated")),
           ),
@@ -73,28 +75,23 @@ export const registerPrompts = (server: McpServer): void => {
     ({ since, groups }) =>
       asked(
         [
-          `Review my commitments in MAX since ${JSON.stringify(since)} (SINCE).`,
-          "Do not send, react, forward or mark anything read, except as step 7 allows.",
+          "Review my commitments in MAX. Do not send, react, forward or mark anything read, except as step 5 allows.",
           "If I gave you the open items of the previous review, check each of those first.",
-          "1. Call max_chats_list. The newest lastMessageAt on its first page is UNTIL: ignore anything later —",
-          "the next review starts there, so nothing falls between two reviews.",
-          "2. Page through max_chats_list until lastMessageAt is before SINCE. Those are the chats that changed.",
-          "3. In each, read max_messages_list with after = SINCE, following hasMore. Read my own messages too",
-          '("outgoing": true) — most of what I owe is there. When a message answers an earlier one, read around',
-          "that one with max_messages_context.",
-          "4. Sort what you find into three lists: I owe · Waiting on others · Needs clarifying. Each item: chat",
-          "title and id, date, the ids of the messages it rests on, and a deadline only if one was stated.",
-          "5. Before calling anything overdue, look for it being done: later in the same chat, in " +
-            (groups ? `these group chats: ${JSON.stringify(groups)}` : "the group chats read in step 3") +
-            ", and with max_messages_search — which sees only what this machine has already read, so no hit is not proof.",
-          '6. Voice messages are attachments of kind "audio". Transcribe with max_messages_transcribe only in chats',
-          "that already hold a candidate item; list the rest as not listened to, with chat, date and id. If the",
-          "speech model is not downloaded, say so and do not download it.",
-          "7. Draft at most five reminders, each with its chat and text. Send one only after I approve that exact",
+          `1. Call max_review once${since ? ` with since ${JSON.stringify(since)}` : ""}, with transcribe: true. It returns`,
+          "every message in each chat that changed, mine included (outgoing: true — most of what I owe is there).",
+          "2. Sort what you find into three lists: I owe · Waiting on others · Needs clarifying. Each item: chat",
+          "title and id, date, the ids of the messages it rests on, and a deadline only if one was stated. When a",
+          "message answers one from before the review, read around that one with max_messages_context.",
+          "3. Before calling anything overdue, look for it being done: later in the review, in " +
+            (groups ? `these group chats: ${JSON.stringify(groups)}` : "the group chats in the review") +
+            " (max_messages_list for anything older), and with max_messages_search — which sees only what this" +
+            " machine has already read, so no hit is not proof.",
+          "4. List the voice messages in unheard as not listened to, with chat, date and id; if transcribeProblem",
+          "says the speech model is missing, tell me and do not download it.",
+          "5. Draft at most five reminders, each with its chat and text. Send one only after I approve that exact",
           "text and recipient, with max_messages_send and reply_to. Without that tool, show the drafts only.",
-          "8. If a chat was skipped, a list was cut short or a relevant voice message is not transcribed, say the",
-          "review is incomplete and give no new boundary.",
-          "9. Otherwise end with «Next review: since = UNTIL» and the open items, for the next review to check first.",
+          "6. If complete is false, say the review is incomplete, say why, and give no new boundary. Otherwise end",
+          "with «Next review: since = <until>» and the open items, for the next review to check first.",
           DATA,
         ].join("\n"),
       ),

@@ -24,6 +24,7 @@ import { messagesCommand } from "./commands/messages.js"
 import { modelsCommand } from "./commands/models.js"
 import { reactionsCommand } from "./commands/reactions.js"
 import { recipientsCommand } from "./commands/recipients.js"
+import { reviewCommand } from "./commands/review.js"
 import { runsCommand } from "./commands/runs.js"
 import { sendsCommand } from "./commands/sends.js"
 import { serveCommand } from "./commands/serve.js"
@@ -102,6 +103,7 @@ export const createProgram = ({ out, err }: ProgramOptions = {}): Command => {
   program.addCommand(recipientsCommand())
   program.addCommand(sendsCommand())
   program.addCommand(inboxCommand())
+  program.addCommand(reviewCommand())
   program.addCommand(serveCommand())
   program.addCommand(serverCommand())
   program.addCommand(watchCommand())
