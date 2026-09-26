@@ -140,7 +140,8 @@ export class Connection {
     })
 
     socket.on("message", (data: Buffer | ArrayBuffer | Buffer[]) => this.#receive(asBytes(data)))
-    socket.on("close", () => this.#lost(new Error("MAX closed the connection")))
+    // The code and reason are all there is to tell MAX ending the session from a network drop.
+    socket.on("close", (code?: number, reason?: Buffer) => this.#lost(new Error(closedBy(code, reason))))
     socket.on("error", (error: Error) => this.#lost(error))
   }
 
@@ -347,3 +348,13 @@ const isId = (value: unknown): boolean =>
 
 const asWireId = (value: unknown): unknown =>
   typeof value === "number" && Number.isSafeInteger(value) ? BigInt(value) : value
+
+const closedBy = (code?: number, reason?: Buffer): string => {
+  const said = reason
+    ?.toString("utf8")
+    .replace(/\p{Cc}/gu, " ")
+    .trim()
+    .slice(0, 120)
+  if (code === undefined) return "MAX closed the connection"
+  return `MAX closed the connection (code ${code}${said ? `: ${said}` : ""})`
+}
