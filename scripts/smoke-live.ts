@@ -42,7 +42,14 @@ const reason = (error: unknown): string => {
   return String(payload?.error ?? (error as Error).message)
 }
 
+/**
+ * On 2026-09-26 eight writes in 0.7 s were followed by MAX closing the connection and refusing the
+ * token; the same photo sent alone went through. A person's pace between writes costs half a minute.
+ */
+const PACE_MS = 3000
+
 const step = async <T>(label: string, run: () => Promise<T>): Promise<T | undefined> => {
+  await new Promise((resolve) => setTimeout(resolve, PACE_MS))
   try {
     const result = await run()
     console.log(`ok    ${label}`)
