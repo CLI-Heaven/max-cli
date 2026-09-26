@@ -1,5 +1,13 @@
 import { Command } from "commander"
-import { install, installedBytes, isInstalled, megabytes, modelsDirectory } from "../transcribe/install.js"
+import {
+  install,
+  installedBytes,
+  isInstalled,
+  megabytes,
+  modelPath,
+  modelsDirectory,
+  vadPath,
+} from "../transcribe/install.js"
 import { MODELS, speechModel, VAD } from "../transcribe/models.js"
 import { forCommand } from "./context.js"
 
@@ -51,7 +59,17 @@ export const modelsCommand = (): Command => {
           renderer.note(`${model.id}: ${megabytes(installedBytes(model) + VAD.bytes)} from Hugging Face and GitHub`)
           await install(model, directory, { progress: (line) => renderer.note(line) })
         }
-        renderer.result({ id: model.id, downloaded: true, directory })
+        // Loading is the test: the files, the WebAssembly engine and the memory it needs. No sample
+        // recording ships with the package, so a second of silence goes through it.
+        renderer.note(`${model.id}: loading it once to check it works`)
+        const { openRecognizer, SAMPLE_RATE } = await import("../transcribe/speech.js")
+        const recognizer = openRecognizer(model, modelPath(directory, model), vadPath(directory))
+        try {
+          recognizer.recognize(new Float32Array(SAMPLE_RATE))
+        } finally {
+          recognizer.free()
+        }
+        renderer.result({ id: model.id, downloaded: true, works: true, directory })
       })
     })
 

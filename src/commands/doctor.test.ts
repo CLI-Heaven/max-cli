@@ -5,6 +5,7 @@ import { captureStreams, memoryKeyring } from "@leemour/cli-core"
 import { afterEach, describe, expect, it } from "vitest"
 import { run } from "../program.js"
 import { SessionStore } from "../session/store.js"
+import { installNotes } from "./doctor.js"
 
 /**
  * Driving the real command, which since `CLI-15` can be read: `run` is handed the streams and the
@@ -112,5 +113,55 @@ describe("max doctor", () => {
 
     expect(code).toBe(0)
     expect(JSON.parse(stdout).session.stateFile).toContain("work.json")
+  })
+})
+
+describe("what doctor says about the installation", () => {
+  const diagnosis = (install: object, native = { keyring: "ok", sqlite: "ok" }) =>
+    ({
+      install: {
+        runtime: { version: "node 24", path: "node" },
+        installer: "npm",
+        binDir: null,
+        binDirOnPath: null,
+        onPath: null,
+        isMaxCli: null,
+        fix: [],
+        ...install,
+      },
+      native,
+    }) as never
+
+  const notes = (report: never) => {
+    const said: string[] = []
+    installNotes(report, (message) => said.push(message))
+    return said
+  }
+
+  it("says nothing when max is on PATH and everything loads", () => {
+    expect(notes(diagnosis({ binDir: "/b", binDirOnPath: true, onPath: "/b/max", isMaxCli: true }))).toEqual([])
+  })
+
+  it("prints both PowerShell lines when the command directory is not on PATH", () => {
+    const [said] = notes(
+      diagnosis({ binDir: "C:\\npm", binDirOnPath: false, fix: ["$env:Path = …", "[Environment]::…"] }),
+    )
+
+    expect(said).toContain("C:\\npm, which is not on PATH")
+    expect(said).toContain("  $env:Path = …\n  [Environment]::…")
+    expect(said).toContain("then open a new terminal")
+  })
+
+  it("names another program called max, and what fails to load", () => {
+    const said = notes(diagnosis({ onPath: "/opt/max", isMaxCli: false }, { keyring: "no build for x", sqlite: "ok" }))
+
+    expect(said).toEqual([
+      expect.stringContaining("/opt/max, another program"),
+      expect.stringContaining("no build for x"),
+    ])
+  })
+
+  it("under npx with no max on PATH, says how to install one", () => {
+    expect(notes(diagnosis({ installer: "npx" }))).toEqual([expect.stringContaining("npm install -g @leemour/max-cli")])
   })
 })

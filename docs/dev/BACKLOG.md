@@ -136,11 +136,6 @@ read only on an explicit flag (`CLI-33`, REQUIREMENTS §19).
 - **SPEC-4** · P3 · A generated list of implemented operations (§8, §30). Deferred: listing what MAX
   has and we lack means maintaining MAX's whole surface (§10).
 
-- **CLI-41** · 🚧 `feat/windows-setup` · P1 · Windows setup: `max doctor` checks the install and PATH and
-  prints the fix; `max doctor --online`; `max mcp config`; the problem report hides the home
-  directory on Windows; `max_messages_attachment` → `max_messages_photo`. Plan:
-  `docs_ai/plans/2026-09-26-windows-setup.md`.
-
 ## Foundation and risks
 
 - **CORE-10** · P3 · Plugins from npm, **only from an allow-list** kept in the CLI itself — package

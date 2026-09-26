@@ -1,9 +1,14 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
+import { createRequire } from "node:module"
 import { join } from "node:path"
 import { pathsAreOverridden, resolvePaths } from "@leemour/cli-core"
 import { openCache } from "./cache/open.js"
 import { SCHEMA_VERSION } from "./cache/schema.js"
+import { checkInstall, type Install, ownScript } from "./install.js"
+import { runtime } from "./runs/run.js"
 import { CLIENT } from "./spec/identity.js"
+import { isInstalled, modelsDirectory } from "./transcribe/install.js"
+import { DEFAULT_MODEL, findModel } from "./transcribe/models.js"
 
 export interface DiagnoseOptions {
   profile: string
@@ -16,6 +21,17 @@ export interface DiagnoseOptions {
   /** Where a stored token is — the keyring, or the file that stands in for one; `undefined` for none. */
   storedToken?: (profile: string) => "keyring" | "file" | undefined
   now?: () => Date
+  install?: () => Install
+  native?: () => Promise<Native>
+  /** The configured speech model's id, and where models are kept. */
+  speechModel?: string
+  modelsDir?: string
+}
+
+/** `"ok"`, or why that part cannot load — the message names the missing platform build. */
+export interface Native {
+  keyring: string
+  sqlite: string
 }
 
 export type TokenSource = "environment" | "keyring" | "file" | "none"
@@ -54,6 +70,9 @@ export interface Diagnosis {
   runs: { directory: string; kept: number }
   /** The web client we present, and how old that reading is. Past `STALE_AFTER_DAYS` MAX may refuse it. */
   client: { appVersion: string; chrome: string; readOn: string; ageDays: number; stale: boolean }
+  install: Install
+  native: Native
+  speech: { model: string; languages: string | null; downloaded: boolean }
 }
 
 /** Owner's ruling, NEED-264: the web client releases more often than that, and breaks later. */
@@ -82,6 +101,10 @@ export const diagnose = async ({
   readSchemaVersion = schemaVersionOf,
   storedToken = () => undefined,
   now = () => new Date(),
+  install = () => thisInstall(env),
+  native = loadNative,
+  speechModel = DEFAULT_MODEL,
+  modelsDir,
 }: DiagnoseOptions): Promise<Diagnosis> => {
   const paths = resolvePaths({ appName: "max-cli", prefix: "MAX", env })
   const state = stateDir ?? paths.state
@@ -128,6 +151,40 @@ export const diagnose = async ({
     },
     runs: { directory: runsDirectory, kept: countEntries(runsDirectory) },
     client: clientAge(now()),
+    install: install(),
+    native: await native(),
+    speech: speechOf(speechModel, modelsDir ?? modelsDirectory(env)),
+  }
+}
+
+const speechOf = (id: string, directory: string) => {
+  const model = findModel(id)
+  return { model: id, languages: model?.languages ?? null, downloaded: model ? isInstalled(model, directory) : false }
+}
+
+const thisInstall = (env: NodeJS.ProcessEnv): Install =>
+  checkInstall({
+    scriptPath: ownScript(),
+    execPath: process.execPath,
+    runtime: runtime(),
+    env,
+    platform: process.platform,
+  })
+
+/** The two parts that are not JavaScript. Loaded here, never used: a load that fails is the answer. */
+const loadNative = async (): Promise<Native> => {
+  const attempt = async (load: () => unknown): Promise<string> => {
+    try {
+      await load()
+      return "ok"
+    } catch (error) {
+      return error instanceof Error ? (error.message.split("\n")[0] ?? "failed") : String(error)
+    }
+  }
+  return {
+    // The keyring module belongs to cli-core, so it is resolved from there, as cli-core does.
+    keyring: await attempt(() => createRequire(import.meta.resolve("@leemour/cli-core"))("@napi-rs/keyring")),
+    sqlite: await attempt(async () => (await openCache(":memory:")).close()),
   }
 }
 

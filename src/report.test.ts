@@ -97,6 +97,26 @@ describe("the new issue", () => {
     expect(JSON.stringify(report)).toContain("~/.local/state")
   })
 
+  it("hides a Windows home directory in any case, and leaves out the quoted fix lines", async () => {
+    const { buildReport } = await import("./report.js")
+    const report = buildReport({
+      profile: "p",
+      doctor: {
+        session: { stateFile: "C:\\Users\\O'Neil Smith\\AppData\\Roaming\\max-cli\\profiles\\p.json" },
+        install: {
+          binDir: "C:/Users/O'Neil Smith/AppData/Roaming/npm",
+          onPath: "C:\\USERS\\O'NEIL SMITH\\APPDATA\\ROAMING\\NPM\\max.cmd",
+          fix: ["$env:Path = 'C:\\Users\\O''Neil Smith\\AppData\\Roaming\\npm' + ';' + $env:Path"],
+        },
+      } as never,
+      runsDir: output("no-runs"),
+      sends: [],
+      home: "C:\\Users\\O'Neil Smith",
+    })
+    expect(JSON.stringify(report).toLowerCase()).not.toContain("neil")
+    expect(report.doctor.session.stateFile).toBe("~\\AppData\\Roaming\\max-cli\\profiles\\p.json")
+  })
+
   it("replaces chat and message ids with labels that match inside one report and nowhere else", async () => {
     const { buildReport } = await import("./report.js")
     const runsDir = output("labelled-runs")
