@@ -28,7 +28,7 @@ export interface MockMax {
   /** MAX sends a frame of its own, as it does when a message arrives. */
   push: (opcode: number, payload: Payload, seq: number) => void
   /** MAX drops the socket from its side. */
-  drop: () => void
+  drop: (code?: number, reason?: string) => void
   /** Bytes exactly as given — for a frame no encoder of ours would write. */
   pushBytes: (bytes: Uint8Array) => void
 }
@@ -60,7 +60,10 @@ export const mockMax = ({ answers, refuse = {} }: MockMaxOptions): MockMax => {
     answered: [],
     closed: false,
     push: (opcode, payload, seq) => socket.answer({ seq, opcode, payload, cmd: Command.REQUEST }),
-    drop: () => queueMicrotask(() => socket.emit("close")),
+    drop: (code?: number, reason?: string) =>
+      queueMicrotask(() =>
+        code === undefined ? socket.emit("close") : socket.emit("close", code, Buffer.from(reason ?? "")),
+      ),
     pushBytes: (bytes) => queueMicrotask(() => socket.emit("message", Buffer.from(bytes))),
   }
   built.push(state)

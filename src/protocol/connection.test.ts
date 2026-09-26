@@ -219,6 +219,18 @@ describe("the connection", () => {
       await expect(connection.invoke(49, {})).rejects.toThrow("closed")
       await connection.close()
     })
+
+    it("names the close code and reason MAX gave, since they tell a session ended from a network drop", async () => {
+      const closes: string[] = []
+      const { max, connection } = live((error) => closes.push(error.message))
+      await connection.open()
+
+      max.drop(4001, "session\nclosed")
+      await settle()
+
+      expect(closes).toEqual(["MAX closed the connection (code 4001: session closed)"])
+      await connection.close()
+    })
   })
 })
 
