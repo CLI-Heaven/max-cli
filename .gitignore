@@ -26,3 +26,6 @@ coverage/
 # Per-machine Claude Code state; a shared settings.json would be committed.
 .claude/settings.local.json
 .claude/worktrees/
+
+# Problem reports from `max doctor report create`; attached to an issue, never committed.
+max-report-*.json
