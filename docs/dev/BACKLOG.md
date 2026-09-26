@@ -25,6 +25,11 @@ What the tool does today: [`../commands.md`](../commands.md) (generated). How it
 
 ## Features
 
+- **CLI-40** · 🚧 `feat/windows-doctor-action-review` · P1 · Windows installation diagnostics,
+  absolute-path MCP configuration and an action-review prompt with explicit review boundaries.
+  Starts at `src/diagnose.ts`, `src/commands/mcp.ts` and `src/mcp/prompts.ts`; plan approved by
+  the owner on 2026-09-26.
+
 **From the PyMax comparison (2026-09-24, `NEED-175`).** Each is what PyMax's source declares
 (`MaxApiTeam/PyMax`, `src/pymax/api/`, commit `53103f0`) — a claim until measured. Every writing
 operation is measured first in Saved messages (chat 0), as replies and reactions were (`NEED-150`),
